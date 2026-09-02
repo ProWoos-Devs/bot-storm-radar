@@ -60,6 +60,9 @@ class BSR_Tick {
 	 * @return array|false
 	 */
 	public static function run( $now = null ) {
+		if ( ! self::can_run_here() ) {
+			return false;
+		}
 		if ( ! BSR_Counters::add_value( self::LOCK, 1, 55 ) ) {
 			return false;
 		}
@@ -89,6 +92,33 @@ class BSR_Tick {
 
 		BSR_Counters::delete( self::LOCK );
 		return $rows;
+	}
+
+	/**
+	 * APCu is per process pool: a command-line PHP (wp-cli cron, `wp cron
+	 * event run`) cannot see the counters PHP-FPM wrote, and running the tick
+	 * there would store empty minutes and advance the cursor past the real
+	 * data. On the APCu backend the tick only runs inside the web server;
+	 * the inline guard on the next front-end request does the work instead.
+	 *
+	 * @return bool
+	 */
+	public static function can_run_here() {
+		if ( 'cli' !== PHP_SAPI ) {
+			return true;
+		}
+		// From the CLI, APCu may look disabled (apc.enable_cli=0) and the
+		// detection would fall through to the transient backend, which is
+		// equally blind to the web pool's counters. Decide on what the web
+		// server would use: APCu present means the web pool is on APCu unless
+		// a persistent object cache is in place.
+		if ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() ) {
+			return true;
+		}
+		if ( function_exists( 'apcu_inc' ) ) {
+			return false;
+		}
+		return true;
 	}
 
 	/**

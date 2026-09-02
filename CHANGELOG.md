@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-02
+
+### Fixed
+- The beacon URL now goes through `index.php` explicitly (`/index.php?bsr-beacon=`), so a plugin or server rule that redirects the bare root (a language redirect to `/en/`, a static front page) can no longer swallow it before the plugin answers. Filter `bsr_beacon_url_base`.
+- On the APCu backend the minute tick refuses to run from the command line (wp-cli cron, `wp cron event run`): a CLI process cannot see the counters PHP-FPM wrote and would have stored empty minutes while advancing the cursor past the real data. The inline guard on the next front-end request does the work instead, and the Radar screen says so.
+
 ## [0.1.0] - 2026-09-02
 
 Radar only. Detects and reports; nothing is blocked, challenged, or rate-limited.

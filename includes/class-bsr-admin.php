@@ -383,6 +383,9 @@ class BSR_Admin {
 						if ( BSR_Tick::is_late() ) {
 							echo ' ' . esc_html__( 'WP cron looks stalled; the guard runs the tick from front-end requests meanwhile.', 'bot-storm-radar' );
 						}
+						if ( 'apcu' === $backend ) {
+							echo ' ' . esc_html__( 'On APCu the tick only runs inside the web server (a command-line cron cannot see these counters), so it rides on front-end requests when WP cron is disabled.', 'bot-storm-radar' );
+						}
 					} else {
 						esc_html_e( 'never ran yet', 'bot-storm-radar' );
 					}

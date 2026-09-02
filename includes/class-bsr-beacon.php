@@ -60,10 +60,14 @@ class BSR_Beacon {
 	}
 
 	/**
-	 * @return string Base URL without the unique suffix.
+	 * Base URL without the unique suffix. Goes through index.php explicitly so
+	 * a web-server rule on the bare root (a language redirect, a static
+	 * front page) cannot swallow it before PHP runs. Filterable.
+	 *
+	 * @return string
 	 */
 	public static function url_base() {
-		return home_url( '/' ) . '?' . self::PARAM . '=';
+		return apply_filters( 'bsr_beacon_url_base', home_url( '/index.php' ) . '?' . self::PARAM . '=' );
 	}
 
 	/**
