@@ -48,7 +48,10 @@ class BSR_Good_Bots {
 	 */
 	public static $forward_resolver = null;
 
-	public static function init() {}
+	public static function init() {
+		// The DuckDuckBot list refreshes on the same daily hook as the Cloudflare ranges.
+		add_action( BSR_Client_IP::CRON_HOOK, [ __CLASS__, 'refresh_ip_lists' ], 20 );
+	}
 
 	/**
 	 * @return array name => [pattern, rdns suffixes | ip list]
@@ -253,14 +256,14 @@ class BSR_Good_Bots {
 	}
 
 	/**
-	 * Daily refresh of the DuckDuckBot list (called from BSR_Client_IP::refresh_lists).
+	 * Daily refresh of the DuckDuckBot list. Keeps the previous copy on failure.
 	 */
 	public static function refresh_ip_lists() {
-		$body = BSR_Client_IP::fetch_text( self::DDG_URL );
-		if ( null === $body ) {
+		$r = wp_remote_get( self::DDG_URL, [ 'timeout' => 10, 'user-agent' => 'BotStormRadar/' . BSR_VERSION ] );
+		if ( is_wp_error( $r ) || 200 !== (int) wp_remote_retrieve_response_code( $r ) ) {
 			return;
 		}
-		$json = json_decode( $body, true );
+		$json = json_decode( (string) wp_remote_retrieve_body( $r ), true );
 		if ( ! is_array( $json ) || empty( $json['prefixes'] ) || ! is_array( $json['prefixes'] ) ) {
 			return;
 		}

@@ -3,7 +3,7 @@
  * Plugin Name: Bot Storm Radar
  * Plugin URI:  https://github.com/ProWoos-Devs/bot-storm-radar
  * Description: Detects bot swarms as swarms. Classifies every request, keeps sliding-window counters, computes swarm metrics (single-hit ratio, asset ratio, user-agent evenness, error pressure, endpoint concentration) and a storm score, learns the site's baseline, and reports calm, warning, storm and cooling states with email alerts. Radar only in this release: nothing is ever blocked.
- * Version:     0.1.1
+ * Version:     0.1.2
  * Author:      ProWoos
  * Author URI:  https://github.com/ProWoos-Devs
  * Text Domain: bot-storm-radar
@@ -33,7 +33,7 @@ if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
 	return;
 }
 
-define( 'BSR_VERSION', '0.1.1' );
+define( 'BSR_VERSION', '0.1.2' );
 define( 'BSR_PLUGIN_FILE', __FILE__ );
 define( 'BSR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BSR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

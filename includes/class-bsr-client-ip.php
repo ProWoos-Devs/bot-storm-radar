@@ -1,22 +1,38 @@
 <?php
 /**
- * Client IP resolution with a trusted-proxy model (design v1, decision 13.1).
+ * Client IP resolution with a trusted-proxy model.
  *
- * REMOTE_ADDR is the client unless it belongs to a trusted proxy:
- *  1. Cloudflare ranges, fetched daily and bundled as a fallback. Behind
- *     Cloudflare the client is CF-Connecting-IP.
- *  2. A private, link-local, or loopback REMOTE_ADDR cannot be an internet
- *     client, so it is a local proxy by definition. Walk X-Forwarded-For from
- *     the right and take the first entry that is not private and not itself a
- *     trusted proxy; fall back to X-Real-IP, then REMOTE_ADDR.
- *  3. Owner-declared proxies (public addresses of an external load balancer
- *     or a CDN not on the built-in list), same right-to-left walk.
+ * REMOTE_ADDR is the client unless it belongs to a proxy we trust:
  *
- * Nothing else is believed. The legacy "trust all forwarding headers" switch
- * restores the old, spoofable behavior for owners who are stuck.
+ * 1. Cloudflare. Its published ranges are fetched daily and cached, with a
+ *    bundled copy as the fallback. A request from a Cloudflare address carries
+ *    the client in CF-Connecting-IP.
+ * 2. A local proxy. A private, link-local, or loopback REMOTE_ADDR cannot be an
+ *    internet client, so the request came through a proxy on the host (most
+ *    managed hosts work this way). The client is the rightmost X-Forwarded-For
+ *    entry that is itself public and not a trusted proxy, then X-Real-IP.
+ * 3. An owner-declared proxy (Settings tab), same walk as above.
  *
- * This class is shared with WC Antifraud 1.7.0 by copying (WCAF_ prefix);
- * keep the two in sync rather than diverging.
+ * Anything else is a direct connection and forwarding headers are ignored,
+ * because any client can type them: a bot could otherwise spread one machine
+ * over invented addresses, or point blame at innocent ones. The spoofable
+ * behavior survives behind an explicit "trust all forwarding headers"
+ * switch, off by default, for hosts with an unusual public-address proxy the
+ * owner cannot identify yet.
+ *
+ * A public-address proxy that has NOT been declared is detected on admin
+ * requests (same public REMOTE_ADDR, forwarding header present, repeatedly).
+ * While it stays undeclared, anything keyed by IP must stand down, because
+ * every visitor would share the proxy's address and the first trip would lock
+ * all of them out. In 0.1 nothing enforces; the flag labels the dashboard.
+ *
+ * SHARED CODE. This file is a copy of WC Antifraud's class-wcaf-client-ip.php
+ * (1.7.0, commit b3f15f8) with the prefix renamed and two plugin-specific
+ * option names (`trust_all_forwarding` here, `trust_all_proxy_headers`
+ * there). Fix bugs in both; do not let the two drift. Compare with:
+ *   diff <(sed -e 's/WCAF_/BSR_/g' -e "s/'wcaf_/'bsr_/g" -e 's/WC_Antifraud::/Bot_Storm_Radar::/' \
+ *          -e 's/trust_all_proxy_headers/trust_all_forwarding/' ../../../WC_Antifraud/www/wc-antifraud/includes/class-wcaf-client-ip.php) \
+ *        includes/class-bsr-client-ip.php
  *
  * @package Bot_Storm_Radar
  */
@@ -27,185 +43,211 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BSR_Client_IP {
 
-	const CLOUDFLARE_OPTION = 'bsr_cloudflare_ranges';
-	const CLOUDFLARE_V4_URL = 'https://www.cloudflare.com/ips-v4';
-	const CLOUDFLARE_V6_URL = 'https://www.cloudflare.com/ips-v6';
-	const CLOUDFLARE_FILE   = 'cloudflare-ips.txt';
-	const REFRESH_HOOK      = 'bsr_refresh_ip_lists';
+	/**
+	 * Option holding the fetched Cloudflare ranges: [ 'ranges' => [...], 'fetched' => ts ].
+	 */
+	const CF_OPTION = 'bsr_cloudflare_ips';
 
 	/**
-	 * Proxy detection state: how many consecutive admin requests must share
-	 * one public REMOTE_ADDR with a forwarding header before we conclude an
-	 * undeclared proxy sits in front of the site.
+	 * Bundled fallback, relative to the plugin root.
 	 */
-	const DETECT_OPTION = 'bsr_proxy_detect';
-	const DETECT_AFTER  = 5;
+	const CF_BUNDLED = 'assets/data/cloudflare-ips.txt';
 
 	/**
-	 * @var string|null
+	 * Published sources (verified 2026-09-02: plain text, one CIDR per line).
 	 */
-	private static $resolved = null;
+	const CF_URL_V4 = 'https://www.cloudflare.com/ips-v4';
+	const CF_URL_V6 = 'https://www.cloudflare.com/ips-v6';
 
 	/**
-	 * @var string|null Why the resolved address was chosen (for the dashboard).
+	 * Daily refresh hook.
 	 */
-	private static $source = null;
+	const CRON_HOOK = 'bsr_refresh_cloudflare_ips';
+
+	/**
+	 * Option recording a suspected undeclared public-address proxy.
+	 */
+	const SUSPECT_OPTION = 'bsr_proxy_suspect';
+
+	/**
+	 * Transient set when the admin says the suspect is not a proxy (30 days).
+	 */
+	const DISMISS_TRANSIENT = 'bsr_proxy_suspect_dismissed';
+
+	/**
+	 * Admin requests showing the pattern before the automatic IP rules are suspended.
+	 */
+	const SUSPECT_HITS = 5;
+
+	/**
+	 * Which rule produced the last resolution (for the settings diagnostic).
+	 */
+	private static $source = '';
 
 	public static function init() {
-		add_action( self::REFRESH_HOOK, [ __CLASS__, 'refresh_lists' ] );
+		add_action( self::CRON_HOOK, [ __CLASS__, 'refresh_cloudflare_ranges' ] );
 		if ( is_admin() ) {
-			add_action( 'admin_init', [ __CLASS__, 'observe_admin_request' ] );
+			add_action( 'admin_init', [ __CLASS__, 'ensure_cron' ], 4 );
+			add_action( 'admin_init', [ __CLASS__, 'detect_public_proxy' ], 5 );
 		}
 	}
 
-	public static function schedule_refresh() {
-		if ( ! wp_next_scheduled( self::REFRESH_HOOK ) ) {
-			wp_schedule_event( time() + 300, 'daily', self::REFRESH_HOOK );
-		}
-	}
-
-	public static function unschedule_refresh() {
-		$ts = wp_next_scheduled( self::REFRESH_HOOK );
-		if ( $ts ) {
-			wp_unschedule_event( $ts, self::REFRESH_HOOK );
-		}
-	}
-
-	// ── Resolution ──────────────────────────────────────────────────
+	// ── Resolution ────────────────────────────────────────────────────
 
 	/**
-	 * The client address for this request, resolved once.
+	 * The client IP for this request, or false when none can be established.
 	 *
-	 * @return string "" when nothing usable exists (CLI).
+	 * @return string|false
 	 */
-	public static function get() {
-		if ( null === self::$resolved ) {
-			self::$resolved = self::resolve( $_SERVER ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		}
-		return self::$resolved;
-	}
+	public static function resolve() {
+		$opts   = BSR_Helpers::get_options();
+		$remote = self::header_ip( 'REMOTE_ADDR' );
 
-	/**
-	 * @return string One of remote_addr, cloudflare, local_proxy, declared_proxy, legacy, none.
-	 */
-	public static function source() {
-		self::get();
-		return (string) self::$source;
-	}
-
-	/**
-	 * Forget the per-request result (tests).
-	 */
-	public static function reset() {
-		self::$resolved = null;
-		self::$source   = null;
-	}
-
-	/**
-	 * Pure resolution over a server array, so tests can feed arbitrary
-	 * combinations without touching $_SERVER.
-	 *
-	 * @param array $server
-	 * @param array|null $opts Plugin options (defaults to the stored ones).
-	 * @return string
-	 */
-	public static function resolve( array $server, $opts = null ) {
-		$opts   = null === $opts ? BSR_Helpers::get_options() : $opts;
-		$remote = isset( $server['REMOTE_ADDR'] ) ? trim( (string) $server['REMOTE_ADDR'] ) : '';
-		if ( ! BSR_Helpers::is_valid_ip( $remote ) ) {
-			self::$source = 'none';
-			return '';
-		}
-
-		// Legacy, spoofable: first header found wins.
 		if ( ! empty( $opts['trust_all_forwarding'] ) ) {
-			foreach ( [ 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP' ] as $k ) {
-				if ( empty( $server[ $k ] ) ) {
-					continue;
-				}
-				$val = trim( (string) $server[ $k ] );
-				if ( 'HTTP_X_FORWARDED_FOR' === $k ) {
-					$val = trim( explode( ',', $val )[0] );
-				}
-				if ( BSR_Helpers::is_valid_ip( $val ) ) {
-					self::$source = 'legacy';
-					return $val;
-				}
-			}
-			self::$source = 'remote_addr';
-			return $remote;
+			self::$source   = 'legacy';
+			return self::resolve_legacy( $remote );
 		}
 
-		// 1. Cloudflare.
-		if ( self::is_cloudflare( $remote ) ) {
-			$cf = isset( $server['HTTP_CF_CONNECTING_IP'] ) ? trim( (string) $server['HTTP_CF_CONNECTING_IP'] ) : '';
-			if ( BSR_Helpers::is_valid_ip( $cf ) ) {
-				self::$source = 'cloudflare';
+		if ( '' === $remote ) {
+			self::$source   = 'none';
+			return false;
+		}
+
+		if ( self::is_cloudflare_ip( $remote ) ) {
+			$cf = self::header_ip( 'HTTP_CF_CONNECTING_IP' );
+			if ( '' !== $cf && BSR_Helpers::is_public_ip( $cf ) ) {
+				self::$source   = 'cloudflare';
 				return $cf;
 			}
-			// Cloudflare edge without the header is not a thing; fall through to
-			// the generic walk so a misconfigured setup still yields something.
+			self::$source   = 'cloudflare-forwarded';
+			return self::forwarded_client( $remote );
 		}
 
-		// 2. Local proxy, 3. declared proxy.
-		$local    = BSR_Helpers::is_private_ip( $remote );
-		$declared = ! $local && self::is_declared_proxy( $remote, $opts );
-		if ( $local || $declared ) {
-			$xff = isset( $server['HTTP_X_FORWARDED_FOR'] ) ? (string) $server['HTTP_X_FORWARDED_FOR'] : '';
-			if ( '' !== $xff ) {
-				$hops = array_reverse( array_map( 'trim', explode( ',', $xff ) ) );
-				foreach ( $hops as $hop ) {
-					if ( ! BSR_Helpers::is_valid_ip( $hop ) ) {
-						continue;
-					}
-					if ( BSR_Helpers::is_private_ip( $hop ) || self::is_cloudflare( $hop ) || self::is_declared_proxy( $hop, $opts ) ) {
-						continue;
-					}
-					self::$source = $local ? 'local_proxy' : 'declared_proxy';
-					return $hop;
-				}
-			}
-			$real = isset( $server['HTTP_X_REAL_IP'] ) ? trim( (string) $server['HTTP_X_REAL_IP'] ) : '';
-			if ( BSR_Helpers::is_valid_ip( $real ) && ! BSR_Helpers::is_private_ip( $real ) ) {
-				self::$source = $local ? 'local_proxy' : 'declared_proxy';
-				return $real;
-			}
+		if ( ! BSR_Helpers::is_public_ip( $remote ) ) {
+			self::$source   = 'local-proxy';
+			return self::forwarded_client( $remote );
 		}
 
-		self::$source = 'remote_addr';
+		if ( self::is_declared_proxy( $remote ) ) {
+			self::$source   = 'trusted-proxy';
+			return self::forwarded_client( $remote );
+		}
+
+		self::$source   = 'direct';
 		return $remote;
 	}
 
 	/**
-	 * @param string $ip
-	 * @param array  $opts
-	 * @return bool
+	 * Which rule produced the resolved IP (for the settings diagnostic).
+	 *
+	 * @return string
 	 */
-	public static function is_declared_proxy( $ip, $opts ) {
-		return BSR_Helpers::ip_in_list( $ip, $opts['trusted_proxies'] ?? '' );
+	public static function source() {
+		self::resolve();
+		return self::$source;
 	}
+
+	/**
+	 * Walk X-Forwarded-For from the right and take the first public entry that
+	 * is not itself a proxy we trust; then X-Real-IP; then the peer address.
+	 *
+	 * @param string $remote
+	 * @return string
+	 */
+	private static function forwarded_client( $remote ) {
+		$xff = isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) : '';
+		if ( '' !== $xff ) {
+			$entries = array_reverse( array_map( 'trim', explode( ',', $xff ) ) );
+			foreach ( $entries as $entry ) {
+				$ip = self::normalize( $entry );
+				if ( '' === $ip || ! BSR_Helpers::is_public_ip( $ip ) ) {
+					continue;
+				}
+				if ( self::is_cloudflare_ip( $ip ) || self::is_declared_proxy( $ip ) ) {
+					continue;
+				}
+				return $ip;
+			}
+		}
+		$real = self::header_ip( 'HTTP_X_REAL_IP' );
+		if ( '' !== $real && BSR_Helpers::is_public_ip( $real ) ) {
+			return $real;
+		}
+		return $remote;
+	}
+
+	/**
+	 * Pre-1.7.0 behavior: first forwarding header wins, whoever sent it.
+	 *
+	 * @param string $remote
+	 * @return string|false
+	 */
+	private static function resolve_legacy( $remote ) {
+		foreach ( [ 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP' ] as $k ) {
+			if ( empty( $_SERVER[ $k ] ) ) {
+				continue;
+			}
+			$val = sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) );
+			if ( 'HTTP_X_FORWARDED_FOR' === $k ) {
+				$parts = explode( ',', $val );
+				$val   = $parts[0];
+			}
+			$ip = self::normalize( $val );
+			return '' !== $ip ? $ip : false;
+		}
+		return '' !== $remote ? $remote : false;
+	}
+
+	/**
+	 * A validated IP from one $_SERVER key, or ''.
+	 *
+	 * @param string $key
+	 * @return string
+	 */
+	private static function header_ip( $key ) {
+		if ( empty( $_SERVER[ $key ] ) ) {
+			return '';
+		}
+		return self::normalize( sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) );
+	}
+
+	/**
+	 * Strip a port or brackets and validate. Returns '' when not an IP.
+	 *
+	 * @param string $ip
+	 * @return string
+	 */
+	public static function normalize( $ip ) {
+		$ip = trim( (string) $ip );
+		if ( preg_match( '/^\[(.+)\]:\d+$/', $ip, $m ) ) {
+			$ip = $m[1];
+		} elseif ( preg_match( '/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/', $ip, $m ) ) {
+			$ip = $m[1];
+		}
+		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	// ── Trusted proxies ───────────────────────────────────────────────
 
 	/**
 	 * @param string $ip
 	 * @return bool
 	 */
-	public static function is_cloudflare( $ip ) {
+	public static function is_cloudflare_ip( $ip ) {
 		return BSR_Helpers::ip_in_list( $ip, self::cloudflare_ranges() );
 	}
 
 	/**
-	 * Whether this request arrived through Cloudflare's proxy (orange cloud).
-	 *
+	 * @param string $ip
 	 * @return bool
 	 */
-	public static function behind_cloudflare() {
-		self::get();
-		return 'cloudflare' === self::$source;
+	public static function is_declared_proxy( $ip ) {
+		$opts = BSR_Helpers::get_options();
+		return BSR_Helpers::ip_in_list( $ip, $opts['trusted_proxies'] ?? '' );
 	}
 
 	/**
-	 * Cloudflare ranges: the fetched option when present, the bundled file
-	 * otherwise. Cached per request.
+	 * Cloudflare ranges: the fetched set when present, else the bundled file.
 	 *
 	 * @return array
 	 */
@@ -214,154 +256,193 @@ class BSR_Client_IP {
 		if ( null !== $ranges ) {
 			return $ranges;
 		}
-		$stored = get_option( self::CLOUDFLARE_OPTION );
-		if ( is_array( $stored ) && ! empty( $stored['ranges'] ) ) {
+		$stored = get_option( self::CF_OPTION, [] );
+		if ( is_array( $stored ) && ! empty( $stored['ranges'] ) && is_array( $stored['ranges'] ) ) {
 			$ranges = $stored['ranges'];
-		} else {
-			$ranges = BSR_Helpers::bundled_list( self::CLOUDFLARE_FILE );
+			return $ranges;
 		}
+		$ranges = self::bundled_cloudflare_ranges();
 		return $ranges;
 	}
 
 	/**
-	 * @return array {source: fetched|bundled, fetched_at: int|null, count: int}
+	 * When the fetched set was last refreshed, or 0 when running on the bundle.
+	 *
+	 * @return int
 	 */
-	public static function cloudflare_status() {
-		$stored = get_option( self::CLOUDFLARE_OPTION );
-		if ( is_array( $stored ) && ! empty( $stored['ranges'] ) ) {
-			return [
-				'source'     => 'fetched',
-				'fetched_at' => (int) ( $stored['fetched_at'] ?? 0 ),
-				'count'      => count( $stored['ranges'] ),
-			];
-		}
-		return [
-			'source'     => 'bundled',
-			'fetched_at' => null,
-			'count'      => count( BSR_Helpers::bundled_list( self::CLOUDFLARE_FILE ) ),
-		];
+	public static function cloudflare_ranges_fetched_at() {
+		$stored = get_option( self::CF_OPTION, [] );
+		return is_array( $stored ) && ! empty( $stored['ranges'] ) ? (int) ( $stored['fetched'] ?? 0 ) : 0;
 	}
 
 	/**
-	 * Daily cron: refresh the Cloudflare ranges (and the DuckDuckBot prefixes
-	 * through BSR_Good_Bots). Keeps the previous copy when a fetch fails.
+	 * @return array
 	 */
-	public static function refresh_lists() {
+	private static function bundled_cloudflare_ranges() {
+		$path = BSR_PLUGIN_DIR . self::CF_BUNDLED;
+		if ( ! is_readable( $path ) ) {
+			return [];
+		}
+		$lines = file( $path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		return false === $lines ? [] : self::clean_cidr_lines( $lines );
+	}
+
+	/**
+	 * Keep only well-formed CIDR lines.
+	 *
+	 * @param array $lines
+	 * @return array
+	 */
+	private static function clean_cidr_lines( $lines ) {
+		$out = [];
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line || '#' === $line[0] ) {
+				continue;
+			}
+			if ( preg_match( '#^([0-9a-fA-F:.]+)/(\d{1,3})$#', $line, $m ) && false !== filter_var( $m[1], FILTER_VALIDATE_IP ) ) {
+				$out[] = $line;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Daily cron: fetch both lists; keep the previous set on any failure.
+	 *
+	 * @return bool True when a fresh set was stored.
+	 */
+	public static function refresh_cloudflare_ranges() {
 		$ranges = [];
-		foreach ( [ self::CLOUDFLARE_V4_URL, self::CLOUDFLARE_V6_URL ] as $url ) {
-			$body = self::fetch_text( $url );
-			if ( null === $body ) {
-				$ranges = [];
-				break;
+		foreach ( [ self::CF_URL_V4, self::CF_URL_V6 ] as $url ) {
+			$response = wp_remote_get( $url, [ 'timeout' => 10 ] );
+			if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+				return false;
 			}
-			foreach ( BSR_Helpers::parse_list( $body ) as $entry ) {
-				if ( false !== strpos( $entry, '/' ) && BSR_Helpers::is_valid_ip( explode( '/', $entry )[0] ) ) {
-					$ranges[] = $entry;
-				}
+			$lines = preg_split( '/\r\n|\r|\n/', (string) wp_remote_retrieve_body( $response ) );
+			$clean = self::clean_cidr_lines( $lines );
+			if ( empty( $clean ) ) {
+				return false;
 			}
+			$ranges = array_merge( $ranges, $clean );
 		}
-		if ( count( $ranges ) >= 10 ) {
-			update_option( self::CLOUDFLARE_OPTION, [ 'ranges' => $ranges, 'fetched_at' => time() ], false );
-		}
-		if ( class_exists( 'BSR_Good_Bots' ) ) {
-			BSR_Good_Bots::refresh_ip_lists();
-		}
+		update_option( self::CF_OPTION, [ 'ranges' => $ranges, 'fetched' => time() ], false );
+		return true;
 	}
 
 	/**
-	 * @param string $url
-	 * @return string|null
+	 * Make sure the daily refresh is scheduled (activation does it; this covers
+	 * upgrades that never re-activate).
 	 */
-	public static function fetch_text( $url ) {
-		$r = wp_remote_get( $url, [ 'timeout' => 10, 'user-agent' => 'BotStormRadar/' . BSR_VERSION ] );
-		if ( is_wp_error( $r ) || 200 !== (int) wp_remote_retrieve_response_code( $r ) ) {
-			return null;
+	public static function ensure_cron() {
+		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CRON_HOOK );
 		}
-		$body = wp_remote_retrieve_body( $r );
-		return is_string( $body ) && '' !== $body ? $body : null;
 	}
 
-	// ── Undeclared public proxy detection ───────────────────────────
+	public static function unschedule() {
+		$ts = wp_next_scheduled( self::CRON_HOOK );
+		if ( $ts ) {
+			wp_unschedule_event( $ts, self::CRON_HOOK );
+		}
+	}
+
+	// ── Undeclared public-address proxy detection ─────────────────────
 
 	/**
-	 * On admin requests, notice the "every request from one public address
-	 * with a forwarding header" pattern. Only concerns a public-address proxy
-	 * that is neither Cloudflare nor declared; local proxies never get here.
+	 * On ordinary admin page loads, notice the pattern of a public-address
+	 * proxy that has not been declared: public REMOTE_ADDR that is neither
+	 * Cloudflare nor declared, plus a forwarding header naming a different
+	 * public address. Repeated sightings suspend the automatic IP rules.
 	 */
-	public static function observe_admin_request() {
+	public static function detect_public_proxy() {
 		if ( wp_doing_ajax() || wp_doing_cron() ) {
 			return;
 		}
-		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? trim( (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		if ( ! BSR_Helpers::is_valid_ip( $remote ) || BSR_Helpers::is_private_ip( $remote ) ) {
-			return;
-		}
 		$opts = BSR_Helpers::get_options();
-		if ( ! empty( $opts['trust_all_forwarding'] ) || self::is_cloudflare( $remote ) || self::is_declared_proxy( $remote, $opts ) ) {
-			if ( get_option( self::DETECT_OPTION ) ) {
-				delete_option( self::DETECT_OPTION );
-			}
+		if ( ! empty( $opts['trust_all_forwarding'] ) ) {
 			return;
 		}
-		$has_fwd = ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) || ! empty( $_SERVER['HTTP_X_REAL_IP'] );
-		$state   = get_option( self::DETECT_OPTION );
-		$state   = is_array( $state ) ? $state : [ 'ip' => '', 'streak' => 0 ];
+		$remote = self::header_ip( 'REMOTE_ADDR' );
+		if ( '' === $remote || ! BSR_Helpers::is_public_ip( $remote ) ) {
+			return;
+		}
+		if ( self::is_cloudflare_ip( $remote ) || self::is_declared_proxy( $remote ) ) {
+			return;
+		}
+		$forwarded = '';
+		$xff       = isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) : '';
+		if ( '' !== $xff ) {
+			$parts     = array_map( 'trim', explode( ',', $xff ) );
+			$forwarded = self::normalize( end( $parts ) );
+		}
+		if ( '' === $forwarded ) {
+			$forwarded = self::header_ip( 'HTTP_X_REAL_IP' );
+		}
+		if ( '' === $forwarded || $forwarded === $remote || ! BSR_Helpers::is_public_ip( $forwarded ) ) {
+			return;
+		}
+		if ( get_transient( self::DISMISS_TRANSIENT ) === $remote ) {
+			return;
+		}
 
-		if ( ! $has_fwd || $state['ip'] !== $remote ) {
-			$new = [ 'ip' => $has_fwd ? $remote : '', 'streak' => $has_fwd ? 1 : 0, 'seen' => time() ];
-		} else {
-			$new = [ 'ip' => $remote, 'streak' => min( 1000, (int) $state['streak'] + 1 ), 'seen' => time() ];
+		$suspect = get_option( self::SUSPECT_OPTION, [] );
+		if ( ! is_array( $suspect ) || ( $suspect['ip'] ?? '' ) !== $remote ) {
+			$suspect = [ 'ip' => $remote, 'hits' => 0, 'first' => time(), 'last' => 0, 'forwarded' => $forwarded ];
 		}
-		if ( $new !== $state ) {
-			update_option( self::DETECT_OPTION, $new, false );
+		// One sighting per minute is enough; admin screens fire many requests.
+		if ( time() - (int) $suspect['last'] < MINUTE_IN_SECONDS ) {
+			return;
 		}
+		$suspect['hits']      = (int) $suspect['hits'] + 1;
+		$suspect['last']      = time();
+		$suspect['forwarded'] = $forwarded;
+		update_option( self::SUSPECT_OPTION, $suspect, false );
 	}
 
 	/**
-	 * The detected undeclared proxy address, or "" when none.
+	 * The suspected proxy record, or null.
 	 *
-	 * @return string
+	 * @return array|null
 	 */
-	public static function detected_proxy() {
-		$state = get_option( self::DETECT_OPTION );
-		if ( is_array( $state ) && ! empty( $state['ip'] ) && (int) $state['streak'] >= self::DETECT_AFTER ) {
-			return (string) $state['ip'];
-		}
-		return '';
+	public static function suspect() {
+		$s = get_option( self::SUSPECT_OPTION, [] );
+		return is_array( $s ) && ! empty( $s['ip'] ) ? $s : null;
 	}
 
 	/**
-	 * While an undeclared proxy is detected every visitor looks like one
-	 * address, so anything keyed by IP must stand down. Nothing enforces in
-	 * v0.1; the flag is exposed for the dashboard and for the actions layer.
+	 * Whether anything keyed by IP should currently stand down (and the
+	 * dashboard warn that per-address metrics are unreliable).
 	 *
 	 * @return bool
 	 */
-	public static function ip_keying_suspended() {
-		return '' !== self::detected_proxy();
+	public static function ip_rules_suspended() {
+		$s = self::suspect();
+		return null !== $s && (int) $s['hits'] >= self::SUSPECT_HITS;
 	}
 
 	/**
-	 * One-click "trust this proxy": append the detected address to the
-	 * declared list and clear the detection state.
-	 *
-	 * @param string $ip
-	 * @return bool
+	 * Admin confirmed the suspect is a proxy: declare it and clear the record.
 	 */
-	public static function declare_proxy( $ip ) {
-		if ( ! BSR_Helpers::is_valid_ip( $ip ) ) {
-			return false;
+	public static function trust_suspect() {
+		$s = self::suspect();
+		if ( null === $s ) {
+			return;
 		}
-		$opts = get_option( Bot_Storm_Radar::OPTION_KEY, [] );
-		$opts = is_array( $opts ) ? $opts : [];
-		$list = BSR_Helpers::parse_list( $opts['trusted_proxies'] ?? '' );
-		if ( ! in_array( $ip, $list, true ) ) {
-			$list[] = $ip;
-		}
-		$opts['trusted_proxies'] = implode( "\n", $list );
+		$opts                    = BSR_Helpers::get_options();
+		$opts['trusted_proxies'] = trim( (string) $opts['trusted_proxies'] . "\n" . $s['ip'] );
 		update_option( Bot_Storm_Radar::OPTION_KEY, $opts );
-		delete_option( self::DETECT_OPTION );
-		BSR_Helpers::flush_options();
-		return true;
+		delete_option( self::SUSPECT_OPTION );
+	}
+
+	/**
+	 * Admin said the suspect is not a proxy in front of the site: forget it for 30 days.
+	 */
+	public static function dismiss_suspect() {
+		$s = self::suspect();
+		if ( null !== $s ) {
+			set_transient( self::DISMISS_TRANSIENT, $s['ip'], 30 * DAY_IN_SECONDS );
+		}
+		delete_option( self::SUSPECT_OPTION );
 	}
 }

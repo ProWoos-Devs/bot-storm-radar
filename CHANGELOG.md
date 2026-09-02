@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-03
+
+### Changed
+- Client IP resolution is now the same code as WC Antifraud 1.7.0's `WCAF_Client_IP`, copied with the prefix renamed, so the two plugins agree on who the client is and fixes land in both. Gains over 0.1.1: header values with a port suffix are normalized, carrier-grade NAT peers (100.64.0.0/10) count as local proxies, a Cloudflare peer without `CF-Connecting-IP` falls back to the forwarded-header walk, and the undeclared-proxy notice gains a "Not a proxy" dismissal (30 days) next to "Trust this proxy".
+- The daily address-list refresh hook is now `bsr_refresh_cloudflare_ips` (the DuckDuckBot list refreshes on the same hook). An upgrade routine reschedules it and removes the 0.1.1 hook and options on the first request after the update.
+
 ## [0.1.1] - 2026-09-02
 
 ### Fixed

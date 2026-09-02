@@ -118,7 +118,7 @@ class BSR_Recorder {
 		return [
 			'class'   => BSR_Classifier::get_class(),
 			'detail'  => BSR_Classifier::get_detail(),
-			'ip'      => BSR_Client_IP::get(),
+			'ip'      => (string) BSR_Client_IP::resolve(),
 			'ua'      => BSR_Helpers::user_agent(),
 			'session' => self::session_key(),
 			'status'  => is_int( $code ) ? $code : 200,

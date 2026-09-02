@@ -57,17 +57,30 @@ class BSR_Helpers {
 	}
 
 	/**
-	 * Private (RFC 1918 and IPv6 ULA), link-local, loopback, or otherwise
-	 * reserved: an address that cannot belong to an internet client.
+	 * A routable internet address: valid, not private (RFC 1918, ULA), not
+	 * reserved (loopback, link-local, documentation, multicast), and not
+	 * carrier-grade NAT (100.64.0.0/10, which filter_var does not cover).
+	 * Same rule as WCAF_Helpers::is_public_ip().
+	 *
+	 * @param string $ip
+	 * @return bool
+	 */
+	public static function is_public_ip( $ip ) {
+		if ( empty( $ip ) || false === filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+			return false;
+		}
+		return ! self::ip_in_cidr( $ip, '100.64.0.0/10' );
+	}
+
+	/**
+	 * An address that cannot belong to an internet client (the complement of
+	 * is_public_ip, invalid input included).
 	 *
 	 * @param string $ip
 	 * @return bool
 	 */
 	public static function is_private_ip( $ip ) {
-		if ( ! self::is_valid_ip( $ip ) ) {
-			return true;
-		}
-		return false === filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+		return ! self::is_public_ip( $ip );
 	}
 
 	/**

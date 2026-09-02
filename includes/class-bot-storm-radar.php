@@ -11,7 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Bot_Storm_Radar {
 
-	const OPTION_KEY = 'bsr_options';
+	const OPTION_KEY     = 'bsr_options';
+	const VERSION_OPTION = 'bsr_version';
 
 	/**
 	 * @var Bot_Storm_Radar|null
@@ -69,6 +70,7 @@ class Bot_Storm_Radar {
 	 * Everything that must be in place before the request is classified.
 	 */
 	public function on_plugins_loaded() {
+		$this->maybe_upgrade();
 		BSR_WooCommerce::init();
 		BSR_Beacon::init();
 		BSR_Recorder::init();
@@ -112,12 +114,38 @@ class Bot_Storm_Radar {
 		}
 		BSR_Baseline::ensure_started();
 		BSR_Tick::schedule();
-		BSR_Client_IP::schedule_refresh();
+		BSR_Client_IP::ensure_cron();
+		update_option( self::VERSION_OPTION, BSR_VERSION, false );
 	}
 
 	public function deactivate() {
 		BSR_Tick::unschedule();
-		BSR_Client_IP::unschedule_refresh();
+		BSR_Client_IP::unschedule();
+	}
+
+	/**
+	 * Housekeeping when the code version changes without a re-activation:
+	 * reschedule cron hooks, drop options earlier versions no longer read.
+	 */
+	private function maybe_upgrade() {
+		$stored = get_option( self::VERSION_OPTION, '' );
+		if ( BSR_VERSION === $stored ) {
+			return;
+		}
+		if ( ! wp_next_scheduled( BSR_Tick::HOOK ) ) {
+			BSR_Tick::schedule();
+		}
+		BSR_Client_IP::ensure_cron();
+		// 0.1.0 and 0.1.1 named these differently (replaced by the shared
+		// WC Antifraud client-IP class in 0.1.2).
+		$old = wp_next_scheduled( 'bsr_refresh_ip_lists' );
+		while ( $old ) {
+			wp_unschedule_event( $old, 'bsr_refresh_ip_lists' );
+			$old = wp_next_scheduled( 'bsr_refresh_ip_lists' );
+		}
+		delete_option( 'bsr_cloudflare_ranges' );
+		delete_option( 'bsr_proxy_detect' );
+		update_option( self::VERSION_OPTION, BSR_VERSION, false );
 	}
 
 	/**

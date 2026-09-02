@@ -104,9 +104,10 @@ class BSR_Admin {
 		}, self::PAGE, 'bsr_alerts' );
 
 		add_settings_section( 'bsr_proxies', __( 'Client addresses', 'bot-storm-radar' ), function () {
-			$cf = BSR_Client_IP::cloudflare_status();
+			$cf_count   = count( BSR_Client_IP::cloudflare_ranges() );
+			$cf_fetched = BSR_Client_IP::cloudflare_ranges_fetched_at();
 			echo '<p>' . esc_html__( 'A forwarding header is believed only when the request arrived through a known proxy: Cloudflare, a local proxy (private peer address), or one declared here. Anything else is the client itself.', 'bot-storm-radar' ) . '</p>';
-			echo '<p class="description">' . esc_html( sprintf( __( 'Cloudflare ranges: %1$d entries, %2$s.', 'bot-storm-radar' ), (int) $cf['count'], 'fetched' === $cf['source'] ? sprintf( __( 'fetched %s', 'bot-storm-radar' ), wp_date( get_option( 'date_format' ), (int) $cf['fetched_at'] ) ) : __( 'bundled copy, fetch pending', 'bot-storm-radar' ) ) ) . '</p>';
+			echo '<p class="description">' . esc_html( sprintf( __( 'Cloudflare ranges: %1$d entries, %2$s.', 'bot-storm-radar' ), $cf_count, $cf_fetched > 0 ? sprintf( __( 'fetched %s', 'bot-storm-radar' ), wp_date( get_option( 'date_format' ), $cf_fetched ) ) : __( 'bundled copy, fetch pending', 'bot-storm-radar' ) ) ) . '</p>';
 		}, self::PAGE );
 		add_settings_field( 'trusted_proxies', __( 'Trusted proxy addresses', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[trusted_proxies]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'trusted_proxies', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. Only for a proxy with a public address (external load balancer, a CDN other than Cloudflare).', 'bot-storm-radar' ) );
@@ -216,8 +217,18 @@ class BSR_Admin {
 				$notice = false === $r ? 'tick_locked' : 'tick_ran';
 				break;
 			case 'trust_proxy':
-				$ip = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
-				$notice = BSR_Client_IP::declare_proxy( $ip ) ? 'proxy_trusted' : 'proxy_invalid';
+				$s = BSR_Client_IP::suspect();
+				if ( $s ) {
+					BSR_Client_IP::trust_suspect();
+					BSR_Helpers::flush_options();
+					$notice = 'proxy_trusted';
+				} else {
+					$notice = 'proxy_invalid';
+				}
+				break;
+			case 'dismiss_proxy':
+				BSR_Client_IP::dismiss_suspect();
+				$notice = 'proxy_dismissed';
 				break;
 			case 'test_alert':
 				$state = BSR_Storm::get_state();
@@ -235,7 +246,8 @@ class BSR_Admin {
 				$notice = $sent ? 'alert_sent' : 'alert_failed';
 				break;
 			case 'refresh_lists':
-				BSR_Client_IP::refresh_lists();
+				BSR_Client_IP::refresh_cloudflare_ranges();
+				BSR_Good_Bots::refresh_ip_lists();
 				$notice = 'lists_refreshed';
 				break;
 		}
@@ -269,7 +281,8 @@ class BSR_Admin {
 				'tick_ran'        => [ 'success', __( 'The minute tick ran.', 'bot-storm-radar' ) ],
 				'tick_locked'     => [ 'warning', __( 'Another tick was already running; nothing was done.', 'bot-storm-radar' ) ],
 				'proxy_trusted'   => [ 'success', __( 'The proxy address was added to the trusted list.', 'bot-storm-radar' ) ],
-				'proxy_invalid'   => [ 'error', __( 'That is not a valid address.', 'bot-storm-radar' ) ],
+				'proxy_invalid'   => [ 'error', __( 'There is no suspected proxy to trust right now.', 'bot-storm-radar' ) ],
+				'proxy_dismissed' => [ 'success', __( 'Noted: that address is not a proxy. It will not be reported again for 30 days.', 'bot-storm-radar' ) ],
 				'alert_sent'      => [ 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ],
 				'alert_failed'    => [ 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ],
 				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were refreshed.', 'bot-storm-radar' ) ],
@@ -279,14 +292,16 @@ class BSR_Admin {
 			}
 		}
 
-		$proxy = BSR_Client_IP::detected_proxy();
-		if ( '' !== $proxy ) {
+		$suspect = BSR_Client_IP::suspect();
+		if ( $suspect && BSR_Client_IP::ip_rules_suspended() ) {
 			printf(
-				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s <a class="button button-small" href="%3$s">%4$s</a></p></div>',
+				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s <a class="button button-small" href="%3$s">%4$s</a> <a class="button button-small" href="%5$s">%6$s</a></p></div>',
 				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
-				esc_html( sprintf( __( 'every recent admin request arrived from %s with a forwarding header, so a proxy with that public address appears to sit in front of the site. Until it is trusted, every visitor is counted under that one address and the per-address metrics are meaningless.', 'bot-storm-radar' ), $proxy ) ),
-				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'trust_proxy', 'ip' => $proxy ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
-				esc_html__( 'Trust this proxy', 'bot-storm-radar' )
+				esc_html( sprintf( __( 'recent admin requests arrived from %1$s with a forwarding header naming %2$s, so a proxy with that public address appears to sit in front of the site. Until it is trusted, every visitor is counted under that one address and the per-address metrics are meaningless.', 'bot-storm-radar' ), $suspect['ip'], $suspect['forwarded'] ) ),
+				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'trust_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_html__( 'Trust this proxy', 'bot-storm-radar' ),
+				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'dismiss_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_html__( 'Not a proxy', 'bot-storm-radar' )
 			);
 		}
 	}
@@ -397,10 +412,10 @@ class BSR_Admin {
 				</div>
 				<div class="bsr-card-sub"><strong><?php esc_html_e( 'Addresses:', 'bot-storm-radar' ); ?></strong>
 					<?php
-					$src = BSR_Client_IP::source();
-					$srcs = [ 'remote_addr' => __( 'direct (no proxy)', 'bot-storm-radar' ), 'cloudflare' => __( 'behind Cloudflare', 'bot-storm-radar' ), 'local_proxy' => __( 'behind a local proxy', 'bot-storm-radar' ), 'declared_proxy' => __( 'behind a declared proxy', 'bot-storm-radar' ), 'legacy' => __( 'trusting all forwarding headers (insecure)', 'bot-storm-radar' ), 'none' => __( 'unknown', 'bot-storm-radar' ) ];
-					printf( esc_html__( 'this request %1$s, you are %2$s', 'bot-storm-radar' ), esc_html( $srcs[ $src ] ?? $src ), esc_html( BSR_Client_IP::get() ) );
-					if ( BSR_Client_IP::ip_keying_suspended() ) {
+					$src  = BSR_Client_IP::source();
+					$srcs = [ 'direct' => __( 'direct (no proxy)', 'bot-storm-radar' ), 'cloudflare' => __( 'behind Cloudflare', 'bot-storm-radar' ), 'cloudflare-forwarded' => __( 'behind Cloudflare without CF-Connecting-IP', 'bot-storm-radar' ), 'local-proxy' => __( 'behind a local proxy', 'bot-storm-radar' ), 'trusted-proxy' => __( 'behind a declared proxy', 'bot-storm-radar' ), 'legacy' => __( 'trusting all forwarding headers (insecure)', 'bot-storm-radar' ), 'none' => __( 'unknown', 'bot-storm-radar' ) ];
+					printf( esc_html__( 'this request %1$s, you are %2$s', 'bot-storm-radar' ), esc_html( $srcs[ $src ] ?? $src ), esc_html( (string) BSR_Client_IP::resolve() ) );
+					if ( BSR_Client_IP::ip_rules_suspended() ) {
 						echo ' <span class="bsr-danger">' . esc_html__( 'undeclared proxy detected, per-address metrics unreliable', 'bot-storm-radar' ) . '</span>';
 					}
 					?>
