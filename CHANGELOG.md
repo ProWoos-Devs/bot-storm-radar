@@ -1,0 +1,26 @@
+# Changelog
+
+All notable changes to **Bot Storm Radar** will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-02
+
+Radar only. Detects and reports; nothing is blocked, challenged, or rate-limited.
+
+### Added
+- Request classifier with one class per request (html, search, rest, xmlrpc, login, register, comment, admin-ajax, wc-ajax, checkout, cart, asset, 404, other) and the `bsr_request_class` filter. The WooCommerce module adds wc-ajax with its action, Store API cart and checkout, and `?add-to-cart=`.
+- Counter store with three backends, detected in order: persistent object cache with atomic increments, APCu, and a transient fallback that buffers per request and writes once at shutdown. Sliding one-minute and ten-minute windows keyed by address, IPv4 /24, IPv6 /48, user-agent hash and WordPress session. Counters never live in options on the request path.
+- Swarm metrics per finished minute: single-hit ratio, asset ratio, user-agent evenness, error pressure, endpoint concentration, and the storm score gated by traffic volume against the baseline.
+- Beacon: a one-pixel image and a JS ping on every front-end HTML page, answered by the plugin itself with 204 and `Cache-Control: no-store`, counted by address. Unique per page render and per ping, so page caches do not hide it.
+- Learned baseline over the first seven days (median distinct addresses per minute, normal asset ratio), frozen once learned, shown beside each threshold, with a reset.
+- Good-bot verification for Googlebot, Bingbot, Applebot, Yandex (reverse DNS plus forward confirmation, queued off the request path) and DuckDuckBot (published address list, bundled and refreshed daily). Verdicts cached per address for a day; the dashboard labels claims as verified, fake, or pending.
+- Storm state machine with calm, warning, storm and cooling, configurable thresholds and hold times, escalation rungs, and a transition log with the metrics and a plain-words explanation for each transition. Actions go through the `BSR_Actions` interface; the only implementation logs and alerts.
+- Minute tick through WP cron with a self-healing guard: when the tick is late, the next front-end request runs it after its response is flushed.
+- Trusted-proxy address resolution: Cloudflare ranges (fetched daily, bundled fallback), local proxies trusted automatically, owner-declared proxies, detection of an undeclared public proxy with a one-click trust button, and an insecure legacy switch that trusts every forwarding header.
+- Admin screen with the Radar tab (state, last 24 hours per minute, top classes, top keys, bot claims, storm timeline) and the Settings tab (thresholds with the baseline beside each, hold times, alert recipients, proxies). Dashboard widget with the state and the last storm.
+- Plain-text alert emails on warning, storm, and all-clear.
+- GitHub release updater.
