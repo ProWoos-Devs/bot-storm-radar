@@ -66,6 +66,8 @@ class BSR_Tick {
 		if ( ! BSR_Counters::add_value( self::LOCK, 1, 55 ) ) {
 			return false;
 		}
+		self::refresh_options();
+		$switched = self::switch_to_site_locale();
 		$now     = null === $now ? time() : (int) $now;
 		$status  = self::status();
 		$current = BSR_Helpers::minute( $now );
@@ -91,7 +93,50 @@ class BSR_Tick {
 		], true );
 
 		BSR_Counters::delete( self::LOCK );
+		if ( $switched ) {
+			restore_previous_locale();
+		}
 		return $rows;
+	}
+
+	/**
+	 * The cursor and the state must be read as they are now, not as they
+	 * were when this request started. A slow front-end request loads the
+	 * options at its start; if the cron tick runs meanwhile, the inline
+	 * guard at that request's shutdown would otherwise see a stale cursor
+	 * and a stale state, recompute the same minutes and repeat their
+	 * transitions (and their alerts). The lock cannot prevent that because
+	 * the two runs are sequential. Dropping the runtime copies makes the
+	 * next reads go to the database (or the persistent object cache, which
+	 * update_option keeps current).
+	 */
+	private static function refresh_options() {
+		wp_cache_delete( 'alloptions', 'options' );
+		foreach ( [ self::OPTION, BSR_Storm::STATE_OPTION, BSR_Storage::TRANSITIONS, BSR_Storage::CHUNK_INDEX, Bot_Storm_Radar::OPTION_KEY ] as $name ) {
+			wp_cache_delete( $name, 'options' );
+		}
+		BSR_Helpers::flush_options();
+	}
+
+	/**
+	 * Explanations and alerts are built during the tick with wp_date() and
+	 * number_format_i18n(). When the inline guard runs the tick inside a
+	 * front-end request, that request's locale (a translated page, a user's
+	 * profile language) would format them; the site language is the one
+	 * the recipient expects.
+	 *
+	 * @return bool Whether a switch was made (and must be restored).
+	 */
+	private static function switch_to_site_locale() {
+		if ( ! function_exists( 'switch_to_locale' ) ) {
+			return false;
+		}
+		$site = (string) get_option( 'WPLANG', '' );
+		$site = '' === $site ? 'en_US' : $site;
+		if ( $site === determine_locale() ) {
+			return false;
+		}
+		return (bool) switch_to_locale( $site );
 	}
 
 	/**

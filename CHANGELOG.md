@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-04
+
+### Fixed
+- The "error pressure alone" rule no longer turns a quiet minute into a storm. It now needs the same minimum of distinct addresses as the score (the "Minimum distinct addresses" setting). With a page cache in front, PHP mostly sees cache misses, and three slow requests from two addresses were enough to re-trigger a storm every fifteen minutes and email each time.
+- The tick no longer repeats a minute it has already processed. A slow front-end request loads the options at its start; when the cron tick ran meanwhile, the inline guard at that request's shutdown saw a stale cursor and a stale state, recomputed the same minute and sent the transition alert again (two to five copies of each). The tick now drops the runtime options cache after taking its lock and re-reads the cursor, the state, and the stored rows.
+- Alerts are formatted in the site language. When the inline guard ran the tick inside a translated front-end page, the date and the decimals followed that page's locale.
+
 ## [0.1.2] - 2026-09-03
 
 ### Changed

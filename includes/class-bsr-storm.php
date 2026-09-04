@@ -5,7 +5,10 @@
  *  - calm to warning: score at or above the warning threshold for
  *    `warning_minutes` consecutive finished minutes (default 1, i.e. 60 s).
  *  - warning to storm: score at or above the storm threshold for
- *    `storm_minutes`, or error pressure alone above its threshold.
+ *    `storm_minutes`, or error pressure alone above its threshold. The
+ *    error-pressure rule needs the same minimum of distinct addresses as
+ *    the score: with a page cache in front, PHP mostly sees cache misses,
+ *    and three slow requests in a quiet minute are not a storm.
  *  - warning to calm: score below the warning threshold for
  *    `warning_clear_minutes`.
  *  - storm to cooling: score below the warning threshold for
@@ -119,9 +122,11 @@ class BSR_Storm {
 		$clear_min = max( 1, (int) ( $opts['warning_clear_minutes'] ?? 5 ) );
 		$hold_min  = max( 1, (int) ( $opts['storm_hold_minutes'] ?? 15 ) );
 		$cool_min  = max( 1, (int) ( $opts['cooling_hold_minutes'] ?? 15 ) );
+		$min_ips   = max( 1, (int) ( $opts['min_distinct_ips'] ?? 30 ) );
+		$ips       = (int) ( $row['ips'] ?? 0 );
 
 		$above_warn  = $score >= $warn_t;
-		$above_storm = $score >= $storm_t || ( $ep_t > 0 && $ep >= $ep_t );
+		$above_storm = $score >= $storm_t || ( $ep_t > 0 && $ep >= $ep_t && $ips >= $min_ips );
 
 		$state['s_storm'] = $above_storm ? $state['s_storm'] + 1 : 0;
 		$state['s_warn']  = $above_warn ? $state['s_warn'] + 1 : 0;
