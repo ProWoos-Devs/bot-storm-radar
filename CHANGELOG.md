@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- A storm held up by error pressure alone (many 5xx at a low score) no longer leaves and re-enters the storm state in the same minute every `storm_hold_minutes`. Those minutes counted as quiet for the hold, so storm moved to cooling and the error-pressure rule sent it straight back, with a "Bot storm detected" alert each time. Cooling now starts only after the hold passes with neither a high score nor high error pressure.
+
 ## [0.1.4] - 2026-09-15
 
 ### Changed

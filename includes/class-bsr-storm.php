@@ -11,8 +11,8 @@
  *    and three slow requests in a quiet minute are not a storm.
  *  - warning to calm: score below the warning threshold for
  *    `warning_clear_minutes`.
- *  - storm to cooling: score below the warning threshold for
- *    `storm_hold_minutes`.
+ *  - storm to cooling: score below the warning threshold, and error pressure
+ *    not holding the minute above storm, for `storm_hold_minutes`.
  *  - cooling to calm: another `cooling_hold_minutes` without a re-trigger;
  *    a score at or above the storm threshold during cooling goes straight
  *    back to storm.
@@ -130,7 +130,11 @@ class BSR_Storm {
 
 		$state['s_storm'] = $above_storm ? $state['s_storm'] + 1 : 0;
 		$state['s_warn']  = $above_warn ? $state['s_warn'] + 1 : 0;
-		$state['s_below'] = $above_warn ? 0 : $state['s_below'] + 1;
+		// A minute the error-pressure rule keeps above storm is not a quiet
+		// minute, whatever its score: counting it as below let storm move to
+		// cooling and straight back to storm in the same tick, every
+		// `storm_hold_minutes`, with an alert each time.
+		$state['s_below'] = ( $above_warn || $above_storm ) ? 0 : $state['s_below'] + 1;
 		$state['last_score']  = $score;
 		$state['last_minute'] = $minute;
 
