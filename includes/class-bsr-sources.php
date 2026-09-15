@@ -23,9 +23,11 @@ class BSR_Sources {
 
 	/**
 	 * Ids that would produce option names 0.1.x already uses
-	 * (`bsr_min_chunks`, `bsr_tick`, `bsr_version`, ...).
+	 * (`bsr_min_chunks`, `bsr_tick`, `bsr_version`, ...), `log` because the
+	 * source definitions live in `bsr_log_sources`, and `replay`, the scratch
+	 * source `wp bot-storm-radar replay` purges.
 	 */
-	const RESERVED = [ 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update' ];
+	const RESERVED = [ 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update', 'log', 'replay' ];
 
 	/**
 	 * The option name a per-source option has for this source.
