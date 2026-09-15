@@ -28,6 +28,12 @@ class BSR_Sources {
 	const LOG_OPTION = 'bsr_log_sources';
 
 	/**
+	 * A baseline day counts as full for alerts with this many minute rows
+	 * (23 hours, so an hour of downtime does not delay alerts by a day).
+	 */
+	const FULL_DAY_MINUTES = 1380;
+
+	/**
 	 * Ids that would produce option names 0.1.x already uses
 	 * (`bsr_min_chunks`, `bsr_tick`, `bsr_version`, ...), `log` because the
 	 * source definitions live in `bsr_log_sources`, and `replay`, the scratch
@@ -123,7 +129,11 @@ class BSR_Sources {
 	 * reading a busy log with no baseline, scored against the minimum-addresses
 	 * floor, so its ordinary traffic can look like a storm (a wiki with 40 to
 	 * 70 distinct addresses a minute does). It mails once its baseline holds
-	 * at least one full day. The site mails from the start, as in 0.1.
+	 * at least one full day. The baseline also summarizes the partial day the
+	 * source started on (60 minutes are enough for that), so counting days
+	 * alone would switch alerts on at the first midnight after a few hours of
+	 * data; a day only counts here with FULL_DAY_MINUTES rows. The site mails
+	 * from the start, as in 0.1.
 	 *
 	 * @param string $source
 	 * @return bool
@@ -132,6 +142,15 @@ class BSR_Sources {
 		if ( self::SITE === $source ) {
 			return true;
 		}
-		return (int) ( BSR_Baseline::effective( $source )['days'] ?? 0 ) >= 1;
+		$b = BSR_Baseline::get( $source );
+		if ( is_array( $b['learned'] ) ) {
+			return true;
+		}
+		foreach ( (array) $b['days'] as $day ) {
+			if ( (int) ( $day['minutes'] ?? 0 ) >= self::FULL_DAY_MINUTES ) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
