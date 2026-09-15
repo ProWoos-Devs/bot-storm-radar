@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Traffic sources. The site keeps its option names; other sources store their minute rows, baseline, state and transitions under `bsr_<source>_*`.
+- Log sources read from a web server's access log (`combined` format) through WP-CLI: `wp bot-storm-radar source add|list|remove`, `wp bot-storm-radar ingest`, `wp bot-storm-radar replay`. Profiles `mediawiki` and `wordpress`. Positions are kept per file by inode and offset and committed at minute boundaries; daily rotation by rename and in-place truncation are followed. Log sources log their transitions but send no alerts yet.
+- In-memory counter backend, used by the log reader only.
+- Request classes `special` and `revision` (MediaWiki special pages, old revisions, diffs and non-view actions), both counted as sensitive for endpoint concentration.
+
 ## [0.1.4] - 2026-09-15
 
 ### Changed
