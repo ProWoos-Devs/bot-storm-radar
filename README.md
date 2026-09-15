@@ -58,6 +58,8 @@ wp bot-storm-radar source list
 wp bot-storm-radar replay old.log.gz --profile=mediawiki --baseline-ips=60   # what the radar would have said
 ```
 
+The Radar tab gets a switcher with one entry per source, each with its own state, chart, classes, top keys and storm timeline, and a log reader card (files, last ingest, alert recipients, per-source resets). The dashboard widget lists every source, and the Settings tab shows the sources read-only.
+
 Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. The first ingest starts at the current end of the files. A log source mails its transitions, naming the source, once its baseline holds one full day of data; until then it only logs them, because a busy log scored against the minimum-addresses floor can look like a storm.
 
 ## Hooks
