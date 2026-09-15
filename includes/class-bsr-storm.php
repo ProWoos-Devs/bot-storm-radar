@@ -143,6 +143,7 @@ class BSR_Storm {
 
 		// Up to two hops per minute so a flash storm passes through warning
 		// on the way to storm within the same tick.
+		$through = false;
 		for ( $hop = 0; $hop < 2; $hop++ ) {
 			$next = null;
 			$note = '';
@@ -188,7 +189,17 @@ class BSR_Storm {
 			if ( null === $next ) {
 				break;
 			}
-			$ctx   = self::context( $state['state'], $next, $row, $minute, $note );
+			$ctx = self::context( $state['state'], $next, $row, $minute, $note );
+			// Calm to warning with the storm streak already met goes on to
+			// storm in the next hop: the warning case checks that streak
+			// first and apply() does not touch it. Both contexts say so, and
+			// the alert for the pair is sent once, on storm.
+			if ( 'calm' === $state['state'] && 'warning' === $next && $state['s_storm'] >= $storm_min ) {
+				$ctx['continues_to'] = 'storm';
+				$through             = true;
+			} elseif ( $through && 'storm' === $next ) {
+				$ctx['started_from'] = 'calm';
+			}
 			$state = self::apply( $state, $next, $minute, $row, $ctx );
 			$made[] = $ctx;
 		}

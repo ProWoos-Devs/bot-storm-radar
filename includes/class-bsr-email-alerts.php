@@ -36,7 +36,11 @@ class BSR_Email_Alerts {
 		$subject = sprintf( '[%s — Bot Storm Radar] %s', $site, $titles[ $to ] ?? $to );
 
 		$body   = [];
-		$body[] = sprintf( __( 'Bot Storm Radar moved from %1$s to %2$s at %3$s.', 'bot-storm-radar' ), strtoupper( $from ), strtoupper( $to ), $when );
+		if ( ! empty( $ctx['started_from'] ) ) {
+			$body[] = sprintf( __( 'Bot Storm Radar moved from %1$s through %2$s to %3$s at %4$s, all within one minute.', 'bot-storm-radar' ), strtoupper( (string) $ctx['started_from'] ), strtoupper( $from ), strtoupper( $to ), $when );
+		} else {
+			$body[] = sprintf( __( 'Bot Storm Radar moved from %1$s to %2$s at %3$s.', 'bot-storm-radar' ), strtoupper( $from ), strtoupper( $to ), $when );
+		}
 		$body[] = __( 'Radar-only release: nothing was blocked, challenged or rate-limited.', 'bot-storm-radar' );
 		$body[] = '';
 		$body[] = __( 'WHY:', 'bot-storm-radar' );

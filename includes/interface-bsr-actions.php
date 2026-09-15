@@ -7,6 +7,9 @@
  *
  * Every method receives the transition context:
  *   from, to, minute, at, score, explanation, metrics (the minute row).
+ * When one minute takes calm through warning to storm, the warning context
+ * also carries `continues_to` => 'storm' and the storm context
+ * `started_from` => 'calm', so an implementation can act once for the pair.
  *
  * @package Bot_Storm_Radar
  */

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-15
+
+### Changed
+- A minute that takes the radar from calm through warning to storm now sends one alert, "Bot storm detected", saying it went from CALM through WARNING to STORM within one minute. Before, the warning and the storm mail went out in the same second for every such episode. Both transitions are still logged on the Radar screen. With storm alerts switched off, the warning alert is still sent.
+- For custom `BSR_Actions` implementations, the warning context of such a minute carries `continues_to` => `storm` and the storm context `started_from` => `calm`.
+
 ## [0.1.3] - 2026-09-04
 
 ### Fixed

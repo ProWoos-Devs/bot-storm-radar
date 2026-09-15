@@ -13,7 +13,10 @@ class BSR_Actions_Log implements BSR_Actions {
 
 	public function on_warning( array $ctx ) {
 		$this->log( $ctx );
-		if ( BSR_Helpers::opt( 'alert_on_warning', 1 ) ) {
+		// A warning that turns into a storm in the same minute is reported by
+		// the storm alert alone, unless storm alerts are switched off.
+		$merged = 'storm' === ( $ctx['continues_to'] ?? '' ) && BSR_Helpers::opt( 'alert_on_storm', 1 );
+		if ( ! $merged && BSR_Helpers::opt( 'alert_on_warning', 1 ) ) {
 			BSR_Email_Alerts::send_transition( $ctx );
 		}
 	}
