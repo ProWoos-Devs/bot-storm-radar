@@ -206,6 +206,11 @@ class BSR_CLI_Source {
 	 * [--label=<label>]
 	 * : Name shown on the Radar screen and in alerts.
 	 *
+	 * [--alert-to=<emails>]
+	 * : Comma-separated alert recipients for this source. Default: the site's
+	 * alert recipients. An empty value goes back to the default. Alerts start
+	 * once the source's baseline holds one full day.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp bot-storm-radar source add wiki --profile=mediawiki --label="Wiki" --logs=/var/log/nginx/wiki_access.log,/var/log/nginx/wiki-en_access.log
@@ -233,11 +238,21 @@ class BSR_CLI_Source {
 			}
 		}
 		$existing = BSR_Log_Source::get( $id );
+		$alert_to = (string) ( $existing['alert_to'] ?? '' );
+		if ( array_key_exists( 'alert-to', $assoc ) ) {
+			$given = array_values( array_filter( array_map( 'trim', explode( ',', (string) $assoc['alert-to'] ) ) ) );
+			$valid = BSR_Helpers::sanitize_email_list( (string) $assoc['alert-to'] );
+			if ( count( $valid ) !== count( $given ) ) {
+				WP_CLI::error( sprintf( 'Not valid email addresses: %s.', implode( ', ', array_diff( $given, $valid ) ) ) );
+			}
+			$alert_to = implode( ', ', $valid );
+		}
 		BSR_Log_Source::save( $id, [
-			'label'   => $assoc['label'] ?? ( $existing['label'] ?? ucfirst( $id ) ),
-			'profile' => $assoc['profile'],
-			'logs'    => $logs,
-			'created' => $existing['created'] ?? time(),
+			'label'    => $assoc['label'] ?? ( $existing['label'] ?? ucfirst( $id ) ),
+			'profile'  => $assoc['profile'],
+			'logs'     => $logs,
+			'alert_to' => $alert_to,
+			'created'  => $existing['created'] ?? time(),
 		] );
 		WP_CLI::success( sprintf( '%s source "%s" with %d log file(s).', null === $existing ? 'Added' : 'Updated', $id, count( $logs ) ) );
 	}
@@ -262,9 +277,11 @@ class BSR_CLI_Source {
 				'logs'     => implode( ',', $def['logs'] ),
 				'state'    => $storm['state'],
 				'last_run' => $st['last_run'] ? gmdate( 'Y-m-d H:i:s', $st['last_run'] ) . ' UTC' : 'never',
+				'alert_to' => implode( ', ', BSR_Sources::alert_recipients( $id ) ) . ( '' === (string) ( $def['alert_to'] ?? '' ) ? ' (site default)' : '' ),
+				'alerts'   => BSR_Sources::alerts_ready( $id ) ? 'on' : 'after the first full day',
 			];
 		}
-		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, [ 'id', 'label', 'profile', 'logs', 'state', 'last_run' ] );
+		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, [ 'id', 'label', 'profile', 'logs', 'state', 'last_run', 'alert_to', 'alerts' ] );
 	}
 
 	/**

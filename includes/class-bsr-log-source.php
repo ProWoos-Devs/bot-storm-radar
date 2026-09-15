@@ -210,18 +210,17 @@ class BSR_Log_Cursor {
 
 class BSR_Log_Source {
 
-	const OPTION        = 'bsr_log_sources';
+	const OPTION        = BSR_Sources::LOG_OPTION;
 	const MAX_BYTES     = 67108864;
 	const MAX_CATCHUP   = 60;
 	const LOCK_STALE_S  = 600;
 	const GLOBALS_TTL   = 86400;
 
 	/**
-	 * @return array id => label, profile, logs, created
+	 * @return array id => label, profile, logs, alert_to, created
 	 */
 	public static function all() {
-		$all = get_option( self::OPTION, [] );
-		return is_array( $all ) ? $all : [];
+		return BSR_Sources::log_sources();
 	}
 
 	/**
@@ -235,15 +234,16 @@ class BSR_Log_Source {
 
 	/**
 	 * @param string $id
-	 * @param array  $def label, profile, logs
+	 * @param array  $def label, profile, logs, alert_to
 	 */
 	public static function save( $id, array $def ) {
 		$all        = self::all();
 		$all[ $id ] = [
-			'label'   => (string) ( $def['label'] ?? $id ),
-			'profile' => (string) $def['profile'],
-			'logs'    => array_values( array_map( 'strval', (array) $def['logs'] ) ),
-			'created' => (int) ( $def['created'] ?? time() ),
+			'label'    => (string) ( $def['label'] ?? $id ),
+			'profile'  => (string) $def['profile'],
+			'logs'     => array_values( array_map( 'strval', (array) $def['logs'] ) ),
+			'alert_to' => implode( ', ', BSR_Helpers::sanitize_email_list( (string) ( $def['alert_to'] ?? '' ) ) ),
+			'created'  => (int) ( $def['created'] ?? time() ),
 		];
 		update_option( self::OPTION, $all, false );
 	}
@@ -277,8 +277,7 @@ class BSR_Log_Source {
 	 * @return array last_minute, last_run, files, stats
 	 */
 	public static function state( $id ) {
-		$s = get_option( BSR_Sources::option( 'bsr_log_state', $id ), [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], [ 'last_minute' => 0, 'last_run' => 0, 'files' => [], 'stats' => [] ] );
+		return BSR_Sources::log_state( $id );
 	}
 
 	/**

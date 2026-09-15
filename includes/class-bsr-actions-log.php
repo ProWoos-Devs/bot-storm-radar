@@ -12,14 +12,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 class BSR_Actions_Log implements BSR_Actions {
 
 	/**
-	 * Log-fed sources (a wiki read from the web-server log) only log their
-	 * transitions until the alerts name the source they come from.
+	 * A log source (a wiki read from the web-server log) mails once its
+	 * baseline holds a full day; before that it only logs (BSR_Sources::alerts_ready).
 	 *
 	 * @param array $ctx
 	 * @return bool
 	 */
 	private function mails( array $ctx ) {
-		return BSR_Sources::SITE === ( $ctx['source'] ?? BSR_Sources::SITE );
+		return BSR_Sources::alerts_ready( (string) ( $ctx['source'] ?? BSR_Sources::SITE ) );
 	}
 
 	public function on_warning( array $ctx ) {
