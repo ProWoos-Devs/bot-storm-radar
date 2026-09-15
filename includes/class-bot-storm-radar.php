@@ -39,6 +39,7 @@ class Bot_Storm_Radar {
 	private function load_dependencies() {
 		$dir = BSR_PLUGIN_DIR . 'includes/';
 		require_once $dir . 'class-bsr-helpers.php';
+		require_once $dir . 'class-bsr-sources.php';
 		require_once $dir . 'class-bsr-client-ip.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
