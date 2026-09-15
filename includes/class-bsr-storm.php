@@ -24,6 +24,9 @@
  *
  * Every transition is logged with the metrics that caused it.
  *
+ * One state per source (BSR_Sources); the site keeps the 0.1.x option. The
+ * source travels in every transition context as `source`.
+ *
  * @package Bot_Storm_Radar
  */
 
@@ -64,25 +67,31 @@ class BSR_Storm {
 	}
 
 	/**
+	 * @param string $source
 	 * @return array
 	 */
-	public static function get_state() {
-		$s = get_option( self::STATE_OPTION, [] );
+	public static function get_state( $source = BSR_Sources::SITE ) {
+		$s = get_option( BSR_Sources::option( self::STATE_OPTION, $source ), [] );
 		return wp_parse_args( is_array( $s ) ? $s : [], self::initial_state() );
 	}
 
 	/**
-	 * @param array $state
+	 * @param array  $state
+	 * @param string $source
 	 */
-	public static function save_state( array $state ) {
-		update_option( self::STATE_OPTION, $state, true );
+	public static function save_state( array $state, $source = BSR_Sources::SITE ) {
+		// Only the site's state is read on every request (dashboard widget,
+		// inline guard); other sources are read by the CLI and the Radar screen.
+		update_option( BSR_Sources::option( self::STATE_OPTION, $source ), $state, BSR_Sources::SITE === $source );
 	}
 
 	/**
 	 * Reset to calm (admin action, tests).
+	 *
+	 * @param string $source
 	 */
-	public static function reset() {
-		self::save_state( self::initial_state() );
+	public static function reset( $source = BSR_Sources::SITE ) {
+		self::save_state( self::initial_state(), $source );
 	}
 
 	/**
@@ -101,13 +110,14 @@ class BSR_Storm {
 	/**
 	 * Feed one finished minute. Returns the transitions made (0, 1 or 2).
 	 *
-	 * @param array      $row  Scored minute row.
-	 * @param array|null $opts Options (defaults to stored).
+	 * @param array      $row    Scored minute row.
+	 * @param array|null $opts   Options (defaults to stored).
+	 * @param string     $source
 	 * @return array
 	 */
-	public static function step( array $row, $opts = null ) {
+	public static function step( array $row, $opts = null, $source = BSR_Sources::SITE ) {
 		$opts  = null === $opts ? BSR_Helpers::get_options() : $opts;
-		$state = self::get_state();
+		$state = self::get_state( $source );
 		$made  = [];
 
 		$score  = (int) ( $row['score'] ?? 0 );
@@ -169,11 +179,11 @@ class BSR_Storm {
 					} elseif ( $state['rung'] > 0 && $state['rung'] < self::MAX_RUNG && $state['s_storm'] >= 1 && ( $minute - (int) $state['rung_minute'] ) >= self::RUNG_PERSIST_MINUTES ) {
 						$state['rung']++;
 						$state['rung_minute'] = $minute;
-						$ctx = self::context( 'storm', 'storm', $row, $minute, sprintf( __( 'storm persisted with rung %1$d engaged, rung %2$d requested', 'bot-storm-radar' ), $state['rung'] - 1, $state['rung'] ) );
+						$ctx = self::context( 'storm', 'storm', $row, $minute, sprintf( __( 'storm persisted with rung %1$d engaged, rung %2$d requested', 'bot-storm-radar' ), $state['rung'] - 1, $state['rung'] ), $source );
 						foreach ( self::actions() as $a ) {
 							$a->escalate( $state['rung'], $ctx );
 						}
-						BSR_Storage::add_transition( $ctx );
+						BSR_Storage::add_transition( $ctx, $source );
 						$made[] = $ctx;
 					}
 					break;
@@ -189,7 +199,7 @@ class BSR_Storm {
 			if ( null === $next ) {
 				break;
 			}
-			$ctx = self::context( $state['state'], $next, $row, $minute, $note );
+			$ctx = self::context( $state['state'], $next, $row, $minute, $note, $source );
 			// Calm to warning with the storm streak already met goes on to
 			// storm in the next hop: the warning case checks that streak
 			// first and apply() does not touch it. Both contexts say so, and
@@ -204,7 +214,7 @@ class BSR_Storm {
 			$made[] = $ctx;
 		}
 
-		self::save_state( $state );
+		self::save_state( $state, $source );
 		return $made;
 	}
 
@@ -214,18 +224,20 @@ class BSR_Storm {
 	 * @param array  $row
 	 * @param int    $minute
 	 * @param string $note
+	 * @param string $source
 	 * @return array
 	 */
-	private static function context( $from, $to, array $row, $minute, $note = '' ) {
+	private static function context( $from, $to, array $row, $minute, $note = '', $source = BSR_Sources::SITE ) {
 		$light = $row;
 		unset( $light['hot'], $light['ua_top'] );
 		return [
+			'source'      => $source,
 			'from'        => $from,
 			'to'          => $to,
 			'at'          => time(),
 			'minute'      => (int) $minute,
 			'score'       => (int) ( $row['score'] ?? 0 ),
-			'explanation' => BSR_Metrics::explain( $row ) . ( '' !== $note ? ' (' . $note . ')' : '' ),
+			'explanation' => BSR_Metrics::explain( $row, BSR_Baseline::effective( $source ) ) . ( '' !== $note ? ' (' . $note . ')' : '' ),
 			'note'        => $note,
 			'metrics'     => $light,
 		];
@@ -310,7 +322,7 @@ class BSR_Storm {
 		if ( 'calm' === $next ) {
 			$state['rung'] = 0;
 		}
-		BSR_Storage::add_transition( $ctx );
+		BSR_Storage::add_transition( $ctx, (string) $ctx['source'] );
 		return $state;
 	}
 }

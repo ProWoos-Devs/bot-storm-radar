@@ -4,6 +4,7 @@
  * normal asset ratio, learned over the first seven days from daily medians
  * of the stored minute rows, then frozen. Shown beside each threshold, and
  * used by the score to decide what "a lot of addresses" means on this site.
+ * One baseline per source (BSR_Sources); the site keeps the 0.1.x option.
  *
  * @package Bot_Storm_Radar
  */
@@ -19,10 +20,19 @@ class BSR_Baseline {
 	const KEEP_DAYS  = 14;
 
 	/**
+	 * @param string $source
+	 * @return string
+	 */
+	private static function option_name( $source ) {
+		return BSR_Sources::option( self::OPTION, $source );
+	}
+
+	/**
+	 * @param string $source
 	 * @return array
 	 */
-	public static function get() {
-		$b = get_option( self::OPTION, [] );
+	public static function get( $source = BSR_Sources::SITE ) {
+		$b = get_option( self::option_name( $source ), [] );
 		$b = is_array( $b ) ? $b : [];
 		return wp_parse_args( $b, [
 			'started'  => 0,
@@ -32,38 +42,44 @@ class BSR_Baseline {
 		] );
 	}
 
-	public static function ensure_started() {
-		$b = self::get();
+	/**
+	 * @param string $source
+	 */
+	public static function ensure_started( $source = BSR_Sources::SITE ) {
+		$b = self::get( $source );
 		if ( empty( $b['started'] ) ) {
 			$b['started'] = time();
-			update_option( self::OPTION, $b, false );
+			update_option( self::option_name( $source ), $b, false );
 		}
 	}
 
 	/**
 	 * Forget everything and start learning again.
+	 *
+	 * @param string $source
 	 */
-	public static function reset() {
-		update_option( self::OPTION, [ 'started' => time(), 'days' => [], 'learned' => null, 'last_day' => '' ], false );
+	public static function reset( $source = BSR_Sources::SITE ) {
+		update_option( self::option_name( $source ), [ 'started' => time(), 'days' => [], 'learned' => null, 'last_day' => '' ], false );
 	}
 
 	/**
 	 * Called by the tick. When the UTC day has rolled over since the last
 	 * summary, summarize yesterday from its minute rows.
 	 *
-	 * @param int $now
+	 * @param int    $now
+	 * @param string $source
 	 */
-	public static function maybe_rollover( $now ) {
-		$b         = self::get();
+	public static function maybe_rollover( $now, $source = BSR_Sources::SITE ) {
+		$b         = self::get( $source );
 		$yesterday = gmdate( 'Y-m-d', $now - 86400 );
 		if ( $b['last_day'] === $yesterday || gmdate( 'Y-m-d', $now ) === gmdate( 'Y-m-d', (int) $b['started'] ) ) {
 			return;
 		}
-		$rows = BSR_Storage::minutes_for_day( str_replace( '-', '', $yesterday ) );
+		$rows = BSR_Storage::minutes_for_day( str_replace( '-', '', $yesterday ), $source );
 		if ( count( $rows ) < 60 ) {
 			// Less than an hour of data: skip the day rather than learn from noise.
 			$b['last_day'] = $yesterday;
-			update_option( self::OPTION, $b, false );
+			update_option( self::option_name( $source ), $b, false );
 			return;
 		}
 		$ips   = [];
@@ -90,7 +106,7 @@ class BSR_Baseline {
 			$b['learned'] = self::summarize( array_slice( $b['days'], -self::LEARN_DAYS, null, true ) );
 			$b['learned']['learned_at'] = $now;
 		}
-		update_option( self::OPTION, $b, false );
+		update_option( self::option_name( $source ), $b, false );
 	}
 
 	/**
@@ -121,10 +137,11 @@ class BSR_Baseline {
 	 * otherwise the provisional figure from whatever days exist, otherwise
 	 * nothing (the score then falls back to the minimum-IPs setting).
 	 *
+	 * @param string $source
 	 * @return array {ips_median, ips_p90, asset_median, days, status}
 	 */
-	public static function effective() {
-		$b = self::get();
+	public static function effective( $source = BSR_Sources::SITE ) {
+		$b = self::get( $source );
 		if ( is_array( $b['learned'] ) ) {
 			return $b['learned'] + [ 'status' => 'learned' ];
 		}
