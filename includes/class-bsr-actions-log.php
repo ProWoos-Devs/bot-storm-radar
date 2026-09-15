@@ -11,19 +11,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BSR_Actions_Log implements BSR_Actions {
 
+	/**
+	 * A log source (a wiki read from the web-server log) mails once its
+	 * baseline holds a full day; before that it only logs (BSR_Sources::alerts_ready).
+	 *
+	 * @param array $ctx
+	 * @return bool
+	 */
+	private function mails( array $ctx ) {
+		return BSR_Sources::alerts_ready( (string) ( $ctx['source'] ?? BSR_Sources::SITE ) );
+	}
+
 	public function on_warning( array $ctx ) {
 		$this->log( $ctx );
 		// A warning that turns into a storm in the same minute is reported by
 		// the storm alert alone, unless storm alerts are switched off.
 		$merged = 'storm' === ( $ctx['continues_to'] ?? '' ) && BSR_Helpers::opt( 'alert_on_storm', 1 );
-		if ( ! $merged && BSR_Helpers::opt( 'alert_on_warning', 1 ) ) {
+		if ( $this->mails( $ctx ) && ! $merged && BSR_Helpers::opt( 'alert_on_warning', 1 ) ) {
 			BSR_Email_Alerts::send_transition( $ctx );
 		}
 	}
 
 	public function on_storm( array $ctx ) {
 		$this->log( $ctx );
-		if ( BSR_Helpers::opt( 'alert_on_storm', 1 ) ) {
+		if ( $this->mails( $ctx ) && BSR_Helpers::opt( 'alert_on_storm', 1 ) ) {
 			BSR_Email_Alerts::send_transition( $ctx );
 		}
 	}
@@ -34,7 +45,7 @@ class BSR_Actions_Log implements BSR_Actions {
 
 	public function on_calm( array $ctx ) {
 		$this->log( $ctx );
-		if ( 'calm' === $ctx['to'] && in_array( $ctx['from'], [ 'cooling', 'storm' ], true ) && BSR_Helpers::opt( 'alert_on_calm', 1 ) ) {
+		if ( $this->mails( $ctx ) && 'calm' === $ctx['to'] && in_array( $ctx['from'], [ 'cooling', 'storm' ], true ) && BSR_Helpers::opt( 'alert_on_calm', 1 ) ) {
 			BSR_Email_Alerts::send_transition( $ctx );
 		}
 	}

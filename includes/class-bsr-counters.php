@@ -10,6 +10,9 @@
  *    write per request per touched bucket), so the database sees a bounded
  *    number of writes and never one per increment. Concurrent requests can
  *    lose updates; the dashboard warns while this backend is active.
+ *  - memory: a plain PHP array for one process, never chosen by detection.
+ *    The log reader forces it on the command line to build minute rows from
+ *    web-server log lines without touching the site's live counters.
  *
  * Keys are "<scope>:<bucket>:<name>" where scope is m (minute bucket),
  * t (reserved for ten-minute buckets) or g (global, no bucket). The
@@ -66,6 +69,14 @@ class BSR_Counters {
 	private static $t_dirty  = [];
 	private static $t_flush_registered = false;
 
+	/**
+	 * Memory backend: key => value, and key => expiry timestamp.
+	 *
+	 * @var array
+	 */
+	private static $mem     = [];
+	private static $mem_exp = [];
+
 	// ── Backend selection ───────────────────────────────────────────
 
 	/**
@@ -79,7 +90,7 @@ class BSR_Counters {
 		if ( null === $forced && defined( 'BSR_COUNTER_BACKEND' ) ) {
 			$forced = (string) BSR_COUNTER_BACKEND;
 		}
-		if ( in_array( $forced, [ 'object_cache', 'apcu', 'transient' ], true ) ) {
+		if ( in_array( $forced, [ 'object_cache', 'apcu', 'transient', 'memory' ], true ) ) {
 			self::$backend = $forced;
 		} elseif ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() && function_exists( 'wp_cache_incr' ) ) {
 			self::$backend = 'object_cache';
@@ -126,6 +137,8 @@ class BSR_Counters {
 				return __( 'Persistent object cache (atomic increments)', 'bot-storm-radar' );
 			case 'apcu':
 				return __( 'APCu shared memory (atomic increments)', 'bot-storm-radar' );
+			case 'memory':
+				return __( 'In-process memory (log reader)', 'bot-storm-radar' );
 			default:
 				return __( 'Transient fallback (database, one write per request)', 'bot-storm-radar' );
 		}
@@ -164,6 +177,12 @@ class BSR_Counters {
 				apcu_add( self::$apcu_prefix . $key, 0, $ttl );
 				$v = apcu_inc( self::$apcu_prefix . $key );
 				return false === $v ? 0 : (int) $v;
+			case 'memory':
+				if ( ! self::m_live( $key ) ) {
+					self::$mem[ $key ]     = 0;
+					self::$mem_exp[ $key ] = time() + (int) $ttl;
+				}
+				return ++self::$mem[ $key ];
 			default:
 				return self::t_incr( $key, $ttl );
 		}
@@ -181,6 +200,8 @@ class BSR_Counters {
 			case 'apcu':
 				$v = apcu_fetch( self::$apcu_prefix . $key );
 				return false === $v ? 0 : (int) $v;
+			case 'memory':
+				return self::m_live( $key ) ? (int) self::$mem[ $key ] : 0;
 			default:
 				return (int) self::t_get( $key, 0 );
 		}
@@ -219,6 +240,11 @@ class BSR_Counters {
 					$out[ $k ] = isset( $vals[ self::$apcu_prefix . $k ] ) ? (int) $vals[ self::$apcu_prefix . $k ] : 0;
 				}
 				return $out;
+			case 'memory':
+				foreach ( $keys as $k ) {
+					$out[ $k ] = self::m_live( $k ) ? (int) self::$mem[ $k ] : 0;
+				}
+				return $out;
 			default:
 				foreach ( $keys as $k ) {
 					$out[ $k ] = (int) self::t_get( $k, 0 );
@@ -241,6 +267,10 @@ class BSR_Counters {
 				return (bool) wp_cache_set( $key, $value, self::GROUP, $ttl );
 			case 'apcu':
 				return (bool) apcu_store( self::$apcu_prefix . $key, $value, $ttl );
+			case 'memory':
+				self::$mem[ $key ]     = $value;
+				self::$mem_exp[ $key ] = time() + (int) $ttl;
+				return true;
 			default:
 				self::t_set( $key, $value, $ttl );
 				return true;
@@ -261,6 +291,8 @@ class BSR_Counters {
 				$ok = false;
 				$v  = apcu_fetch( self::$apcu_prefix . $key, $ok );
 				return $ok ? $v : $default;
+			case 'memory':
+				return self::m_live( $key ) ? self::$mem[ $key ] : $default;
 			default:
 				return self::t_get( $key, $default );
 		}
@@ -280,6 +312,13 @@ class BSR_Counters {
 				return (bool) wp_cache_add( $key, $value, self::GROUP, $ttl );
 			case 'apcu':
 				return (bool) apcu_add( self::$apcu_prefix . $key, $value, $ttl );
+			case 'memory':
+				if ( self::m_live( $key ) ) {
+					return false;
+				}
+				self::$mem[ $key ]     = $value;
+				self::$mem_exp[ $key ] = time() + (int) $ttl;
+				return true;
 			default:
 				// Global keys go straight to a transient here, because a lock
 				// that is only visible after shutdown is not a lock.
@@ -302,6 +341,9 @@ class BSR_Counters {
 				return;
 			case 'apcu':
 				apcu_delete( self::$apcu_prefix . $key );
+				return;
+			case 'memory':
+				unset( self::$mem[ $key ], self::$mem_exp[ $key ] );
 				return;
 			default:
 				delete_transient( self::t_name( $key ) );
@@ -356,6 +398,82 @@ class BSR_Counters {
 			set_transient( self::t_name( $g ), $data, $ttl );
 			self::$t_dirty[ $g ] = false;
 		}
+	}
+
+	// ── Memory backend ──────────────────────────────────────────────
+
+	/**
+	 * @param string $key
+	 * @return bool Whether the key exists and has not expired.
+	 */
+	private static function m_live( $key ) {
+		if ( ! array_key_exists( $key, self::$mem ) ) {
+			return false;
+		}
+		if ( self::$mem_exp[ $key ] < time() ) {
+			unset( self::$mem[ $key ], self::$mem_exp[ $key ] );
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Drop every memory key starting with a prefix (a finished minute).
+	 *
+	 * @param string $prefix
+	 * @return int Keys removed.
+	 */
+	public static function memory_purge( $prefix ) {
+		$n   = 0;
+		$len = strlen( $prefix );
+		foreach ( array_keys( self::$mem ) as $k ) {
+			if ( 0 === strncmp( $k, $prefix, $len ) ) {
+				unset( self::$mem[ $k ], self::$mem_exp[ $k ] );
+				$n++;
+			}
+		}
+		return $n;
+	}
+
+	/**
+	 * Live memory keys starting with a prefix, with their expiry, so a
+	 * caller can persist them between runs (good-bot verdicts).
+	 *
+	 * @param string $prefix
+	 * @return array key => [ value, expiry ]
+	 */
+	public static function memory_export( $prefix ) {
+		$out = [];
+		$len = strlen( $prefix );
+		foreach ( array_keys( self::$mem ) as $k ) {
+			if ( 0 === strncmp( $k, $prefix, $len ) && self::m_live( $k ) ) {
+				$out[ $k ] = [ self::$mem[ $k ], self::$mem_exp[ $k ] ];
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Load what memory_export() returned; expired entries are skipped.
+	 *
+	 * @param array $entries key => [ value, expiry ]
+	 */
+	public static function memory_import( array $entries ) {
+		$now = time();
+		foreach ( $entries as $k => $e ) {
+			if ( is_array( $e ) && 2 === count( $e ) && (int) $e[1] >= $now ) {
+				self::$mem[ (string) $k ]     = $e[0];
+				self::$mem_exp[ (string) $k ] = (int) $e[1];
+			}
+		}
+	}
+
+	/**
+	 * Empty the memory backend.
+	 */
+	public static function memory_reset() {
+		self::$mem     = [];
+		self::$mem_exp = [];
 	}
 
 	// ── Transient backend internals ─────────────────────────────────

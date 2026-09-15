@@ -58,6 +58,18 @@ class BSR_Admin {
 		return in_array( $tab, [ 'radar', 'settings' ], true ) ? $tab : 'radar';
 	}
 
+	/**
+	 * The source the Radar tab and the per-source actions refer to: a defined
+	 * log source named in the query, otherwise the site.
+	 *
+	 * @return string
+	 */
+	private static function current_source() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$source = isset( $_GET['source'] ) ? sanitize_key( wp_unslash( $_GET['source'] ) ) : BSR_Sources::SITE;
+		return BSR_Sources::exists( $source ) ? $source : BSR_Sources::SITE;
+	}
+
 	private static function tabs() {
 		return [
 			'radar'    => __( 'Radar', 'bot-storm-radar' ),
@@ -205,11 +217,11 @@ class BSR_Admin {
 		$notice = '';
 		switch ( $action ) {
 			case 'reset_baseline':
-				BSR_Baseline::reset();
+				BSR_Baseline::reset( self::current_source() );
 				$notice = 'baseline_reset';
 				break;
 			case 'reset_state':
-				BSR_Storm::reset();
+				BSR_Storm::reset( self::current_source() );
 				$notice = 'state_reset';
 				break;
 			case 'run_tick':
@@ -342,7 +354,9 @@ class BSR_Admin {
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_state' ) ); ?>"><?php esc_html_e( 'Reset state to calm', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
+				<?php self::render_log_sources_table(); ?>
 			<?php else : ?>
+				<?php self::render_source_switcher(); ?>
 				<?php self::render_radar(); ?>
 			<?php endif; ?>
 		</div>
@@ -351,12 +365,37 @@ class BSR_Admin {
 
 	// ── Radar tab ───────────────────────────────────────────────────
 
+	private static function render_source_switcher() {
+		$log_sources = BSR_Sources::log_sources();
+		if ( empty( $log_sources ) ) {
+			return;
+		}
+		$current = self::current_source();
+		$labels  = self::state_labels();
+		$links   = [];
+		foreach ( array_merge( [ BSR_Sources::SITE ], array_keys( $log_sources ) ) as $id ) {
+			$state   = BSR_Storm::get_state( $id );
+			$url     = admin_url( 'admin.php?page=' . self::PAGE . ( BSR_Sources::SITE === $id ? '' : '&source=' . rawurlencode( $id ) ) );
+			$links[] = sprintf(
+				'<li><a href="%1$s" class="%2$s">%3$s <span class="bsr-pill bsr-pill-%4$s">%5$s</span></a></li>',
+				esc_url( $url ),
+				$current === $id ? 'current' : '',
+				esc_html( BSR_Sources::label( $id ) ),
+				esc_attr( $state['state'] ),
+				esc_html( $labels[ $state['state'] ] ?? $state['state'] )
+			);
+		}
+		echo '<ul class="subsubsub bsr-sources">' . implode( ' | ', $links ) . '</ul><br class="clear" />'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
+	}
+
 	private static function render_radar() {
-		$state    = BSR_Storm::get_state();
+		$source   = self::current_source();
+		$is_site  = BSR_Sources::SITE === $source;
+		$state    = BSR_Storm::get_state( $source );
 		$tick     = BSR_Tick::status();
-		$baseline = BSR_Baseline::effective();
+		$baseline = BSR_Baseline::effective( $source );
 		$backend  = BSR_Counters::backend();
-		$rows     = BSR_Storage::minutes_last( 1440 );
+		$rows     = BSR_Storage::minutes_last( 1440, null, $source );
 		$last     = $rows ? end( $rows ) : null;
 		$opts     = BSR_Helpers::get_options();
 		$labels   = self::state_labels();
@@ -375,8 +414,10 @@ class BSR_Admin {
 					<div class="bsr-card-sub"><?php printf( esc_html__( '%1$d requests from %2$d addresses, %3$d single-hit', 'bot-storm-radar' ), (int) $last['total'], (int) $last['ips'], (int) $last['single'] ); ?></div>
 					<div class="bsr-card-sub"><?php printf( esc_html__( 'asset ratio %1$s, %2$d user agents, %3$d networks', 'bot-storm-radar' ), esc_html( null === $last['asset_ratio'] ? '–' : BSR_Metrics::fmt( $last['asset_ratio'] ) ), (int) $last['uas'], (int) $last['nets'] ); ?></div>
 					<div class="bsr-card-sub"><?php echo esc_html( wp_date( get_option( 'time_format' ), (int) $last['m'] * 60 ) ); ?></div>
-				<?php else : ?>
+				<?php elseif ( $is_site ) : ?>
 					<div class="bsr-card-sub"><?php esc_html_e( 'No minute has been processed yet. The tick runs every minute through WP cron, or on the next front-end request when cron is late.', 'bot-storm-radar' ); ?></div>
+				<?php else : ?>
+					<div class="bsr-card-sub"><?php esc_html_e( 'No minute has been processed yet. A system timer runs wp bot-storm-radar ingest every minute; the first run only notes where the log files end.', 'bot-storm-radar' ); ?></div>
 				<?php endif; ?>
 			</div>
 			<div class="bsr-card">
@@ -384,6 +425,9 @@ class BSR_Admin {
 				<div class="bsr-card-sub"><?php echo esc_html( self::baseline_sentence( $baseline ) ); ?></div>
 				<div class="bsr-card-sub"><?php printf( esc_html__( 'Thresholds: warning %1$d, storm %2$d, minimum addresses %3$d, spike factor %4$s.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'], (int) $opts['min_distinct_ips'], esc_html( BSR_Metrics::fmt( $opts['spike_factor'], 1 ) ) ); ?></div>
 			</div>
+			<?php if ( ! $is_site ) : ?>
+				<?php self::render_log_card( $source ); ?>
+			<?php else : ?>
 			<div class="bsr-card">
 				<div class="bsr-card-label"><?php esc_html_e( 'Plumbing', 'bot-storm-radar' ); ?></div>
 				<div class="bsr-card-sub <?php echo 'transient' === $backend ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Counters:', 'bot-storm-radar' ); ?></strong> <?php echo esc_html( BSR_Counters::backend_label() ); ?>
@@ -422,6 +466,7 @@ class BSR_Admin {
 				</div>
 				<div class="bsr-card-sub"><strong><?php esc_html_e( 'WooCommerce:', 'bot-storm-radar' ); ?></strong> <?php echo BSR_WooCommerce::active() ? esc_html__( 'module active', 'bot-storm-radar' ) : esc_html__( 'not present', 'bot-storm-radar' ); ?></div>
 			</div>
+			<?php endif; ?>
 		</div>
 
 		<h2><?php esc_html_e( 'Last 24 hours', 'bot-storm-radar' ); ?></h2>
@@ -432,16 +477,16 @@ class BSR_Admin {
 				<h2><?php esc_html_e( 'Top classes, last hour', 'bot-storm-radar' ); ?></h2>
 				<?php self::render_classes( $rows ); ?>
 				<h2><?php esc_html_e( 'Good-bot claims, last 24 hours', 'bot-storm-radar' ); ?></h2>
-				<?php self::render_bots( $rows ); ?>
+				<?php self::render_bots( $rows, $source ); ?>
 			</div>
 			<div>
 				<h2><?php esc_html_e( 'Top keys, last ten minutes', 'bot-storm-radar' ); ?></h2>
-				<?php self::render_top_keys(); ?>
+				<?php self::render_top_keys( $source ); ?>
 			</div>
 		</div>
 
 		<h2><?php esc_html_e( 'Storm timeline', 'bot-storm-radar' ); ?></h2>
-		<?php self::render_timeline( $state ); ?>
+		<?php self::render_timeline( $state, $source ); ?>
 		<?php
 	}
 
@@ -522,9 +567,10 @@ class BSR_Admin {
 	}
 
 	/**
-	 * @param array $rows
+	 * @param array  $rows
+	 * @param string $source
 	 */
-	private static function render_bots( array $rows ) {
+	private static function render_bots( array $rows, $source = BSR_Sources::SITE ) {
 		$sum = [];
 		foreach ( $rows as $r ) {
 			foreach ( (array) ( $r['bots'] ?? [] ) as $b => $set ) {
@@ -539,6 +585,9 @@ class BSR_Admin {
 			printf( '<tr><td>%s</td><td>%d</td><td class="%s">%d</td><td>%d</td></tr>', esc_html( $bot['label'] ), (int) ( $sum[ $name ]['verified'] ?? 0 ), ( (int) ( $sum[ $name ]['fake'] ?? 0 ) > 0 ? 'bsr-danger' : '' ), (int) ( $sum[ $name ]['fake'] ?? 0 ), (int) ( $sum[ $name ]['pending'] ?? 0 ) );
 		}
 		echo '</tbody></table>';
+		if ( BSR_Sources::SITE !== $source ) {
+			return; // The verification queue and verdicts below are the site's.
+		}
 		$pending = BSR_Good_Bots::pending_count();
 		if ( $pending > 0 ) {
 			echo '<p class="description">' . esc_html( sprintf( __( '%d addresses queued for DNS verification (up to 20 per minute).', 'bot-storm-radar' ), $pending ) ) . '</p>';
@@ -554,8 +603,11 @@ class BSR_Admin {
 		}
 	}
 
-	private static function render_top_keys() {
-		$rows = BSR_Storage::minutes_last( 10 );
+	/**
+	 * @param string $source
+	 */
+	private static function render_top_keys( $source = BSR_Sources::SITE ) {
+		$rows = BSR_Storage::minutes_last( 10, null, $source );
 		$out  = [ 'ips' => [], 'nets' => [], 'uas' => [] ];
 		foreach ( $rows as $r ) {
 			foreach ( [ 'ips', 'nets' ] as $kind ) {
@@ -586,15 +638,16 @@ class BSR_Admin {
 	}
 
 	/**
-	 * @param array $state
+	 * @param array  $state
+	 * @param string $source
 	 */
-	private static function render_timeline( array $state ) {
+	private static function render_timeline( array $state, $source = BSR_Sources::SITE ) {
 		$labels = self::state_labels();
 		if ( is_array( $state['last_storm'] ) ) {
 			$ls = $state['last_storm'];
 			printf( '<p><strong>%s</strong> %s</p>', esc_html__( 'Last storm:', 'bot-storm-radar' ), esc_html( sprintf( __( 'from %1$s to %2$s, peak score %3$d with %4$d addresses and %5$d requests in one minute, highest rung %6$d.', 'bot-storm-radar' ), wp_date( 'Y-m-d H:i', (int) $ls['started'] ), wp_date( 'Y-m-d H:i', (int) ( $ls['ended'] ?? time() ) ), (int) $ls['peak_score'], (int) $ls['peak_ips'], (int) $ls['peak_total'], (int) ( $ls['max_rung'] ?? 0 ) ) ) );
 		}
-		$log = BSR_Storage::transitions( 50 );
+		$log = BSR_Storage::transitions( 50, $source );
 		if ( empty( $log ) ) {
 			echo '<p class="description">' . esc_html__( 'No transitions yet.', 'bot-storm-radar' ) . '</p>';
 			return;
@@ -640,7 +693,116 @@ class BSR_Admin {
 		if ( 'transient' === BSR_Counters::backend() ) {
 			echo '<p class="bsr-danger">' . esc_html__( 'Counters are on the transient fallback (database). A persistent object cache or APCu is recommended.', 'bot-storm-radar' ) . '</p>';
 		}
+		foreach ( array_keys( BSR_Sources::log_sources() ) as $id ) {
+			$st   = BSR_Storm::get_state( $id );
+			$lr   = BSR_Sources::log_state( $id );
+			$late = self::ingest_is_late( $lr );
+			printf(
+				'<p class="bsr-widget-source bsr-state-%1$s"><a href="%2$s">%3$s</a> <strong>%4$s</strong> <span>%5$s</span>%6$s</p>',
+				esc_attr( $st['state'] ),
+				esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&source=' . rawurlencode( $id ) ) ),
+				esc_html( BSR_Sources::label( $id ) ),
+				esc_html( $labels[ $st['state'] ] ?? $st['state'] ),
+				esc_html( sprintf( __( 'since %s', 'bot-storm-radar' ), self::ago( (int) $st['since'] ) ) ),
+				$late ? ' <span class="bsr-danger">' . esc_html( sprintf( __( 'log not read for %s', 'bot-storm-radar' ), human_time_diff( (int) $lr['last_run'], time() ) ) ) . '</span>' : ''
+			);
+		}
 		printf( '<p><a href="%s">%s</a></p>', esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ), esc_html__( 'Open the radar', 'bot-storm-radar' ) );
+	}
+
+	// ── Log sources ─────────────────────────────────────────────────
+
+	/**
+	 * The card that replaces Plumbing for a log source: its files, the last
+	 * ingest, the alert recipients, and per-source resets.
+	 *
+	 * @param string $source
+	 */
+	private static function render_log_card( $source ) {
+		$def   = BSR_Sources::log_sources()[ $source ] ?? [];
+		$lr    = BSR_Sources::log_state( $source );
+		$stats = (array) $lr['stats'];
+		$late  = self::ingest_is_late( $lr );
+		$extra = [ 'tab' => 'radar', 'source' => $source ];
+		?>
+		<div class="bsr-card">
+			<div class="bsr-card-label"><?php esc_html_e( 'Log reader', 'bot-storm-radar' ); ?></div>
+			<div class="bsr-card-sub"><strong><?php esc_html_e( 'Files:', 'bot-storm-radar' ); ?></strong> <span class="bsr-key"><?php echo esc_html( implode( ', ', (array) ( $def['logs'] ?? [] ) ) ); ?></span> (<?php echo esc_html( (string) ( $def['profile'] ?? '' ) ); ?>)</div>
+			<div class="bsr-card-sub <?php echo $late ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Ingest:', 'bot-storm-radar' ); ?></strong>
+				<?php
+				if ( (int) $lr['last_run'] > 0 ) {
+					printf( esc_html__( 'last ran %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $lr['last_run'] ) ) );
+					if ( isset( $stats['lines'] ) ) {
+						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ) );
+					}
+					if ( ! empty( $stats['events'] ) ) {
+						$ev = [];
+						foreach ( (array) $stats['events'] as $path => $e ) {
+							$ev[] = basename( (string) $path ) . ' ' . $e;
+						}
+						echo ', ' . esc_html( implode( ', ', $ev ) );
+					}
+					if ( $late ) {
+						echo ' ' . esc_html__( 'The log has not been read for more than five minutes; check the system timer that runs wp bot-storm-radar ingest.', 'bot-storm-radar' );
+					}
+				} else {
+					esc_html_e( 'never ran yet', 'bot-storm-radar' );
+				}
+				?>
+			</div>
+			<div class="bsr-card-sub"><strong><?php esc_html_e( 'Alerts:', 'bot-storm-radar' ); ?></strong>
+				<?php
+				$to = BSR_Sources::alert_recipients( $source );
+				echo esc_html( empty( $to ) ? __( 'no recipients', 'bot-storm-radar' ) : implode( ', ', $to ) );
+				if ( '' === (string) ( $def['alert_to'] ?? '' ) ) {
+					echo ' ' . esc_html__( '(the site\'s recipients)', 'bot-storm-radar' );
+				}
+				if ( ! BSR_Sources::alerts_ready( $source ) ) {
+					echo '. ' . esc_html__( 'Mailing starts once the baseline holds one full day; transitions are logged meanwhile.', 'bot-storm-radar' );
+				}
+				?>
+			</div>
+			<div class="bsr-card-sub">
+				<a href="<?php echo esc_url( self::action_url( 'reset_state', $extra ) ); ?>"><?php esc_html_e( 'Reset state to calm', 'bot-storm-radar' ); ?></a> |
+				<a href="<?php echo esc_url( self::action_url( 'reset_baseline', $extra ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget this source\'s learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Read-only list of log sources on the Settings tab. Sources are defined
+	 * with WP-CLI, never from this screen.
+	 */
+	private static function render_log_sources_table() {
+		$all = BSR_Sources::log_sources();
+		echo '<h2>' . esc_html__( 'Log sources', 'bot-storm-radar' ) . '</h2>';
+		if ( empty( $all ) ) {
+			echo '<p class="description">' . esc_html__( 'None. Traffic that never reaches WordPress (another application on the server, requests answered by a page cache) can be read from the web-server access log with wp bot-storm-radar source add.', 'bot-storm-radar' ) . '</p>';
+			return;
+		}
+		echo '<table class="widefat striped bsr-table"><thead><tr><th>' . esc_html__( 'Source', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Profile', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Files', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Alert recipients', 'bot-storm-radar' ) . '</th></tr></thead><tbody>';
+		foreach ( $all as $id => $def ) {
+			printf(
+				'<tr><td><a href="%1$s">%2$s</a> <code>%3$s</code></td><td>%4$s</td><td class="bsr-key">%5$s</td><td>%6$s</td></tr>',
+				esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&source=' . rawurlencode( $id ) ) ),
+				esc_html( BSR_Sources::label( $id ) ),
+				esc_html( $id ),
+				esc_html( (string) ( $def['profile'] ?? '' ) ),
+				esc_html( implode( ', ', (array) ( $def['logs'] ?? [] ) ) ),
+				esc_html( implode( ', ', BSR_Sources::alert_recipients( $id ) ) )
+			);
+		}
+		echo '</tbody></table>';
+		echo '<p class="description">' . esc_html__( 'Add, change or remove sources with wp bot-storm-radar source add and source remove.', 'bot-storm-radar' ) . '</p>';
+	}
+
+	/**
+	 * @param array $lr BSR_Sources::log_state()
+	 * @return bool
+	 */
+	private static function ingest_is_late( array $lr ) {
+		return (int) $lr['last_run'] > 0 && ( time() - (int) $lr['last_run'] ) > 300;
 	}
 
 	// ── Small helpers ───────────────────────────────────────────────
@@ -733,6 +895,8 @@ class BSR_Admin {
 .bsr-pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:#646970}
 .bsr-pill-calm{background:#00a32a}.bsr-pill-warning{background:#dba617}.bsr-pill-storm{background:#d63638}.bsr-pill-cooling{background:#2271b1}
 .bsr-widget-state strong{font-size:18px}
+.bsr-sources{margin:8px 0 0}.bsr-sources a.current{font-weight:600}
+.bsr-widget-source.bsr-state-calm strong{color:#00a32a}.bsr-widget-source.bsr-state-warning strong{color:#dba617}.bsr-widget-source.bsr-state-storm strong{color:#d63638}.bsr-widget-source.bsr-state-cooling strong{color:#2271b1}
 .bsr-widget-state.bsr-state-calm strong{color:#00a32a}.bsr-widget-state.bsr-state-warning strong{color:#dba617}.bsr-widget-state.bsr-state-storm strong{color:#d63638}.bsr-widget-state.bsr-state-cooling strong{color:#2271b1}
 ';
 	}

@@ -39,6 +39,7 @@ class Bot_Storm_Radar {
 	private function load_dependencies() {
 		$dir = BSR_PLUGIN_DIR . 'includes/';
 		require_once $dir . 'class-bsr-helpers.php';
+		require_once $dir . 'class-bsr-sources.php';
 		require_once $dir . 'class-bsr-client-ip.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
@@ -56,6 +57,15 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-email-alerts.php';
 		require_once $dir . 'class-bsr-admin.php';
 		require_once $dir . 'class-bsr-github-updater.php';
+
+		// Log-fed sources are read from the command line only.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			require_once $dir . 'class-bsr-log-line.php';
+			require_once $dir . 'class-bsr-log-source.php';
+			require_once $dir . 'class-bsr-cli.php';
+			WP_CLI::add_command( 'bot-storm-radar', 'BSR_CLI' );
+			WP_CLI::add_command( 'bot-storm-radar source', 'BSR_CLI_Source' );
+		}
 	}
 
 	private function init_hooks() {

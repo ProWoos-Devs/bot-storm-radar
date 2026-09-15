@@ -32,7 +32,7 @@ class BSR_Classifier {
 	 * @return array
 	 */
 	public static function known_classes() {
-		return apply_filters( 'bsr_known_classes', [ 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'other' ] );
+		return apply_filters( 'bsr_known_classes', [ 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'special', 'revision', 'other' ] );
 	}
 
 	/**

@@ -13,7 +13,8 @@
  *  - error pressure: 5xx plus slow responses over all requests;
  *  - endpoint concentration: the largest share held by one sensitive class
  *    (search, xmlrpc, REST, login, register, comment, cart, checkout, 404,
- *    admin-ajax, wc-ajax).
+ *    admin-ajax, wc-ajax, and for a MediaWiki log source special pages and
+ *    old revisions).
  *
  * The storm score combines them, gated by volume against the learned
  * baseline so a quiet minute with three single-hit visitors scores zero.
@@ -27,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BSR_Metrics {
 
-	const SENSITIVE_CLASSES = [ 'search', 'xmlrpc', 'rest', 'login', 'register', 'comment', 'cart', 'checkout', '404', 'admin-ajax', 'wc-ajax' ];
+	const SENSITIVE_CLASSES = [ 'search', 'xmlrpc', 'rest', 'login', 'register', 'comment', 'cart', 'checkout', '404', 'admin-ajax', 'wc-ajax', 'special', 'revision' ];
 
 	const WEIGHTS = [
 		'single_hit'    => 0.35,
@@ -45,10 +46,12 @@ class BSR_Metrics {
 	/**
 	 * Read one minute's counters and compute the row the tick stores.
 	 *
-	 * @param int $minute
+	 * @param int        $minute
+	 * @param array|null $opts     Plugin options (defaults to stored).
+	 * @param array|null $baseline Baseline (defaults to the site's effective one).
 	 * @return array
 	 */
-	public static function compute_minute( $minute ) {
+	public static function compute_minute( $minute, $opts = null, $baseline = null ) {
 		$minute = (int) $minute;
 		$p      = 'm:' . $minute . ':';
 		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow' ];
@@ -138,7 +141,7 @@ class BSR_Metrics {
 			}
 		}
 
-		return self::score( $row );
+		return self::score( $row, $opts, $baseline );
 	}
 
 	/**
