@@ -1,13 +1,13 @@
 # Bot Storm Radar
 
-[![Version](https://img.shields.io/badge/Version-0.1.5-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
+[![Version](https://img.shields.io/badge/Version-0.1.6-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
 **Detects bot swarms as swarms.** A WordPress plugin that classifies every request, keeps sliding-window counters, computes swarm-level metrics and a storm score, learns the site's normal traffic, and tells you in plain words whether a bot storm is running right now and why.
 
-> **Current Version: 0.1.5** | **Released: September 15, 2026**
+> **Current Version: 0.1.6** | **Released: September 15, 2026**
 
 ## Why
 

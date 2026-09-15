@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-15
+
 ### Fixed
 - A log source's alerts now wait for a baseline day with at least 23 hours of data, as documented. In 0.1.5 they started at the first midnight after the source was added, because the baseline also summarizes the partial first day (60 minutes of data are enough for that).
 
