@@ -22,6 +22,12 @@ class BSR_Sources {
 	const SITE = 'site';
 
 	/**
+	 * Log source definitions (id => label, profile, logs, alert_to, created),
+	 * written only by `wp bot-storm-radar source add|remove`.
+	 */
+	const LOG_OPTION = 'bsr_log_sources';
+
+	/**
 	 * Ids that would produce option names 0.1.x already uses
 	 * (`bsr_min_chunks`, `bsr_tick`, `bsr_version`, ...), `log` because the
 	 * source definitions live in `bsr_log_sources`, and `replay`, the scratch
@@ -54,5 +60,78 @@ class BSR_Sources {
 		return is_string( $source )
 			&& 1 === preg_match( '/^[a-z][a-z0-9]{0,19}$/', $source )
 			&& ! in_array( $source, self::RESERVED, true );
+	}
+
+	/**
+	 * @return array id => definition
+	 */
+	public static function log_sources() {
+		$all = get_option( self::LOG_OPTION, [] );
+		return is_array( $all ) ? $all : [];
+	}
+
+	/**
+	 * The site, or a defined log source.
+	 *
+	 * @param mixed $source
+	 * @return bool
+	 */
+	public static function exists( $source ) {
+		return self::SITE === $source || ( is_string( $source ) && isset( self::log_sources()[ $source ] ) );
+	}
+
+	/**
+	 * @param string $source
+	 * @return string
+	 */
+	public static function label( $source ) {
+		if ( self::SITE === $source ) {
+			return __( 'Site', 'bot-storm-radar' );
+		}
+		$def = self::log_sources()[ $source ] ?? null;
+		return is_array( $def ) && '' !== (string) ( $def['label'] ?? '' ) ? (string) $def['label'] : ucfirst( (string) $source );
+	}
+
+	/**
+	 * A log source's reader state: last_minute, last_run, files, stats.
+	 *
+	 * @param string $source
+	 * @return array
+	 */
+	public static function log_state( $source ) {
+		$s = get_option( self::option( 'bsr_log_state', $source ), [] );
+		return wp_parse_args( is_array( $s ) ? $s : [], [ 'last_minute' => 0, 'last_run' => 0, 'files' => [], 'stats' => [] ] );
+	}
+
+	/**
+	 * Who gets a source's alerts: its own recipients when it has them,
+	 * otherwise the site's.
+	 *
+	 * @param string $source
+	 * @return array
+	 */
+	public static function alert_recipients( $source ) {
+		$def = self::SITE === $source ? null : ( self::log_sources()[ $source ] ?? null );
+		if ( is_array( $def ) && '' !== trim( (string) ( $def['alert_to'] ?? '' ) ) ) {
+			return BSR_Helpers::sanitize_email_list( (string) $def['alert_to'] );
+		}
+		return BSR_Helpers::sanitize_email_list( (string) BSR_Helpers::opt( 'email_recipients', '' ) );
+	}
+
+	/**
+	 * Whether a source's transitions are mailed yet. A log source starts
+	 * reading a busy log with no baseline, scored against the minimum-addresses
+	 * floor, so its ordinary traffic can look like a storm (a wiki with 40 to
+	 * 70 distinct addresses a minute does). It mails once its baseline holds
+	 * at least one full day. The site mails from the start, as in 0.1.
+	 *
+	 * @param string $source
+	 * @return bool
+	 */
+	public static function alerts_ready( $source ) {
+		if ( self::SITE === $source ) {
+			return true;
+		}
+		return (int) ( BSR_Baseline::effective( $source )['days'] ?? 0 ) >= 1;
 	}
 }

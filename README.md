@@ -51,13 +51,14 @@ Traffic that never reaches WordPress, such as a MediaWiki on the same server or 
 
 ```bash
 wp bot-storm-radar source add wiki --profile=mediawiki --label="Wiki" \
-  --logs=/var/log/nginx/wiki_access.log,/var/log/nginx/wiki-en_access.log
+  --logs=/var/log/nginx/wiki_access.log,/var/log/nginx/wiki-en_access.log \
+  --alert-to=ops@example.com   # optional, default: the site's alert recipients
 wp bot-storm-radar ingest            # once a minute, from a system timer
 wp bot-storm-radar source list
 wp bot-storm-radar replay old.log.gz --profile=mediawiki --baseline-ips=60   # what the radar would have said
 ```
 
-Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. The first ingest starts at the current end of the files. Log sources do not send alerts yet.
+Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. The first ingest starts at the current end of the files. A log source mails its transitions, naming the source, once its baseline holds one full day of data; until then it only logs them, because a busy log scored against the minimum-addresses floor can look like a storm.
 
 ## Hooks
 
