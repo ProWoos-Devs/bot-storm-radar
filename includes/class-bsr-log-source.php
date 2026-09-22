@@ -214,6 +214,15 @@ class BSR_Log_Source {
 	const MAX_BYTES     = 67108864;
 	const MAX_CATCHUP   = 60;
 	const LOCK_STALE_S  = 600;
+
+	/**
+	 * Responses the web server gave without doing any work: forbidden by a
+	 * gate, rate-limited, or the connection closed (nginx 444). Such a line
+	 * does not count toward addresses, volume or any request class, only
+	 * toward the minute's `refused` figure. A crawler flood the server refuses
+	 * costs it nothing and must not define what "normal" traffic is.
+	 */
+	const REFUSED_STATUSES = [ 403, 429, 444 ];
 	const GLOBALS_TTL   = 86400;
 
 	/**
@@ -395,7 +404,7 @@ class BSR_Log_Source {
 	private static function process( $id, $profile, array $cursors, $bucket, $current, array $state, $live ) {
 		$opts     = BSR_Helpers::get_options();
 		$baseline = BSR_Baseline::effective( $id );
-		$sum      = [ 'lines' => 0, 'late' => 0, 'minutes' => 0, 'bytes' => 0, 'bad' => 0, 'events' => [], 'transitions' => [], 'scores' => [] ];
+		$sum      = [ 'lines' => 0, 'late' => 0, 'minutes' => 0, 'bytes' => 0, 'bad' => 0, 'refused' => 0, 'events' => [], 'transitions' => [], 'scores' => [] ];
 		$stopped  = false;
 
 		foreach ( $cursors as $c ) {
@@ -453,16 +462,21 @@ class BSR_Log_Source {
 					break 2;
 				}
 			}
-			$class = BSR_Log_Line::classify( $pick->head, $profile );
-			if ( 'cron' !== $class ) {
-				BSR_Recorder::ingest( [
-					'class'   => $class,
-					'ip'      => $pick->head['ip'],
-					'ua'      => $pick->head['ua'],
-					'session' => '',
-					'status'  => $pick->head['status'],
-					'ms'      => 0,
-				], $bucket );
+			if ( in_array( (int) $pick->head['status'], self::REFUSED_STATUSES, true ) ) {
+				BSR_Counters::incr( 'm:' . $bucket . ':refused' );
+				$sum['refused']++;
+			} else {
+				$class = BSR_Log_Line::classify( $pick->head, $profile );
+				if ( 'cron' !== $class ) {
+					BSR_Recorder::ingest( [
+						'class'   => $class,
+						'ip'      => $pick->head['ip'],
+						'ua'      => $pick->head['ua'],
+						'session' => '',
+						'status'  => $pick->head['status'],
+						'ms'      => 0,
+					], $bucket );
+				}
 			}
 			$sum['lines']++;
 			$pick->next();

@@ -56,11 +56,12 @@ wp bot-storm-radar source add wiki --profile=mediawiki --label="Wiki" \
 wp bot-storm-radar ingest            # once a minute, from a system timer
 wp bot-storm-radar source list
 wp bot-storm-radar replay old.log.gz --profile=mediawiki --baseline-ips=60   # what the radar would have said
+wp bot-storm-radar source reset-baseline wiki   # forget the learned baseline, learn again
 ```
 
 The Radar tab gets a switcher with one entry per source, each with its own state, chart, classes, top keys and storm timeline, and a log reader card (files, last ingest, alert recipients, per-source resets). The dashboard widget lists every source, and the Settings tab shows the sources read-only.
 
-Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. The first ingest starts at the current end of the files. A log source mails its transitions, naming the source, once its baseline holds one full day of data; until then it only logs them, because a busy log scored against the minimum-addresses floor can look like a storm.
+Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. A line the web server answered with 403, 429 or 444 is a request it refused without doing any work; it counts toward the minute's `refused` figure, shown on the Radar tab and in explanations, and toward nothing else, so a crawler flood the server refuses at a gate does not define what normal traffic is. A baseline learned before this rule includes those addresses and is too high; forget it once with `source reset-baseline`. The first ingest starts at the current end of the files. A log source mails its transitions, naming the source, once its baseline holds one full day of data; until then it only logs them, because a busy log scored against the minimum-addresses floor can look like a storm.
 
 Log sources also carry an absolute 5xx rule. The error-pressure rule is a ratio and a short burst of server errors inside a busy minute never reaches it, so a minute with at least `error_burst_5xx` responses in the 5xx range (default 20) sends one alert per episode, without touching the storm state. The episode ends after `error_burst_clear_minutes` minutes (default 15) below the threshold. Bursts appear in the source's storm timeline.
 

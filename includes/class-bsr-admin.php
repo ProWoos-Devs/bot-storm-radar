@@ -420,6 +420,9 @@ class BSR_Admin {
 					<div class="bsr-card-sub"><?php printf( esc_html__( '0 means nothing looks like a swarm. Warning starts at %1$d, storm at %2$d.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'] ); ?></div>
 					<div class="bsr-card-sub"><?php printf( esc_html__( '%1$d requests from %2$d addresses, %3$d single-hit', 'bot-storm-radar' ), (int) $last['total'], (int) $last['ips'], (int) $last['single'] ); ?></div>
 					<div class="bsr-card-sub"><?php printf( esc_html__( 'asset ratio %1$s, %2$d user agents, %3$d networks', 'bot-storm-radar' ), esc_html( null === $last['asset_ratio'] ? '–' : BSR_Metrics::fmt( $last['asset_ratio'] ) ), (int) $last['uas'], (int) $last['nets'] ); ?></div>
+					<?php if ( (int) ( $last['refused'] ?? 0 ) > 0 ) : ?>
+						<div class="bsr-card-sub"><?php printf( esc_html__( '%d refused by the web server (403, 429, 444), not counted', 'bot-storm-radar' ), (int) $last['refused'] ); ?></div>
+					<?php endif; ?>
 					<div class="bsr-card-sub"><?php echo esc_html( wp_date( get_option( 'time_format' ), (int) $last['m'] * 60 ) ); ?></div>
 				<?php elseif ( $is_site ) : ?>
 					<div class="bsr-card-sub"><?php esc_html_e( 'No minute has been processed yet. The tick runs every minute through WP cron, or on the next front-end request when cron is late.', 'bot-storm-radar' ); ?></div>
@@ -752,7 +755,7 @@ class BSR_Admin {
 				if ( (int) $lr['last_run'] > 0 ) {
 					printf( esc_html__( 'last ran %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $lr['last_run'] ) ) );
 					if ( isset( $stats['lines'] ) ) {
-						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ) );
+						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed, %5$d refused', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ), (int) ( $stats['refused'] ?? 0 ) );
 					}
 					if ( ! empty( $stats['events'] ) ) {
 						$ev = [];
