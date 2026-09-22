@@ -62,6 +62,10 @@ The Radar tab gets a switcher with one entry per source, each with its own state
 
 Profiles: `mediawiki` (page views, special pages, old revisions, search, login, api.php, with `load.php` as the real-browser signal) and `wordpress`. The first ingest starts at the current end of the files. A log source mails its transitions, naming the source, once its baseline holds one full day of data; until then it only logs them, because a busy log scored against the minimum-addresses floor can look like a storm.
 
+Log sources also carry an absolute 5xx rule. The error-pressure rule is a ratio and a short burst of server errors inside a busy minute never reaches it, so a minute with at least `error_burst_5xx` responses in the 5xx range (default 20) sends one alert per episode, without touching the storm state. The episode ends after `error_burst_clear_minutes` minutes (default 15) below the threshold. Bursts appear in the source's storm timeline.
+
+Behind a page cache PHP sees mostly cache misses, so the site's "slow request" measure counts the cache rather than the site. Set `Slow request (ms)` to 0 there, so that error pressure counts 5xx responses only; the Settings tab and the Radar tab say so when `WP_CACHE` is on and slow requests still count.
+
 ## Hooks
 
 - `bsr_request_class( array $result, string $path, array $query, array $server )` adds or overrides the request class.

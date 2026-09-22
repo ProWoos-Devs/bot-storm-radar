@@ -53,6 +53,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'interface-bsr-actions.php';
 		require_once $dir . 'class-bsr-actions-log.php';
 		require_once $dir . 'class-bsr-storm.php';
+		require_once $dir . 'class-bsr-error-burst.php';
 		require_once $dir . 'class-bsr-tick.php';
 		require_once $dir . 'class-bsr-email-alerts.php';
 		require_once $dir . 'class-bsr-admin.php';
@@ -181,6 +182,8 @@ class Bot_Storm_Radar {
 			'min_distinct_ips'      => 30,
 			'spike_factor'          => 4,
 			'slow_request_ms'       => 2000,
+			'error_burst_5xx'       => 20,
+			'error_burst_clear_minutes' => 15,
 			'trusted_proxies'       => '',
 			'trust_all_forwarding'  => 0,
 		];
