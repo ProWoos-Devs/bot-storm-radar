@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-22
+
 ### Added
 - Absolute 5xx rule for log sources. A minute with at least `error_burst_5xx` responses in the 5xx range (default 20) mails one alert per episode and logs it in the source's storm timeline without changing the storm state; the episode ends after `error_burst_clear_minutes` minutes (default 15) below the threshold. The ratio rule needs 5xx to be half of a minute's requests, so 108 HTTP 500 in fourteen seconds of a 700-request minute never fired it.
 - `wp bot-storm-radar source reset-baseline <id>` forgets a log source's learned baseline and starts learning again.

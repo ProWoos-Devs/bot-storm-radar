@@ -1,13 +1,13 @@
 # Bot Storm Radar
 
-[![Version](https://img.shields.io/badge/Version-0.1.6-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
+[![Version](https://img.shields.io/badge/Version-0.1.7-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
 **Bot attacks no longer come from one address.** They come as swarms of thousands of addresses that each make one or two requests, so a tool that judges visitors one by one sees nothing wrong. Bot Storm Radar is a WordPress plugin that watches the crowd instead. Every minute it counts how many different addresses visited, how many made only one request, how many loaded a stylesheet or a script the way a real browser does, and how evenly the browser names are spread. It turns that into a storm score, learns what normal traffic looks like on your site, and tells you in plain words whether a bot storm is running right now and why.
 
-> **Current Version: 0.1.6** | **Released: September 15, 2026**
+> **Current Version: 0.1.7** | **Released: September 22, 2026**
 
 ## Why
 

@@ -3,7 +3,7 @@
  * Plugin Name: Bot Storm Radar
  * Plugin URI:  https://github.com/ProWoos-Devs/bot-storm-radar
  * Description: Bot attacks no longer come from one address. They come as swarms of thousands of addresses that each make one request, and a tool that judges visitors one by one sees nothing wrong. Bot Storm Radar watches the crowd instead. Every minute it counts how many addresses visited, how many made a single request, how many loaded assets like a real browser and how the browser names are spread, turns that into a storm score, learns the site's normal traffic and tells you in plain words when a bot storm is running. This release is radar only, nothing is ever blocked.
- * Version:     0.1.6
+ * Version:     0.1.7
  * Author:      ProWoos
  * Author URI:  https://github.com/ProWoos-Devs
  * Text Domain: bot-storm-radar
@@ -33,7 +33,7 @@ if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
 	return;
 }
 
-define( 'BSR_VERSION', '0.1.6' );
+define( 'BSR_VERSION', '0.1.7' );
 define( 'BSR_PLUGIN_FILE', __FILE__ );
 define( 'BSR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BSR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
