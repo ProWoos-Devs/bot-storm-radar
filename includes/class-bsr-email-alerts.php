@@ -59,6 +59,9 @@ class BSR_Email_Alerts {
 		$body[] = sprintf( 'HTML-serving addresses: %d, beacon addresses: %d', (int) ( $m['html_ips'] ?? 0 ), (int) ( $m['beacon_ips'] ?? 0 ) );
 		$body[] = sprintf( 'Distinct user agents: %d, networks: %d', (int) ( $m['uas'] ?? 0 ), (int) ( $m['nets'] ?? 0 ) );
 		$body[] = sprintf( '5xx responses: %d, slow responses: %d', (int) ( $m['err5'] ?? 0 ), (int) ( $m['slow'] ?? 0 ) );
+		if ( (int) ( $m['refused'] ?? 0 ) > 0 ) {
+			$body[] = sprintf( 'Refused by the web server (403, 429, 444), not counted: %d', (int) $m['refused'] );
+		}
 		if ( ! empty( $m['top_class'] ) ) {
 			$body[] = sprintf( 'Busiest sensitive endpoint class: %s (%s of requests)', $m['top_class'], self::pct( $m['concentration'] ?? 0 ) );
 		}

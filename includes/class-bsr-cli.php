@@ -57,7 +57,7 @@ class BSR_CLI {
 				continue;
 			}
 			WP_CLI::log( sprintf(
-				'%s: %s, %d minutes, %d lines, %s read, %d late, %d unparsed%s%s, %d ms.',
+				'%s: %s, %d minutes, %d lines, %s read, %d late, %d unparsed, %d refused%s%s, %d ms.',
 				$id,
 				$sum['status'],
 				(int) ( $sum['minutes'] ?? 0 ),
@@ -65,6 +65,7 @@ class BSR_CLI {
 				size_format( (int) ( $sum['bytes'] ?? 0 ) ),
 				(int) ( $sum['late'] ?? 0 ),
 				(int) ( $sum['bad'] ?? 0 ),
+				(int) ( $sum['refused'] ?? 0 ),
 				empty( $sum['events'] ) ? '' : ', files: ' . self::events( $sum['events'] ),
 				empty( $sum['stopped'] ) ? '' : ', stopped at the read budget',
 				$ms
@@ -123,7 +124,7 @@ class BSR_CLI {
 		$sum      = BSR_Log_Source::replay( BSR_Sources::REPLAY, $assoc['profile'], $args, $baseline );
 		$ms       = (int) round( ( microtime( true ) - $t0 ) * 1000 );
 
-		WP_CLI::log( sprintf( '%d minutes, %d lines, %s, %d unparsed, %d late, %d ms.', $sum['minutes'], $sum['lines'], size_format( $sum['bytes'] ), $sum['bad'], $sum['late'], $ms ) );
+		WP_CLI::log( sprintf( '%d minutes, %d lines, %s, %d unparsed, %d late, %d refused by the web server (403, 429, 444; not counted), %d ms.', $sum['minutes'], $sum['lines'], size_format( $sum['bytes'] ), $sum['bad'], $sum['late'], (int) ( $sum['refused'] ?? 0 ), $ms ) );
 		WP_CLI::log( '' );
 		WP_CLI::log( 'Transitions:' );
 		foreach ( $sum['transitions'] as $t ) {
@@ -282,6 +283,40 @@ class BSR_CLI_Source {
 			];
 		}
 		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, [ 'id', 'label', 'profile', 'logs', 'state', 'last_run', 'alert_to', 'alerts' ] );
+	}
+
+	/**
+	 * Forget a log source's learned baseline and start the seven-day learning
+	 * period again.
+	 *
+	 * Needed once after upgrading to a version that stops counting refused
+	 * requests (403, 429, 444): a baseline learned with them in is too high
+	 * and hides real swarms. The source stays silent until the new baseline
+	 * holds one full day.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : Source id.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp bot-storm-radar source reset-baseline wiki
+	 *
+	 * @subcommand reset-baseline
+	 *
+	 * @param array $args
+	 * @param array $assoc
+	 */
+	public function reset_baseline( $args, $assoc ) {
+		$id = (string) $args[0];
+		if ( null === BSR_Log_Source::get( $id ) ) {
+			WP_CLI::error( sprintf( 'No source "%s".', $id ) );
+		}
+		$b   = BSR_Baseline::effective( $id );
+		$was = empty( $b['ips_median'] ) ? 'nothing learned yet' : sprintf( 'was median %s distinct addresses per minute over %d day(s), %s', BSR_Metrics::fmt( $b['ips_median'], 0 ), (int) $b['days'], (string) $b['status'] );
+		BSR_Baseline::reset( $id );
+		WP_CLI::success( sprintf( 'Baseline of "%s" forgotten (%s). Learning starts again from the next full UTC day; alerts for this source resume once the baseline holds one full day.', $id, $was ) );
 	}
 
 	/**

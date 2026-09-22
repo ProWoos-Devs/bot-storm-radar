@@ -54,7 +54,7 @@ class BSR_Metrics {
 	public static function compute_minute( $minute, $opts = null, $baseline = null ) {
 		$minute = (int) $minute;
 		$p      = 'm:' . $minute . ':';
-		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow' ];
+		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow', 'refused' ];
 		$keys   = [];
 		foreach ( $base as $k ) {
 			$keys[] = $p . $k;
@@ -247,6 +247,9 @@ class BSR_Metrics {
 			? sprintf( __( 'baseline %s', 'bot-storm-radar' ), self::fmt( $baseline['ips_median'], 0 ) )
 			: __( 'no baseline yet, using the minimum-addresses setting', 'bot-storm-radar' );
 		$volume = sprintf( __( 'Volume: %1$d distinct addresses in the minute, %2$s (%3$s×), gate %4$s.', 'bot-storm-radar' ), (int) ( $row['ips'] ?? 0 ), $ref, self::fmt( $row['vol'] ?? 0, 1 ), self::fmt( $row['gate'] ?? 0 ) );
+		if ( (int) ( $row['refused'] ?? 0 ) > 0 ) {
+			$volume .= ' ' . sprintf( __( '%d requests refused by the web server (403, 429, 444) are not counted.', 'bot-storm-radar' ), (int) $row['refused'] );
+		}
 
 		if ( empty( $parts ) ) {
 			return sprintf( __( 'Storm score %d: no signal fired. %s', 'bot-storm-radar' ), (int) ( $row['score'] ?? 0 ), $volume );
