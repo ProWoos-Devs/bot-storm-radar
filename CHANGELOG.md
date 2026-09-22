@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Plain-language description. The plugin header and the README now open with the problem (swarms of single-request addresses that per-address tools cannot see) instead of the metric names, the Radar tab starts with a short paragraph saying what the score measures and that a quiet site scores 0, the score card says where warning and storm start, and the "Plumbing" card is called "Status". Prompted by a tester who could not tell what the plugin was for from its own screens.
 
+### Fixed
+- `wp bot-storm-radar replay` with `--baseline-ips` sent real alert mails to the site's recipients. The figure is stored as the scratch source's learned baseline so that the explanations read it, and a learned baseline is what switches a log source's alerts on. The replay source is now excluded from mailing whatever its baseline says, as the command's help always promised.
+
 ## [0.1.6] - 2026-09-15
 
 ### Fixed

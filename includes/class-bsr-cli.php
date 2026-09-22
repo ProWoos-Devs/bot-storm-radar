@@ -120,7 +120,7 @@ class BSR_CLI {
 		}
 		$baseline = isset( $assoc['baseline-ips'] ) ? [ 'ips_median' => (float) $assoc['baseline-ips'] ] : null;
 		$t0       = microtime( true );
-		$sum      = BSR_Log_Source::replay( 'replay', $assoc['profile'], $args, $baseline );
+		$sum      = BSR_Log_Source::replay( BSR_Sources::REPLAY, $assoc['profile'], $args, $baseline );
 		$ms       = (int) round( ( microtime( true ) - $t0 ) * 1000 );
 
 		WP_CLI::log( sprintf( '%d minutes, %d lines, %s, %d unparsed, %d late, %d ms.', $sum['minutes'], $sum['lines'], size_format( $sum['bytes'] ), $sum['bad'], $sum['late'], $ms ) );
@@ -160,7 +160,7 @@ class BSR_CLI {
 				fclose( $fh ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			}
 		}
-		BSR_Log_Source::purge( 'replay' );
+		BSR_Log_Source::purge( BSR_Sources::REPLAY );
 	}
 
 	/**

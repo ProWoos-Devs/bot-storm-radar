@@ -42,6 +42,12 @@ class BSR_Sources {
 	const RESERVED = [ 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update', 'log', 'replay' ];
 
 	/**
+	 * The scratch source `wp bot-storm-radar replay` writes and purges. It
+	 * never mails, whatever its baseline says.
+	 */
+	const REPLAY = 'replay';
+
+	/**
 	 * The option name a per-source option has for this source.
 	 *
 	 * @param string $name   Site option name, starting with `bsr_`.
@@ -133,7 +139,7 @@ class BSR_Sources {
 	 * source started on (60 minutes are enough for that), so counting days
 	 * alone would switch alerts on at the first midnight after a few hours of
 	 * data; a day only counts here with FULL_DAY_MINUTES rows. The site mails
-	 * from the start, as in 0.1.
+	 * from the start, as in 0.1. The replay scratch source never mails.
 	 *
 	 * @param string $source
 	 * @return bool
@@ -141,6 +147,11 @@ class BSR_Sources {
 	public static function alerts_ready( $source ) {
 		if ( self::SITE === $source ) {
 			return true;
+		}
+		// A replay stores the --baseline-ips figure as a learned baseline so
+		// that the explanations read it; that must not switch alerts on.
+		if ( self::REPLAY === $source ) {
+			return false;
 		}
 		$b = BSR_Baseline::get( $source );
 		if ( is_array( $b['learned'] ) ) {
