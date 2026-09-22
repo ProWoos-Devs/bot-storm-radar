@@ -5,7 +5,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
-**Detects bot swarms as swarms.** A WordPress plugin that classifies every request, keeps sliding-window counters, computes swarm-level metrics and a storm score, learns the site's normal traffic, and tells you in plain words whether a bot storm is running right now and why.
+**Bot attacks no longer come from one address.** They come as swarms of thousands of addresses that each make one or two requests, so a tool that judges visitors one by one sees nothing wrong. Bot Storm Radar is a WordPress plugin that watches the crowd instead. Every minute it counts how many different addresses visited, how many made only one request, how many loaded a stylesheet or a script the way a real browser does, and how evenly the browser names are spread. It turns that into a storm score, learns what normal traffic looks like on your site, and tells you in plain words whether a bot storm is running right now and why.
 
 > **Current Version: 0.1.6** | **Released: September 15, 2026**
 
@@ -17,7 +17,7 @@ Bot Storm Radar looks at the crowd instead of the individual.
 
 ## What 0.1 does
 
-This is the radar-only release. It observes and reports. **Nothing is blocked, challenged, or rate-limited.** Its purpose is to calibrate the swarm metrics against real traffic before any later release can affect a visitor.
+This is the radar-only release. It observes and reports. **Nothing is blocked, challenged, or rate-limited.** Its purpose is to calibrate the swarm metrics against real traffic before any later release can affect a visitor. On a quiet site or a test install the numbers stay near zero and the state stays calm. That is the radar saying nothing looks like a swarm, not a plugin doing nothing.
 
 - **Request classes.** Every request is classified once: html, search, rest (users, Store API, other), xmlrpc, login, register, comment, admin-ajax, wc-ajax, checkout, cart, asset, 404. WooCommerce adds its classes when present.
 - **Counters** in sliding one-minute and ten-minute windows keyed by address, IPv4 /24, IPv6 /48, user-agent hash and WordPress session. Stored in the persistent object cache when there is one (Redis, Memcached), in APCu next, and in a transient fallback as the last resort. The Radar screen says which backend is active and warns on the fallback.

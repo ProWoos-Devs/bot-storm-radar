@@ -400,6 +400,7 @@ class BSR_Admin {
 		$opts     = BSR_Helpers::get_options();
 		$labels   = self::state_labels();
 		?>
+		<p class="bsr-intro"><?php esc_html_e( 'Bot Storm Radar watches your traffic as a crowd, not one visitor at a time. Every minute it counts the addresses that visited, how many made a single request, how many loaded a stylesheet or a script like a real browser, and how the browser names are spread, and turns that into a storm score from 0 to 100. A quiet site scores 0 and stays calm. This version only reports, nothing is ever blocked.', 'bot-storm-radar' ); ?></p>
 		<div class="bsr-cards">
 			<div class="bsr-card bsr-state bsr-state-<?php echo esc_attr( $state['state'] ); ?>">
 				<div class="bsr-card-label"><?php esc_html_e( 'Current state', 'bot-storm-radar' ); ?></div>
@@ -411,6 +412,7 @@ class BSR_Admin {
 				<div class="bsr-card-label"><?php esc_html_e( 'Last finished minute', 'bot-storm-radar' ); ?></div>
 				<?php if ( $last ) : ?>
 					<div class="bsr-big"><?php echo esc_html( (string) (int) $last['score'] ); ?> <small><?php esc_html_e( 'score', 'bot-storm-radar' ); ?></small></div>
+					<div class="bsr-card-sub"><?php printf( esc_html__( '0 means nothing looks like a swarm. Warning starts at %1$d, storm at %2$d.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'] ); ?></div>
 					<div class="bsr-card-sub"><?php printf( esc_html__( '%1$d requests from %2$d addresses, %3$d single-hit', 'bot-storm-radar' ), (int) $last['total'], (int) $last['ips'], (int) $last['single'] ); ?></div>
 					<div class="bsr-card-sub"><?php printf( esc_html__( 'asset ratio %1$s, %2$d user agents, %3$d networks', 'bot-storm-radar' ), esc_html( null === $last['asset_ratio'] ? '–' : BSR_Metrics::fmt( $last['asset_ratio'] ) ), (int) $last['uas'], (int) $last['nets'] ); ?></div>
 					<div class="bsr-card-sub"><?php echo esc_html( wp_date( get_option( 'time_format' ), (int) $last['m'] * 60 ) ); ?></div>
@@ -429,7 +431,7 @@ class BSR_Admin {
 				<?php self::render_log_card( $source ); ?>
 			<?php else : ?>
 			<div class="bsr-card">
-				<div class="bsr-card-label"><?php esc_html_e( 'Plumbing', 'bot-storm-radar' ); ?></div>
+				<div class="bsr-card-label"><?php esc_html_e( 'Status', 'bot-storm-radar' ); ?></div>
 				<div class="bsr-card-sub <?php echo 'transient' === $backend ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Counters:', 'bot-storm-radar' ); ?></strong> <?php echo esc_html( BSR_Counters::backend_label() ); ?>
 					<?php if ( 'transient' === $backend ) : ?>
 						<br /><?php esc_html_e( 'The fallback writes to the database on every request and can lose counts under load. Install a persistent object cache (Redis, Memcached) or enable APCu.', 'bot-storm-radar' ); ?>
@@ -713,7 +715,7 @@ class BSR_Admin {
 	// ── Log sources ─────────────────────────────────────────────────
 
 	/**
-	 * The card that replaces Plumbing for a log source: its files, the last
+	 * The card that replaces Status for a log source: its files, the last
 	 * ingest, the alert recipients, and per-source resets.
 	 *
 	 * @param string $source
@@ -862,6 +864,7 @@ class BSR_Admin {
 .bsr-header-icon{font-size:40px;width:40px;height:40px;color:#2271b1}
 .bsr-header h1{margin:0;padding:0;line-height:1.2}
 .bsr-version{color:#646970;font-size:12px}
+.bsr-intro{max-width:900px;color:#3c434a;margin:8px 0 16px}
 .bsr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:16px 0}
 .bsr-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:12px 14px}
 .bsr-card-label{text-transform:uppercase;font-size:11px;letter-spacing:.04em;color:#646970;margin-bottom:6px}
