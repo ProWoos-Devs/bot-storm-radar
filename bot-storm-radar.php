@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bot Storm Radar
  * Plugin URI:  https://github.com/ProWoos-Devs/bot-storm-radar
- * Description: Detects bot swarms as swarms. Classifies every request, keeps sliding-window counters, computes swarm metrics (single-hit ratio, asset ratio, user-agent evenness, error pressure, endpoint concentration) and a storm score, learns the site's baseline, and reports calm, warning, storm and cooling states with email alerts. Radar only in this release: nothing is ever blocked.
+ * Description: Bot attacks no longer come from one address. They come as swarms of thousands of addresses that each make one request, and a tool that judges visitors one by one sees nothing wrong. Bot Storm Radar watches the crowd instead. Every minute it counts how many addresses visited, how many made a single request, how many loaded assets like a real browser and how the browser names are spread, turns that into a storm score, learns the site's normal traffic and tells you in plain words when a bot storm is running. This release is radar only, nothing is ever blocked.
  * Version:     0.1.6
  * Author:      ProWoos
  * Author URI:  https://github.com/ProWoos-Devs

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Plain-language description. The plugin header and the README now open with the problem (swarms of single-request addresses that per-address tools cannot see) instead of the metric names, the Radar tab starts with a short paragraph saying what the score measures and that a quiet site scores 0, the score card says where warning and storm start, and the "Plumbing" card is called "Status". Prompted by a tester who could not tell what the plugin was for from its own screens.
+
 ## [0.1.6] - 2026-09-15
 
 ### Fixed
