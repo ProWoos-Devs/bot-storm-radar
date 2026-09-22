@@ -88,13 +88,17 @@ class BSR_Admin {
 		add_settings_section( 'bsr_thresholds', __( 'Storm thresholds', 'bot-storm-radar' ), function () use ( $baseline_note ) {
 			echo '<p>' . esc_html__( 'The storm score runs from 0 to 100. It only rises when the number of distinct addresses in a minute exceeds the baseline by the spike factor, so a quiet minute never scores.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="bsr-baseline">' . esc_html( $baseline_note ) . '</p>';
+			if ( self::page_cache_counts_slow() ) {
+				echo '<p class="bsr-danger">' . esc_html__( 'A page cache is installed (WP_CACHE is on). PHP then sees mostly cache misses, so slow requests measure the cache and not the site. Set "Slow request" to 0 so that error pressure counts 5xx responses only.', 'bot-storm-radar' ) . '</p>';
+			}
 		}, self::PAGE );
 		self::number_field( 'warning_threshold', __( 'Warning threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which the state moves from calm to warning.', 'bot-storm-radar' ) );
 		self::number_field( 'storm_threshold', __( 'Storm threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which warning becomes storm.', 'bot-storm-radar' ) );
 		self::number_field( 'error_pressure_storm', __( 'Error pressure alone', 'bot-storm-radar' ), 'bsr_thresholds', 0, 1, 0.01, __( 'Share of 5xx and slow responses (0 to 1) that turns a warning into a storm on its own, whatever the score.', 'bot-storm-radar' ) );
 		self::number_field( 'min_distinct_ips', __( 'Minimum distinct addresses', 'bot-storm-radar' ), 'bsr_thresholds', 1, 100000, 1, sprintf( __( 'Below this many distinct addresses in a minute the score is always 0. Also the reference volume until a baseline is learned. Baseline: %s', 'bot-storm-radar' ), self::fmt_or_dash( $b['ips_median'] ?? null, 0 ) ) );
 		self::number_field( 'spike_factor', __( 'Spike factor', 'bot-storm-radar' ), 'bsr_thresholds', 1.5, 100, 0.5, __( 'The score reaches full weight when the minute has this many times the baseline addresses.', 'bot-storm-radar' ) );
-		self::number_field( 'slow_request_ms', __( 'Slow request (ms)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 60000, 100, __( 'PHP requests taking at least this long count toward error pressure. 0 disables.', 'bot-storm-radar' ) );
+		self::number_field( 'slow_request_ms', __( 'Slow request (ms)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 60000, 100, __( 'PHP requests taking at least this long count toward error pressure. 0 disables. Behind a page cache PHP sees mostly cache misses, so slow requests then measure the cache, not the site; use 0 there.', 'bot-storm-radar' ) );
+		self::number_field( 'error_burst_5xx', __( '5xx burst (log sources)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100000, 1, __( 'A log source minute with at least this many 5xx responses sends one alert per episode, whatever the ratio and the score. The storm state is not changed. 0 disables. Applies to log sources only.', 'bot-storm-radar' ) );
 
 		add_settings_section( 'bsr_timing', __( 'Timing', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'Consecutive finished minutes. One minute is sixty seconds of observation.', 'bot-storm-radar' ) . '</p>';
@@ -104,6 +108,7 @@ class BSR_Admin {
 		self::number_field( 'warning_clear_minutes', __( 'Minutes below warning to clear a warning', 'bot-storm-radar' ), 'bsr_timing', 1, 240, 1 );
 		self::number_field( 'storm_hold_minutes', __( 'Storm hold (minutes below warning before cooling)', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
 		self::number_field( 'cooling_hold_minutes', __( 'Cooling hold (minutes before calm)', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
+		self::number_field( 'error_burst_clear_minutes', __( 'Minutes below the 5xx burst threshold before the episode ends', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
 
 		add_settings_section( 'bsr_alerts', __( 'Alerts', 'bot-storm-radar' ), '__return_null', self::PAGE );
 		add_settings_field( 'email_recipients', __( 'Alert email recipients', 'bot-storm-radar' ), function () {
@@ -159,7 +164,7 @@ class BSR_Admin {
 			return $current;
 		}
 		$out = $current;
-		$ints = [ 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ] ];
+		$ints = [ 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
 		foreach ( $ints as $k => $range ) {
 			if ( isset( $input[ $k ] ) ) {
 				$out[ $k ] = (int) BSR_Helpers::clamp( (int) $input[ $k ], $range[0], $range[1] );
@@ -466,6 +471,9 @@ class BSR_Admin {
 					}
 					?>
 				</div>
+				<?php if ( self::page_cache_counts_slow() ) : ?>
+					<div class="bsr-card-sub bsr-danger"><?php esc_html_e( 'A page cache is installed (WP_CACHE is on) and slow requests still count toward error pressure. Set "Slow request" to 0 on the Settings tab.', 'bot-storm-radar' ); ?></div>
+				<?php endif; ?>
 				<div class="bsr-card-sub"><strong><?php esc_html_e( 'WooCommerce:', 'bot-storm-radar' ); ?></strong> <?php echo BSR_WooCommerce::active() ? esc_html__( 'module active', 'bot-storm-radar' ) : esc_html__( 'not present', 'bot-storm-radar' ); ?></div>
 			</div>
 			<?php endif; ?>
@@ -656,6 +664,15 @@ class BSR_Admin {
 		}
 		echo '<table class="widefat striped bsr-table"><thead><tr><th>' . esc_html__( 'When', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Transition', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Why', 'bot-storm-radar' ) . '</th></tr></thead><tbody>';
 		foreach ( $log as $t ) {
+			if ( ! empty( $t['burst'] ) ) {
+				printf(
+					'<tr><td class="bsr-nowrap">%s</td><td class="bsr-nowrap"><span class="bsr-pill bsr-pill-burst">%s</span></td><td>%s</td></tr>',
+					esc_html( wp_date( 'Y-m-d H:i', (int) $t['at'] ) ),
+					esc_html__( '5xx burst', 'bot-storm-radar' ),
+					esc_html( (string) $t['explanation'] )
+				);
+				continue;
+			}
 			printf(
 				'<tr><td class="bsr-nowrap">%s</td><td class="bsr-nowrap"><span class="bsr-pill bsr-pill-%s">%s</span> → <span class="bsr-pill bsr-pill-%s">%s</span></td><td>%s</td></tr>',
 				esc_html( wp_date( 'Y-m-d H:i', (int) $t['at'] ) ),
@@ -800,6 +817,16 @@ class BSR_Admin {
 	}
 
 	/**
+	 * A page-cache drop-in is active and slow requests still count. Behind a
+	 * page cache PHP mostly sees cache misses, so "slow" measures the cache.
+	 *
+	 * @return bool
+	 */
+	private static function page_cache_counts_slow() {
+		return defined( 'WP_CACHE' ) && WP_CACHE && (int) BSR_Helpers::opt( 'slow_request_ms', 2000 ) > 0;
+	}
+
+	/**
 	 * @param array $lr BSR_Sources::log_state()
 	 * @return bool
 	 */
@@ -896,7 +923,7 @@ class BSR_Admin {
 .bsr-table .bsr-num{text-align:right;width:80px}
 .bsr-nowrap{white-space:nowrap}
 .bsr-pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff;background:#646970}
-.bsr-pill-calm{background:#00a32a}.bsr-pill-warning{background:#dba617}.bsr-pill-storm{background:#d63638}.bsr-pill-cooling{background:#2271b1}
+.bsr-pill-calm{background:#00a32a}.bsr-pill-warning{background:#dba617}.bsr-pill-storm{background:#d63638}.bsr-pill-cooling{background:#2271b1}.bsr-pill-burst{background:#b32d2e}
 .bsr-widget-state strong{font-size:18px}
 .bsr-sources{margin:8px 0 0}.bsr-sources a.current{font-weight:600}
 .bsr-widget-source.bsr-state-calm strong{color:#00a32a}.bsr-widget-source.bsr-state-warning strong{color:#dba617}.bsr-widget-source.bsr-state-storm strong{color:#d63638}.bsr-widget-source.bsr-state-cooling strong{color:#2271b1}

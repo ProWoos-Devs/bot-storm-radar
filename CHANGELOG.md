@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Absolute 5xx rule for log sources. A minute with at least `error_burst_5xx` responses in the 5xx range (default 20) mails one alert per episode and logs it in the source's storm timeline without changing the storm state; the episode ends after `error_burst_clear_minutes` minutes (default 15) below the threshold. The ratio rule needs 5xx to be half of a minute's requests, so 108 HTTP 500 in fourteen seconds of a 700-request minute never fired it.
+
 ### Changed
 - Plain-language description. The plugin header and the README now open with the problem (swarms of single-request addresses that per-address tools cannot see) instead of the metric names, the Radar tab starts with a short paragraph saying what the score measures and that a quiet site scores 0, the score card says where warning and storm start, and the "Plumbing" card is called "Status". Prompted by a tester who could not tell what the plugin was for from its own screens.
+- Behind a page cache (`WP_CACHE` on) with slow requests still counting toward error pressure, the Settings tab and the Radar tab now say that slow requests measure cache misses there and to set "Slow request" to 0.
 
 ### Fixed
 - `wp bot-storm-radar replay` with `--baseline-ips` sent real alert mails to the site's recipients. The figure is stored as the scratch source's learned baseline so that the explanations read it, and a learned baseline is what switches a log source's alerts on. The replay source is now excluded from mailing whatever its baseline says, as the command's help always promised.

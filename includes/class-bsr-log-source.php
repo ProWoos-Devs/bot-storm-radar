@@ -266,7 +266,7 @@ class BSR_Log_Source {
 	 */
 	public static function purge( $id ) {
 		BSR_Storage::clear( $id );
-		foreach ( [ BSR_Storm::STATE_OPTION, BSR_Baseline::OPTION, 'bsr_log_state', 'bsr_log_lock' ] as $name ) {
+		foreach ( [ BSR_Storm::STATE_OPTION, BSR_Baseline::OPTION, BSR_Error_Burst::OPTION, 'bsr_log_state', 'bsr_log_lock' ] as $name ) {
 			delete_option( BSR_Sources::option( $name, $id ) );
 		}
 		delete_transient( BSR_Sources::option( 'bsr_log_globals', $id ) );
@@ -407,6 +407,10 @@ class BSR_Log_Source {
 			BSR_Storage::add_minute( $row, $id );
 			foreach ( BSR_Storm::step( $row, $opts, $id ) as $t ) {
 				$sum['transitions'][] = [ 'minute' => $m, 'from' => $t['from'], 'to' => $t['to'], 'score' => $t['score'], 'explanation' => $t['explanation'] ];
+			}
+			$burst = BSR_Error_Burst::observe( $row, $opts, $id );
+			if ( null !== $burst ) {
+				$sum['transitions'][] = [ 'minute' => $m, 'from' => $burst['from'], 'to' => $burst['to'], 'score' => $burst['score'], 'explanation' => $burst['explanation'] ];
 			}
 			BSR_Counters::memory_purge( 'm:' . $m . ':' );
 			$sum['scores'][ $m ] = [ (int) $row['score'], (int) $row['ips'], (int) $row['total'] ];
