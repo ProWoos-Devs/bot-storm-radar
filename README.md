@@ -45,6 +45,10 @@ Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, 
 2. Activate the plugin through the WordPress Plugins menu
 3. Open **Bot Storm Radar** in wp-admin. Leave it running for a week so the baseline can learn, then review the thresholds on the Settings tab.
 
+## Gate
+
+The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-radar-gate.php`, that loads its gate before any other plugin. The gate reads the state file in the data directory, never loads WordPress and never queries the database, and answers 403 to an address under an active ban. Until address bans can be switched to enforce, it only observes. Deactivating Bot Storm Radar removes the loader. If the gate file is missing the loader does nothing, so the site keeps working.
+
 ## Data directory
 
 The plugin keeps the files its gate reads in `wp-content/bot-storm-radar-<random>/`. Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
@@ -55,7 +59,7 @@ location ^~ /wp-content/bot-storm-radar- {
 }
 ```
 
-Every file in the directory is written with `<?php exit; ?>` as its first line and a `.php` name, so a server that runs PHP returns an empty body for it even without that rule.
+Every data file in the directory is written with `<?php exit; ?>` as its first line and a `.php` name, so a server that runs PHP returns an empty body for it even without that rule. The one exception is `gate.php`, the gate itself; requested directly it only runs the gate check and returns nothing else.
 
 ## Log sources
 

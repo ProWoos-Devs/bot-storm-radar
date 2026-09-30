@@ -1,0 +1,222 @@
+<?php
+/**
+ * The gate: runs before themes and plugins, never loads WordPress, never
+ * touches the database. It reads the state file, resolves the visitor like
+ * the radar does, and answers 403 to an address under an active ban.
+ * Everything else passes to WordPress untouched.
+ *
+ * Order on every request:
+ *   1. register the shutdown observer (the hook point exists now so that
+ *      protected and refused requests are observed too; it records nothing
+ *      until the health work fills it in);
+ *   2. resolve the client address with the trust configuration of the state;
+ *   3. a protected address passes (allowlist, administrator addresses,
+ *      verified bots, CDN and proxy ranges, private addresses);
+ *   4. in enforce mode, an active ban answers 403. Expiry is compared with
+ *      the current time on every decision, so a ban ends even if cron never
+ *      runs. Observe mode never refuses.
+ *
+ * There is no exemption for a login cookie: the gate cannot validate one
+ * (that needs the user, the signature and the session token), and a cookie
+ * that is merely present can be forged.
+ *
+ * This file is not loaded by the plugin. BSR_Gate_Install bundles it with
+ * BSR_IP_Resolver and BSR_State_Reader into one self-contained gate file in
+ * the data directory, with every class renamed to a BSR_Gate_ prefix so it
+ * never collides with the plugin's own copies.
+ *
+ * @package Bot_Storm_Radar
+ */
+
+// Loadable inside WordPress (tests) or by the gate, which defines BSR_GATE first.
+if ( ! defined( 'ABSPATH' ) && ! defined( 'BSR_GATE' ) ) {
+	exit;
+}
+
+class BSR_Gate {
+
+	/**
+	 * APCu key prefix for the decoded state.
+	 */
+	const CACHE_PREFIX = 'bsr_gate_state:';
+
+	/**
+	 * The gate for this request. Runs once, whichever loader called it.
+	 *
+	 * @param string $state_path
+	 */
+	public static function run( $state_path ) {
+		if ( defined( 'BSR_GATE_RAN' ) || 'cli' === PHP_SAPI ) {
+			return;
+		}
+		define( 'BSR_GATE_RAN', true );
+		register_shutdown_function( [ __CLASS__, 'observe' ] );
+
+		$state = self::state( $state_path );
+		if ( null === $state ) {
+			return; // No state yet, or unreadable: fail open.
+		}
+		if ( 'ban' === self::decide( $_SERVER, $state, time() )['action'] ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every value as an IP address.
+			self::refuse();
+		}
+	}
+
+	/**
+	 * The decision for one request, pure: no output, no globals.
+	 *
+	 * @param array $server
+	 * @param array $state  Decoded state (with or without the index).
+	 * @param int   $now
+	 * @return array {action: pass|ban, why: string, ip: string|false}
+	 */
+	public static function decide( array $server, array $state, $now ) {
+		$trust = isset( $state['trust'] ) && is_array( $state['trust'] ) ? $state['trust'] : [];
+		$ip    = BSR_IP_Resolver::resolve( $server, $trust )['ip'];
+		if ( false === $ip ) {
+			return [ 'action' => 'pass', 'why' => 'no-address', 'ip' => false ];
+		}
+		if ( self::is_protected( $ip, $state ) ) {
+			return [ 'action' => 'pass', 'why' => 'protected', 'ip' => $ip ];
+		}
+		if ( 'enforce' !== ( $state['mode'] ?? 'observe' ) ) {
+			return [ 'action' => 'pass', 'why' => 'observe', 'ip' => $ip ];
+		}
+		if ( self::banned( $ip, $state, (int) $now ) ) {
+			return [ 'action' => 'ban', 'why' => 'banned', 'ip' => $ip ];
+		}
+		return [ 'action' => 'pass', 'why' => 'clear', 'ip' => $ip ];
+	}
+
+	/**
+	 * Never refused: private and reserved addresses, the CDN and declared
+	 * proxy ranges, the allowlist, administrator addresses, verified bots.
+	 *
+	 * @param string $ip
+	 * @param array  $state
+	 * @return bool
+	 */
+	public static function is_protected( $ip, array $state ) {
+		if ( ! BSR_IP_Resolver::is_public_ip( $ip ) ) {
+			return true;
+		}
+		$trust = $state['trust'] ?? [];
+		$prot  = $state['protected'] ?? [];
+		foreach ( [ $trust['cloudflare'] ?? [], $trust['proxies'] ?? [], $prot['allowlist'] ?? [], $prot['admins'] ?? [], $prot['bots'] ?? [] ] as $list ) {
+			if ( ! empty( $list ) && BSR_IP_Resolver::ip_in_list( $ip, $list ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether an active ban covers the address. Single-address bans are
+	 * looked up by their binary form (so any spelling of an IPv6 address
+	 * matches); prefix bans are matched as ranges.
+	 *
+	 * @param string $ip
+	 * @param array  $state
+	 * @param int    $now
+	 * @return bool
+	 */
+	public static function banned( $ip, array $state, $now ) {
+		$index = isset( $state['_index'] ) ? $state['_index'] : self::index( $state );
+		$bin   = @inet_pton( $ip ); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- validated already; defensive.
+		if ( false === $bin ) {
+			return false;
+		}
+		$hex = bin2hex( $bin );
+		if ( isset( $index['single'][ $hex ] ) && $index['single'][ $hex ] > $now ) {
+			return true;
+		}
+		foreach ( $index['ranges'] as $r ) {
+			if ( $r[1] > $now && BSR_IP_Resolver::ip_in_cidr( $ip, $r[0] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Lookup index for the bans: single addresses by hex binary => expiry,
+	 * prefixes as [cidr, expiry].
+	 *
+	 * @param array $state
+	 * @return array {single: array, ranges: array}
+	 */
+	public static function index( array $state ) {
+		$single = [];
+		$ranges = [];
+		foreach ( (array) ( $state['bans'] ?? [] ) as $b ) {
+			if ( ! is_array( $b ) || count( $b ) < 3 ) {
+				continue;
+			}
+			$bin = @inet_pton( (string) $b[0] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			if ( false === $bin ) {
+				continue;
+			}
+			$len = (int) $b[1];
+			if ( $len === strlen( $bin ) * 8 ) {
+				$hex            = bin2hex( $bin );
+				$single[ $hex ] = max( (int) $b[2], $single[ $hex ] ?? 0 );
+			} else {
+				$ranges[] = [ $b[0] . '/' . $len, (int) $b[2] ];
+			}
+		}
+		return [ 'single' => $single, 'ranges' => $ranges ];
+	}
+
+	/**
+	 * The decoded state with its ban index. With APCu the decoded array is
+	 * cached under the file's inode, modification time and size: a rebuild
+	 * renames a new file into place, so its inode changes even within one
+	 * second.
+	 *
+	 * @param string $path
+	 * @return array|null
+	 */
+	public static function state( $path ) {
+		$st = @stat( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- a missing file is a normal answer.
+		if ( false === $st ) {
+			return null;
+		}
+		$apcu = function_exists( 'apcu_fetch' ) && function_exists( 'apcu_enabled' ) && apcu_enabled();
+		$key  = self::CACHE_PREFIX . md5( $path ) . ':' . $st['ino'] . ':' . $st['mtime'] . ':' . $st['size'];
+		if ( $apcu ) {
+			$hit = apcu_fetch( $key, $ok );
+			if ( $ok && is_array( $hit ) ) {
+				return $hit;
+			}
+		}
+		$state = BSR_State_Reader::read( $path );
+		if ( null === $state ) {
+			return null;
+		}
+		$state['_index'] = self::index( $state );
+		if ( $apcu ) {
+			apcu_store( $key, $state, 3600 );
+		}
+		return $state;
+	}
+
+	/**
+	 * Answer 403 without WordPress and stop.
+	 */
+	public static function refuse() {
+		if ( ! headers_sent() ) {
+			http_response_code( 403 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			header( 'Cache-Control: no-store' );
+			header( 'X-BSR-Gate: refused' );
+		}
+		echo "Forbidden\n";
+		exit;
+	}
+
+	/**
+	 * Shutdown observer. Registered first on every request; the response
+	 * recording (5xx counts, database failures) arrives with the health work.
+	 */
+	public static function observe() {
+	}
+}
