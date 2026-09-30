@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Client address resolution moved into `BSR_IP_Resolver`, a class with no WordPress dependency that takes the server variables and a trust configuration (Cloudflare ranges, declared proxies, the forwarding switch). `BSR_Client_IP::resolve()` calls it with the options, and `BSR_Client_IP::trust_config()` returns that configuration, so the v0.2 gate can resolve the visitor before WordPress loads and get the same answer. The pure IP helpers of `BSR_Helpers` (`is_valid_ip`, `is_public_ip`, `ip_in_cidr`, `ip_in_list`, `parse_list`) delegate to it. No behavior change.
+
 ## [0.1.7] - 2026-09-22
 
 ### Added

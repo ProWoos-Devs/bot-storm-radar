@@ -53,23 +53,18 @@ class BSR_Helpers {
 	 * @return bool
 	 */
 	public static function is_valid_ip( $ip ) {
-		return is_string( $ip ) && false !== filter_var( $ip, FILTER_VALIDATE_IP );
+		return BSR_IP_Resolver::is_valid_ip( $ip );
 	}
 
 	/**
-	 * A routable internet address: valid, not private (RFC 1918, ULA), not
-	 * reserved (loopback, link-local, documentation, multicast), and not
-	 * carrier-grade NAT (100.64.0.0/10, which filter_var does not cover).
+	 * A routable internet address (see BSR_IP_Resolver::is_public_ip()).
 	 * Same rule as WCAF_Helpers::is_public_ip().
 	 *
 	 * @param string $ip
 	 * @return bool
 	 */
 	public static function is_public_ip( $ip ) {
-		if ( empty( $ip ) || false === filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
-			return false;
-		}
-		return ! self::ip_in_cidr( $ip, '100.64.0.0/10' );
+		return BSR_IP_Resolver::is_public_ip( $ip );
 	}
 
 	/**
@@ -84,44 +79,14 @@ class BSR_Helpers {
 	}
 
 	/**
-	 * CIDR match for IPv4 and IPv6, via inet_pton and a bit mask.
+	 * CIDR match for IPv4 and IPv6 (see BSR_IP_Resolver::ip_in_cidr()).
 	 *
 	 * @param string $ip
 	 * @param string $cidr "a.b.c.d/nn", "x::/nn", or a bare address.
 	 * @return bool
 	 */
 	public static function ip_in_cidr( $ip, $cidr ) {
-		$cidr = trim( $cidr );
-		if ( '' === $cidr ) {
-			return false;
-		}
-		if ( false === strpos( $cidr, '/' ) ) {
-			return self::is_valid_ip( $cidr ) && self::is_valid_ip( $ip ) && inet_pton( $ip ) === inet_pton( $cidr );
-		}
-		list( $subnet, $bits ) = explode( '/', $cidr, 2 );
-		if ( ! self::is_valid_ip( $subnet ) || ! self::is_valid_ip( $ip ) || ! is_numeric( $bits ) ) {
-			return false;
-		}
-		$ip_bin  = inet_pton( $ip );
-		$net_bin = inet_pton( $subnet );
-		if ( false === $ip_bin || false === $net_bin || strlen( $ip_bin ) !== strlen( $net_bin ) ) {
-			return false; // IPv4 against IPv6 or vice versa.
-		}
-		$bits = (int) $bits;
-		$max  = strlen( $ip_bin ) * 8;
-		if ( $bits < 0 || $bits > $max ) {
-			return false;
-		}
-		$full_bytes = intdiv( $bits, 8 );
-		$rest_bits  = $bits % 8;
-		if ( $full_bytes > 0 && substr( $ip_bin, 0, $full_bytes ) !== substr( $net_bin, 0, $full_bytes ) ) {
-			return false;
-		}
-		if ( 0 === $rest_bits ) {
-			return true;
-		}
-		$mask = ( 0xFF << ( 8 - $rest_bits ) ) & 0xFF;
-		return ( ord( $ip_bin[ $full_bytes ] ) & $mask ) === ( ord( $net_bin[ $full_bytes ] ) & $mask );
+		return BSR_IP_Resolver::ip_in_cidr( $ip, $cidr );
 	}
 
 	/**
@@ -130,15 +95,7 @@ class BSR_Helpers {
 	 * @return bool
 	 */
 	public static function ip_in_list( $ip, $list ) {
-		if ( ! self::is_valid_ip( $ip ) ) {
-			return false;
-		}
-		foreach ( self::parse_list( $list ) as $entry ) {
-			if ( self::ip_in_cidr( $ip, $entry ) ) {
-				return true;
-			}
-		}
-		return false;
+		return BSR_IP_Resolver::ip_in_list( $ip, $list );
 	}
 
 	/**
@@ -148,22 +105,7 @@ class BSR_Helpers {
 	 * @return array
 	 */
 	public static function parse_list( $list ) {
-		if ( is_array( $list ) ) {
-			$entries = $list;
-		} elseif ( is_string( $list ) && '' !== $list ) {
-			$entries = preg_split( '/\r\n|\r|\n|,/', $list );
-		} else {
-			return [];
-		}
-		$out = [];
-		foreach ( $entries as $e ) {
-			$e = trim( (string) $e );
-			if ( '' === $e || '#' === $e[0] ) {
-				continue;
-			}
-			$out[] = $e;
-		}
-		return $out;
+		return BSR_IP_Resolver::parse_list( $list );
 	}
 
 	/**

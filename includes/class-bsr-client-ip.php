@@ -96,45 +96,14 @@ class BSR_Client_IP {
 
 	/**
 	 * The client IP for this request, or false when none can be established.
+	 * The decision itself is BSR_IP_Resolver::resolve(), shared with the gate.
 	 *
 	 * @return string|false
 	 */
 	public static function resolve() {
-		$opts   = BSR_Helpers::get_options();
-		$remote = self::header_ip( 'REMOTE_ADDR' );
-
-		if ( ! empty( $opts['trust_all_forwarding'] ) ) {
-			self::$source   = 'legacy';
-			return self::resolve_legacy( $remote );
-		}
-
-		if ( '' === $remote ) {
-			self::$source   = 'none';
-			return false;
-		}
-
-		if ( self::is_cloudflare_ip( $remote ) ) {
-			$cf = self::header_ip( 'HTTP_CF_CONNECTING_IP' );
-			if ( '' !== $cf && BSR_Helpers::is_public_ip( $cf ) ) {
-				self::$source   = 'cloudflare';
-				return $cf;
-			}
-			self::$source   = 'cloudflare-forwarded';
-			return self::forwarded_client( $remote );
-		}
-
-		if ( ! BSR_Helpers::is_public_ip( $remote ) ) {
-			self::$source   = 'local-proxy';
-			return self::forwarded_client( $remote );
-		}
-
-		if ( self::is_declared_proxy( $remote ) ) {
-			self::$source   = 'trusted-proxy';
-			return self::forwarded_client( $remote );
-		}
-
-		self::$source   = 'direct';
-		return $remote;
+		$r            = BSR_IP_Resolver::resolve( $_SERVER, self::trust_config() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- every value is validated as an IP address by the resolver.
+		self::$source = $r['source'];
+		return $r['ip'];
 	}
 
 	/**
@@ -148,67 +117,18 @@ class BSR_Client_IP {
 	}
 
 	/**
-	 * Walk X-Forwarded-For from the right and take the first public entry that
-	 * is not itself a proxy we trust; then X-Real-IP; then the peer address.
+	 * The trust configuration the resolver needs, from the options. The gate
+	 * gets the same array through its state file.
 	 *
-	 * @param string $remote
-	 * @return string
+	 * @return array {cloudflare: array, proxies: array, trust_all: bool}
 	 */
-	private static function forwarded_client( $remote ) {
-		$xff = isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) : '';
-		if ( '' !== $xff ) {
-			$entries = array_reverse( array_map( 'trim', explode( ',', $xff ) ) );
-			foreach ( $entries as $entry ) {
-				$ip = self::normalize( $entry );
-				if ( '' === $ip || ! BSR_Helpers::is_public_ip( $ip ) ) {
-					continue;
-				}
-				if ( self::is_cloudflare_ip( $ip ) || self::is_declared_proxy( $ip ) ) {
-					continue;
-				}
-				return $ip;
-			}
-		}
-		$real = self::header_ip( 'HTTP_X_REAL_IP' );
-		if ( '' !== $real && BSR_Helpers::is_public_ip( $real ) ) {
-			return $real;
-		}
-		return $remote;
-	}
-
-	/**
-	 * Pre-1.7.0 behavior: first forwarding header wins, whoever sent it.
-	 *
-	 * @param string $remote
-	 * @return string|false
-	 */
-	private static function resolve_legacy( $remote ) {
-		foreach ( [ 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP' ] as $k ) {
-			if ( empty( $_SERVER[ $k ] ) ) {
-				continue;
-			}
-			$val = sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) );
-			if ( 'HTTP_X_FORWARDED_FOR' === $k ) {
-				$parts = explode( ',', $val );
-				$val   = $parts[0];
-			}
-			$ip = self::normalize( $val );
-			return '' !== $ip ? $ip : false;
-		}
-		return '' !== $remote ? $remote : false;
-	}
-
-	/**
-	 * A validated IP from one $_SERVER key, or ''.
-	 *
-	 * @param string $key
-	 * @return string
-	 */
-	private static function header_ip( $key ) {
-		if ( empty( $_SERVER[ $key ] ) ) {
-			return '';
-		}
-		return self::normalize( sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) );
+	public static function trust_config() {
+		$opts = BSR_Helpers::get_options();
+		return [
+			'cloudflare' => self::cloudflare_ranges(),
+			'proxies'    => BSR_Helpers::parse_list( $opts['trusted_proxies'] ?? '' ),
+			'trust_all'  => ! empty( $opts['trust_all_forwarding'] ),
+		];
 	}
 
 	/**
@@ -218,13 +138,20 @@ class BSR_Client_IP {
 	 * @return string
 	 */
 	public static function normalize( $ip ) {
-		$ip = trim( (string) $ip );
-		if ( preg_match( '/^\[(.+)\]:\d+$/', $ip, $m ) ) {
-			$ip = $m[1];
-		} elseif ( preg_match( '/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/', $ip, $m ) ) {
-			$ip = $m[1];
+		return BSR_IP_Resolver::normalize( $ip );
+	}
+
+	/**
+	 * A validated IP from one $_SERVER key, or '' (proxy detection).
+	 *
+	 * @param string $key
+	 * @return string
+	 */
+	private static function header_ip( $key ) {
+		if ( empty( $_SERVER[ $key ] ) ) {
+			return '';
 		}
-		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+		return self::normalize( sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ) );
 	}
 
 	// ── Trusted proxies ───────────────────────────────────────────────
