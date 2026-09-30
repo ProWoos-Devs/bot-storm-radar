@@ -49,6 +49,14 @@ Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, 
 
 The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-radar-gate.php`, that loads its gate before any other plugin. The gate reads the state file in the data directory, never loads WordPress and never queries the database, and answers 403 to an address under an active ban. Until address bans can be switched to enforce, it only observes. Deactivating Bot Storm Radar removes the loader. If the gate file is missing the loader does nothing, so the site keeps working.
 
+**Early protection.** By default the gate runs from the must-use plugin, after WordPress has connected to the database. On the Settings tab, **Enable early protection** makes it run before WordPress instead, so a refused request costs no database connection and the gate keeps working while the database is down. The plugin writes one marked block pointing PHP's `auto_prepend_file` at the gate loader: in `.user.ini` in the WordPress folder on PHP-FPM, or as `php_value` in `.htaccess` on Apache with mod_php. It then checks with a request to the site that the gate really runs first. PHP-FPM re-reads `.user.ini` only every `user_ini.cache_ttl` seconds (300 by default; the screen shows this server's value), so switching on or off can take that long. If another `auto_prepend_file` is already in use, for example by a firewall plugin, Bot Storm Radar reports it and never replaces or chains it. Deactivating the plugin removes the block.
+
+On a server that honors neither file, the same can be done by hand with one line at the very top of `wp-config.php`, right after `<?php`, using the loader path shown on the Settings tab. The plugin never edits `wp-config.php`:
+
+```php
+include_once '/path/to/wp-content/bot-storm-radar-<random>/loader.php';
+```
+
 **Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
 
 ## Data directory

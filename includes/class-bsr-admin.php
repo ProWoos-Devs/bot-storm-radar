@@ -267,6 +267,23 @@ class BSR_Admin {
 				BSR_Good_Bots::refresh_ip_lists();
 				$notice = 'lists_refreshed';
 				break;
+			case 'early_on':
+				if ( BSR_Gate_Early::enable() ) {
+					$notice = 'early_' . ( 'early' === BSR_Gate_Early::verify() ? 'verified' : 'pending' );
+				} else {
+					set_transient( 'bsr_gate_early_error', BSR_Gate_Early::last_error(), 300 );
+					$notice = 'early_failed';
+				}
+				break;
+			case 'early_off':
+				$notice = BSR_Gate_Early::disable() ? 'early_off' : 'early_failed';
+				if ( 'early_failed' === $notice ) {
+					set_transient( 'bsr_gate_early_error', BSR_Gate_Early::last_error(), 300 );
+				}
+				break;
+			case 'early_check':
+				$notice = 'early' === BSR_Gate_Early::verify() ? 'early_verified' : 'early_pending';
+				break;
 		}
 		$redirect = remove_query_arg( [ 'bsr_action', 'ip', '_wpnonce' ] );
 		wp_safe_redirect( add_query_arg( 'bsr_notice', $notice, $redirect ) );
@@ -303,6 +320,10 @@ class BSR_Admin {
 				'alert_sent'      => [ 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ],
 				'alert_failed'    => [ 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ],
 				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were refreshed.', 'bot-storm-radar' ) ],
+				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
+				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
+				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
+				'early_failed'    => [ 'error', __( 'Early protection could not be changed; the reason is shown in the Gate section below.', 'bot-storm-radar' ) ],
 			];
 			if ( isset( $messages[ $key ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $messages[ $key ][0] ), esc_html( $messages[ $key ][1] ) );
@@ -360,6 +381,7 @@ class BSR_Admin {
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
 				<?php self::render_log_sources_table(); ?>
+				<?php self::render_gate_section(); ?>
 			<?php else : ?>
 				<?php self::render_source_switcher(); ?>
 				<?php self::render_radar(); ?>
@@ -796,6 +818,74 @@ class BSR_Admin {
 	 * Read-only list of log sources on the Settings tab. Sources are defined
 	 * with WP-CLI, never from this screen.
 	 */
+	/**
+	 * Settings tab: how the gate is loaded, and early protection on or off.
+	 */
+	private static function render_gate_section() {
+		$g   = BSR_Gate_Install::status();
+		$e   = BSR_Gate_Early::status();
+		$err = get_transient( 'bsr_gate_early_error' );
+		?>
+		<h2><?php esc_html_e( 'Gate', 'bot-storm-radar' ); ?></h2>
+		<p><?php esc_html_e( 'The gate answers requests from banned addresses before the rest of the site loads. The must-use plugin loads it before other plugins; early protection loads it before WordPress itself, so it also costs no database connection and keeps working while the database is down.', 'bot-storm-radar' ); ?></p>
+		<table class="widefat striped bsr-gate-table" style="max-width:900px">
+			<tbody>
+				<tr><th><?php esc_html_e( 'Gate copy', 'bot-storm-radar' ); ?></th><td><?php echo $g['gate_present'] ? esc_html( $g['gate'] ) : '<span class="bsr-danger">' . esc_html__( 'missing: deactivate and activate the plugin to write it again', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
+				<tr><th><?php esc_html_e( 'Must-use plugin', 'bot-storm-radar' ); ?></th><td><?php echo $g['mu_plugin'] ? esc_html__( 'installed', 'bot-storm-radar' ) : '<span class="bsr-danger">' . esc_html__( 'missing: the folder wp-content/mu-plugins may not be writable', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
+				<?php if ( $g['disabled'] ) : ?>
+					<tr><th><?php esc_html_e( 'Switched off', 'bot-storm-radar' ); ?></th><td class="bsr-danger"><?php esc_html_e( 'A file named "disabled" in the data directory stops the gate. Delete it, or deactivate and activate the plugin, to switch the gate back on.', 'bot-storm-radar' ); ?></td></tr>
+				<?php endif; ?>
+				<tr><th><?php esc_html_e( 'Early protection', 'bot-storm-radar' ); ?></th><td>
+					<?php
+					if ( '' === $e['method'] ) {
+						esc_html_e( 'Not available on this server (it runs neither PHP-FPM with per-directory ini files nor Apache mod_php). The line for wp-config.php in the README does the same job.', 'bot-storm-radar' );
+					} elseif ( '' !== $e['conflict'] ) {
+						echo '<span class="bsr-danger">' . esc_html( sprintf( __( 'Not possible: another file is already loaded first (%s), probably a firewall plugin. Bot Storm Radar never replaces or chains it; the gate stays on the must-use plugin.', 'bot-storm-radar' ), $e['conflict'] ) ) . '</span>';
+					} elseif ( $e['enabled'] ) {
+						$labels = [
+							'early'   => __( 'on, and the last check saw the gate run before WordPress', 'bot-storm-radar' ),
+							'mu'      => __( 'written, but the last check still saw the gate run from the must-use plugin', 'bot-storm-radar' ),
+							'pending' => __( 'written, not checked yet', 'bot-storm-radar' ),
+							'none'    => __( 'written, but the last check did not see the gate at all', 'bot-storm-radar' ),
+						];
+						$res = (string) $e['result'];
+						echo esc_html( $labels[ $res ] ?? $res );
+						if ( $e['checked'] ) {
+							echo ' ' . esc_html( sprintf( __( '(checked %s)', 'bot-storm-radar' ), self::ago( $e['checked'] ) ) );
+						}
+					} else {
+						esc_html_e( 'off', 'bot-storm-radar' );
+					}
+					?>
+				</td></tr>
+				<?php if ( '' !== $e['method'] ) : ?>
+					<tr><th><?php esc_html_e( 'How', 'bot-storm-radar' ); ?></th><td>
+						<?php
+						if ( 'user_ini' === $e['method'] ) {
+							echo esc_html( sprintf( __( 'An auto_prepend_file line in %1$s. PHP re-reads that file every %2$d seconds on this server, so switching on or off can take that long to apply.', 'bot-storm-radar' ), $e['target'], $e['cache_ttl'] ) );
+						} else {
+							echo esc_html( sprintf( __( 'A php_value auto_prepend_file line in %s. Apache applies it on the next request.', 'bot-storm-radar' ), $e['target'] ) );
+						}
+						?>
+					</td></tr>
+				<?php endif; ?>
+				<?php if ( $err ) : ?>
+					<tr><th><?php esc_html_e( 'Last error', 'bot-storm-radar' ); ?></th><td class="bsr-danger"><?php echo esc_html( (string) $err ); ?></td></tr>
+				<?php endif; ?>
+			</tbody>
+		</table>
+		<p>
+			<?php if ( '' !== $e['method'] && '' === $e['conflict'] && ! $e['enabled'] && $g['gate_present'] ) : ?>
+				<a class="button button-primary" href="<?php echo esc_url( self::action_url( 'early_on' ) ); ?>"><?php esc_html_e( 'Enable early protection', 'bot-storm-radar' ); ?></a>
+			<?php endif; ?>
+			<?php if ( $e['enabled'] ) : ?>
+				<a class="button" href="<?php echo esc_url( self::action_url( 'early_check' ) ); ?>"><?php esc_html_e( 'Check again', 'bot-storm-radar' ); ?></a>
+				<a class="button" href="<?php echo esc_url( self::action_url( 'early_off' ) ); ?>"><?php esc_html_e( 'Disable early protection', 'bot-storm-radar' ); ?></a>
+			<?php endif; ?>
+		</p>
+		<?php
+	}
+
 	private static function render_log_sources_table() {
 		$all = BSR_Sources::log_sources();
 		echo '<h2>' . esc_html__( 'Log sources', 'bot-storm-radar' ) . '</h2>';

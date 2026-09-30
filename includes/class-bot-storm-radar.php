@@ -46,6 +46,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-state-reader.php';
 		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-gate-install.php';
+		require_once $dir . 'class-bsr-gate-early.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
 		require_once $dir . 'class-bsr-counters.php';
@@ -147,6 +148,7 @@ class Bot_Storm_Radar {
 		// First: the marker stops the gate on the very next request, whatever
 		// loader (mu-plugin, or a cached auto_prepend_file line) still runs.
 		BSR_Gate_Install::disable();
+		BSR_Gate_Early::disable();
 		BSR_Gate_Install::remove_loader();
 		BSR_Tick::unschedule();
 		BSR_Client_IP::unschedule();

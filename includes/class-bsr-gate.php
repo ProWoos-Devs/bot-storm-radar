@@ -6,6 +6,8 @@
  * Everything else passes to WordPress untouched.
  *
  * Order on every request:
+ *   0. answer the plugin's loopback check (`X-BSR-Gate: early` or `mu`) when
+ *      the request carries `X-BSR-Gate-Check`;
  *   1. register the shutdown observer (the hook point exists now so that
  *      protected and refused requests are observed too; it records nothing
  *      until the health work fills it in);
@@ -51,6 +53,10 @@ class BSR_Gate {
 		}
 		define( 'BSR_GATE_RAN', true );
 		register_shutdown_function( [ __CLASS__, 'observe' ] );
+		// The plugin's loopback check asks how the gate was loaded.
+		if ( isset( $_SERVER['HTTP_X_BSR_GATE_CHECK'] ) && ! headers_sent() ) {
+			header( 'X-BSR-Gate: ' . ( defined( 'BSR_GATE_EARLY' ) ? 'early' : 'mu' ) );
+		}
 
 		$state = self::state( $state_path );
 		if ( null === $state ) {
