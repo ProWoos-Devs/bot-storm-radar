@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Ban tables `{prefix}bsr_bans` and `{prefix}bsr_ban_exports` (schema version in `bsr_db_version`, created on activation and on load when missing). One row per banned key, unique on the address in binary form plus the prefix length, so an address and its /64 are separate keys. `BSR_Bans::trip()` is a single `INSERT ... ON DUPLICATE KEY UPDATE` that keeps the later expiry and counts the trip; `BSR_Bans::unban()` is a single `UPDATE` that ends the ban now, records who lifted it, and raises the generation number (`bsr_generation`) that later lets an unban override bans decided before it. Evidence is capped at 10 entries of 200 characters per list. Rows that expired more than 30 days ago are deleted daily unless an export removal is still pending. Nothing writes to these tables yet; the gate and the trips arrive in later changes.
+- `uninstall.php`, which drops the two ban tables and their options. The rest of the plugin's data is left as it was.
+
 ### Changed
 - Client address resolution moved into `BSR_IP_Resolver`, a class with no WordPress dependency that takes the server variables and a trust configuration (Cloudflare ranges, declared proxies, the forwarding switch). `BSR_Client_IP::resolve()` calls it with the options, and `BSR_Client_IP::trust_config()` returns that configuration, so the v0.2 gate can resolve the visitor before WordPress loads and get the same answer. The pure IP helpers of `BSR_Helpers` (`is_valid_ip`, `is_public_ip`, `ip_in_cidr`, `ip_in_list`, `parse_list`) delegate to it. No behavior change.
 

@@ -42,6 +42,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-helpers.php';
 		require_once $dir . 'class-bsr-sources.php';
 		require_once $dir . 'class-bsr-client-ip.php';
+		require_once $dir . 'class-bsr-bans.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
 		require_once $dir . 'class-bsr-counters.php';
@@ -82,11 +83,13 @@ class Bot_Storm_Radar {
 	 * Everything that must be in place before the request is classified.
 	 */
 	public function on_plugins_loaded() {
+		BSR_Bans::maybe_install();
 		$this->maybe_upgrade();
 		BSR_WooCommerce::init();
 		BSR_Beacon::init();
 		BSR_Recorder::init();
 		BSR_Client_IP::init();
+		BSR_Bans::init();
 		BSR_Good_Bots::init();
 		BSR_Tick::init();
 	}
@@ -125,6 +128,7 @@ class Bot_Storm_Radar {
 			update_option( BSR_Storm::STATE_OPTION, BSR_Storm::initial_state(), true );
 		}
 		BSR_Baseline::ensure_started();
+		BSR_Bans::install();
 		BSR_Tick::schedule();
 		BSR_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BSR_VERSION, false );
