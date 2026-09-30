@@ -1,7 +1,10 @@
 <?php
 /**
- * Uninstall: removes the gate's mu-plugin loader, the ban tables, the data
- * directory with the gate and its state file, and their options.
+ * Uninstall: removes the gate's mu-plugin loader, the ban tables, the gate
+ * copies and the state file, and their options. The data directory keeps the
+ * few-line gate loader and a `disabled` marker: a cached auto_prepend_file
+ * line may still point at the loader, and a missing prepend file would break
+ * every request.
  *
  * Everything else the plugin stores (settings, minute rows, baselines,
  * storm state) is left in place for now; removing it is a separate change.

@@ -49,6 +49,8 @@ Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, 
 
 The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-radar-gate.php`, that loads its gate before any other plugin. The gate reads the state file in the data directory, never loads WordPress and never queries the database, and answers 403 to an address under an active ban. Until address bans can be switched to enforce, it only observes. Deactivating Bot Storm Radar removes the loader. If the gate file is missing the loader does nothing, so the site keeps working.
 
+**Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
+
 ## Data directory
 
 The plugin keeps the files its gate reads in `wp-content/bot-storm-radar-<random>/`. Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
