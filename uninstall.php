@@ -20,7 +20,9 @@ require_once __DIR__ . '/includes/class-bsr-ip-resolver.php';
 require_once __DIR__ . '/includes/class-bsr-bans.php';
 require_once __DIR__ . '/includes/class-bsr-state.php';
 require_once __DIR__ . '/includes/class-bsr-gate-install.php';
+require_once __DIR__ . '/includes/class-bsr-gate-early.php';
 
+BSR_Gate_Early::disable();
 BSR_Gate_Install::remove_loader();
 BSR_Bans::uninstall();
 BSR_State::uninstall();
