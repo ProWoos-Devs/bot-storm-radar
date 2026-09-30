@@ -45,6 +45,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-bans.php';
 		require_once $dir . 'class-bsr-state-reader.php';
 		require_once $dir . 'class-bsr-state.php';
+		require_once $dir . 'class-bsr-gate-install.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
 		require_once $dir . 'class-bsr-counters.php';
@@ -133,12 +134,14 @@ class Bot_Storm_Radar {
 		BSR_Baseline::ensure_started();
 		BSR_Bans::install();
 		BSR_State::rebuild();
+		BSR_Gate_Install::install();
 		BSR_Tick::schedule();
 		BSR_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BSR_VERSION, false );
 	}
 
 	public function deactivate() {
+		BSR_Gate_Install::remove_loader();
 		BSR_Tick::unschedule();
 		BSR_Client_IP::unschedule();
 	}
@@ -165,6 +168,9 @@ class Bot_Storm_Radar {
 		}
 		delete_option( 'bsr_cloudflare_ranges' );
 		delete_option( 'bsr_proxy_detect' );
+		// A new version brings a new gate: rebuild the state and the bundle.
+		BSR_State::rebuild();
+		BSR_Gate_Install::install();
 		update_option( self::VERSION_OPTION, BSR_VERSION, false );
 	}
 
