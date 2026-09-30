@@ -147,13 +147,15 @@ class BSR_Counters {
 	// ── Public API ──────────────────────────────────────────────────
 
 	/**
-	 * Atomic increment; creates the key at 1 when absent.
+	 * Atomic increment; creates the key at $by when absent.
 	 *
 	 * @param string $key
 	 * @param int    $ttl
+	 * @param int    $by  Step (the gate channel drain adds a minute's count at once).
 	 * @return int The new value (0 on backend failure).
 	 */
-	public static function incr( $key, $ttl = self::TTL_MINUTE ) {
+	public static function incr( $key, $ttl = self::TTL_MINUTE, $by = 1 ) {
+		$by = max( 1, (int) $by );
 		switch ( self::backend() ) {
 			case 'object_cache':
 				// Increment first: one round trip for the common case of an
@@ -161,30 +163,31 @@ class BSR_Counters {
 				// (core, Memcached) return false, then add() creates it with the
 				// TTL; backends that create on increment (Redis) return 1, and
 				// the key gets its TTL through set() so it cannot live forever.
-				$v = wp_cache_incr( $key, 1, self::GROUP );
+				$v = wp_cache_incr( $key, $by, self::GROUP );
 				if ( false === $v ) {
-					if ( wp_cache_add( $key, 1, self::GROUP, $ttl ) ) {
-						return 1;
+					if ( wp_cache_add( $key, $by, self::GROUP, $ttl ) ) {
+						return $by;
 					}
-					$v = wp_cache_incr( $key, 1, self::GROUP );
+					$v = wp_cache_incr( $key, $by, self::GROUP );
 					return false === $v ? 0 : (int) $v;
 				}
-				if ( 1 === (int) $v ) {
-					wp_cache_set( $key, 1, self::GROUP, $ttl );
+				if ( $by === (int) $v ) {
+					wp_cache_set( $key, $by, self::GROUP, $ttl );
 				}
 				return (int) $v;
 			case 'apcu':
 				apcu_add( self::$apcu_prefix . $key, 0, $ttl );
-				$v = apcu_inc( self::$apcu_prefix . $key );
+				$v = apcu_inc( self::$apcu_prefix . $key, $by );
 				return false === $v ? 0 : (int) $v;
 			case 'memory':
 				if ( ! self::m_live( $key ) ) {
 					self::$mem[ $key ]     = 0;
 					self::$mem_exp[ $key ] = time() + (int) $ttl;
 				}
-				return ++self::$mem[ $key ];
+				self::$mem[ $key ] += $by;
+				return self::$mem[ $key ];
 			default:
-				return self::t_incr( $key, $ttl );
+				return self::t_incr( $key, $ttl, $by );
 		}
 	}
 
@@ -520,28 +523,28 @@ class BSR_Counters {
 	 * @param int    $ttl
 	 * @return int
 	 */
-	private static function t_incr( $key, $ttl ) {
+	private static function t_incr( $key, $ttl, $by = 1 ) {
 		$g = self::t_group_of( $key );
 		self::t_load( $g );
 		if ( 0 === strpos( $g, 'g:' ) ) {
 			$cur = isset( self::$t_groups[ $g ]['_v'] ) ? (int) self::$t_groups[ $g ]['_v'] : 0;
-			self::$t_groups[ $g ]['_v']   = $cur + 1;
+			self::$t_groups[ $g ]['_v']   = $cur + $by;
 			self::$t_groups[ $g ]['_ttl'] = $ttl;
 			self::$t_dirty[ $g ]          = true;
-			return $cur + 1;
+			return $cur + $by;
 		}
 		if ( isset( self::$t_groups[ $g ][ $key ] ) ) {
-			self::$t_groups[ $g ][ $key ] = (int) self::$t_groups[ $g ][ $key ] + 1;
+			self::$t_groups[ $g ][ $key ] = (int) self::$t_groups[ $g ][ $key ] + $by;
 			self::$t_dirty[ $g ]          = true;
 			return (int) self::$t_groups[ $g ][ $key ];
 		}
 		if ( count( self::$t_groups[ $g ] ) >= self::TRANSIENT_CAP ) {
-			return 1; // Bucket full: count as a first hit without storing it.
+			return $by; // Bucket full: count as a first hit without storing it.
 		}
-		self::$t_groups[ $g ][ $key ] = 1;
+		self::$t_groups[ $g ][ $key ] = $by;
 		self::$t_groups[ $g ]['_ttl'] = $ttl;
 		self::$t_dirty[ $g ]          = true;
-		return 1;
+		return $by;
 	}
 
 	/**

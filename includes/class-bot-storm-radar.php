@@ -46,6 +46,8 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-guard.php';
 		require_once $dir . 'class-bsr-state-reader.php';
 		require_once $dir . 'class-bsr-probe.php';
+		require_once $dir . 'class-bsr-channel.php';
+		require_once $dir . 'class-bsr-channel-drain.php';
 		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-gate-install.php';
 		require_once $dir . 'class-bsr-gate-early.php';

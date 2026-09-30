@@ -57,7 +57,7 @@ class BSR_Gate_Install {
 	/**
 	 * The source files bundled into a gate copy, in order.
 	 */
-	const SOURCES = [ 'class-bsr-ip-resolver.php', 'class-bsr-state-reader.php', 'class-bsr-probe.php', 'class-bsr-gate.php' ];
+	const SOURCES = [ 'class-bsr-ip-resolver.php', 'class-bsr-state-reader.php', 'class-bsr-probe.php', 'class-bsr-channel.php', 'class-bsr-gate.php' ];
 
 	/**
 	 * Source class => class name inside the bundle. BSR_Gate first: the
@@ -69,6 +69,7 @@ class BSR_Gate_Install {
 		'BSR_IP_Resolver'  => 'BSR_Gate_IP_Resolver',
 		'BSR_State_Reader' => 'BSR_Gate_State_Reader',
 		'BSR_Probe'        => 'BSR_Gate_Probe',
+		'BSR_Channel'      => 'BSR_Gate_Channel',
 	];
 
 	/**
