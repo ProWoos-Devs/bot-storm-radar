@@ -129,6 +129,9 @@ class BSR_Admin {
 		add_settings_field( 'trusted_proxies', __( 'Trusted proxy addresses', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[trusted_proxies]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'trusted_proxies', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. Only for a proxy with a public address (external load balancer, a CDN other than Cloudflare).', 'bot-storm-radar' ) );
 		}, self::PAGE, 'bsr_proxies' );
+		add_settings_field( 'allowlist', __( 'Never ban', 'bot-storm-radar' ), function () {
+			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
+		}, self::PAGE, 'bsr_proxies' );
 		add_settings_field( 'trust_all_forwarding', __( 'Trust all forwarding headers', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[trust_all_forwarding]" value="1" %2$s /> %3$s</label><p class="description bsr-danger">%4$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BSR_Helpers::opt( 'trust_all_forwarding', 0 ), false ), esc_html__( 'Insecure, previous behavior', 'bot-storm-radar' ), esc_html__( 'Any client can then choose the address it is counted under. Use it only while you find your proxy address, then declare the proxy above and turn this off.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'bsr_proxies' );
@@ -202,6 +205,17 @@ class BSR_Admin {
 				}
 			}
 			$out['trusted_proxies'] = implode( "\n", $kept );
+		}
+		if ( array_key_exists( 'allowlist', $input ) ) {
+			$kept = [];
+			foreach ( BSR_Helpers::parse_list( sanitize_textarea_field( (string) $input['allowlist'] ) ) as $e ) {
+				if ( BSR_Helpers::is_valid_ip( explode( '/', $e )[0] ) ) {
+					$kept[] = $e;
+				} else {
+					add_settings_error( 'allowlist', 'bsr_allow_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
+				}
+			}
+			$out['allowlist'] = implode( "\n", $kept );
 		}
 		BSR_Helpers::flush_options();
 		return $out;

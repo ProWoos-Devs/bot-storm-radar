@@ -43,6 +43,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-sources.php';
 		require_once $dir . 'class-bsr-client-ip.php';
 		require_once $dir . 'class-bsr-bans.php';
+		require_once $dir . 'class-bsr-guard.php';
 		require_once $dir . 'class-bsr-state-reader.php';
 		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-gate-install.php';
@@ -94,6 +95,7 @@ class Bot_Storm_Radar {
 		BSR_Recorder::init();
 		BSR_Client_IP::init();
 		BSR_Bans::init();
+		BSR_Guard::init();
 		BSR_State::init();
 		BSR_Gate_Install::init();
 		BSR_Good_Bots::init();
@@ -209,6 +211,7 @@ class Bot_Storm_Radar {
 			'error_burst_clear_minutes' => 15,
 			'trusted_proxies'       => '',
 			'trust_all_forwarding'  => 0,
+			'allowlist'             => '',
 		];
 	}
 }

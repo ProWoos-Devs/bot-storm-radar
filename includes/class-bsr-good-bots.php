@@ -285,6 +285,7 @@ class BSR_Good_Bots {
 	 * @param string $verdict
 	 */
 	public static function store_verdict( $ip, $name, $verdict ) {
+		$before = BSR_Counters::get_value( 'g:bot:' . $ip );
 		BSR_Counters::set_value( 'g:bot:' . $ip, [ 'v' => $verdict, 'bot' => $name, 't' => time() ], self::VERDICT_TTL );
 		$recent = BSR_Counters::get_value( self::RECENT_KEY, [] );
 		$recent = is_array( $recent ) ? $recent : [];
@@ -293,6 +294,10 @@ class BSR_Good_Bots {
 			$recent = array_slice( $recent, 0, self::RECENT_CAP, true );
 		}
 		BSR_Counters::set_value( self::RECENT_KEY, $recent, BSR_Counters::TTL_GLOBAL );
+		if ( 'verified' === $verdict && ! ( is_array( $before ) && 'verified' === ( $before['v'] ?? '' ) ) ) {
+			/** A newly verified bot is a protected address (the state file rebuilds). */
+			do_action( 'bsr_protected_changed' );
+		}
 	}
 
 	/**

@@ -16,10 +16,10 @@
  * nothing reads the file to change it, so two concurrent rebuilds cannot drop
  * each other's bans. Evidence never goes into the file.
  *
- * Rebuilt on: a ban or unban (`bsr_bans_changed`), a settings save, a
- * Cloudflare range refresh, and daily. The protected-address lists
- * (administrators, verified bots) are filled by the guard (#27), which calls
- * rebuild() when they change.
+ * Rebuilt on: a ban or unban (`bsr_bans_changed`), a new protected address
+ * (`bsr_protected_changed`: an administrator first seen, a bot newly
+ * verified), a settings save, a Cloudflare range refresh, and daily. Every
+ * projected ban is checked with BSR_Guard::may_ban() again.
  *
  * @package Bot_Storm_Radar
  */
@@ -49,6 +49,7 @@ class BSR_State {
 
 	public static function init() {
 		add_action( 'bsr_bans_changed', [ __CLASS__, 'rebuild' ], 10, 0 );
+		add_action( 'bsr_protected_changed', [ __CLASS__, 'rebuild' ], 10, 0 );
 		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'rebuild' ], 10, 0 );
 		add_action( 'update_option_' . BSR_Client_IP::CF_OPTION, [ __CLASS__, 'rebuild' ], 10, 0 );
 		add_action( 'add_option_' . BSR_Client_IP::CF_OPTION, [ __CLASS__, 'rebuild' ], 10, 0 );
@@ -122,7 +123,11 @@ class BSR_State {
 
 		$bans = [];
 		foreach ( BSR_Bans::active( $now ) as $b ) {
-			$bans[] = [ $b['ip_text'], (int) $b['prefix_len'], (int) $b['expires_at'] ];
+			// Asked again: a ban that became protected after it was written
+			// (an allowlist entry, an administrator seen since) is left out.
+			if ( BSR_Guard::may_ban( $b['ip_text'], (int) $b['prefix_len'] ) ) {
+				$bans[] = [ $b['ip_text'], (int) $b['prefix_len'], (int) $b['expires_at'] ];
+			}
 		}
 		$unbans = [];
 		foreach ( BSR_Bans::recent_unbans( $now - self::RECENT_UNBAN ) as $u ) {
@@ -137,8 +142,8 @@ class BSR_State {
 			'trust'      => BSR_Client_IP::trust_config(),
 			'protected'  => [
 				'allowlist' => BSR_Helpers::parse_list( $opts['allowlist'] ?? '' ),
-				'admins'    => [],
-				'bots'      => [],
+				'admins'    => BSR_Guard::admin_addresses( $now ),
+				'bots'      => BSR_Guard::verified_bots( $now ),
 			],
 			'bans'       => $bans,
 			'unbans'     => $unbans,
