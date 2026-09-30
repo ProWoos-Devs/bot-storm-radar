@@ -45,6 +45,18 @@ Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, 
 2. Activate the plugin through the WordPress Plugins menu
 3. Open **Bot Storm Radar** in wp-admin. Leave it running for a week so the baseline can learn, then review the thresholds on the Settings tab.
 
+## Data directory
+
+The plugin keeps the files its gate reads in `wp-content/bot-storm-radar-<random>/`. Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
+
+```nginx
+location ^~ /wp-content/bot-storm-radar- {
+    deny all;
+}
+```
+
+Every file in the directory is written with `<?php exit; ?>` as its first line and a `.php` name, so a server that runs PHP returns an empty body for it even without that rule.
+
 ## Log sources
 
 Traffic that never reaches WordPress, such as a MediaWiki on the same server or requests nginx answers from its page cache or refuses at a gate, can be read from the web server's access log (nginx or Apache `combined` format). Each log source keeps its own minute rows, learned baseline and storm state. Sources are defined and run from WP-CLI only:
