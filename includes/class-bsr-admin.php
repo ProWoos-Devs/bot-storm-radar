@@ -132,6 +132,20 @@ class BSR_Admin {
 		add_settings_field( 'allowlist', __( 'Never ban', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'bsr_proxies' );
+		add_settings_section( 'bsr_probes', __( 'Probes', 'bot-storm-radar' ), function () {
+			echo '<p>' . esc_html__( 'Scanners ask every site for files that only exist by mistake: .env and .git files, backups, database dumps, other applications\' admin pages. On many servers each of those requests builds a whole WordPress page just to say "not found". The gate answers them with 403 before WordPress loads, for every visitor, whether address bans are enforced or not. Files the web server serves itself (an existing .zip, for example) never reach it.', 'bot-storm-radar' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Always refused: any path with a part that starts with a dot (except /.well-known/); copies of PHP files such as config.php.txt or wp-config.php.bak; configuration and log files (.yml .yaml .toml .ini .log .lock .cfg .conf, package.json, composer.json, web.config and similar); .zip .tar .tgz .gz .bz2 .tbz2 .xz .zst .rar .7z .sql .bak .old .orig .save .swp outside the uploads folder (compressed sitemaps excepted); .php files that do not exist; and these paths of other applications:', 'bot-storm-radar' ) . '</p>';
+			echo '<p class="description"><code>' . esc_html( implode( '  ', BSR_Helpers::bundled_list( 'scanner-paths.txt' ) ) ) . '</code></p>';
+		}, self::PAGE );
+		add_settings_field( 'probe_refusal', __( 'Probe refusal', 'bot-storm-radar' ), function () {
+			printf( '<label><input type="checkbox" name="%1$s[probe_refusal]" value="1" %2$s /> %3$s</label>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BSR_Helpers::opt( 'probe_refusal', 1 ), false ), esc_html__( 'Refuse probes with 403 before WordPress loads', 'bot-storm-radar' ) );
+		}, self::PAGE, 'bsr_probes' );
+		add_settings_field( 'probe_allow', __( 'Never treat as a probe', 'bot-storm-radar' ), function () {
+			printf( '<textarea class="large-text code" rows="3" name="%1$s[probe_allow]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'probe_allow', '' ) ), esc_html__( 'One path per line below the site address, * matches anything. For example /downloads/*.zip if a plugin serves zip files through WordPress.', 'bot-storm-radar' ) );
+		}, self::PAGE, 'bsr_probes' );
+		add_settings_field( 'probe_extra', __( 'Also treat as a probe', 'bot-storm-radar' ), function () {
+			printf( '<textarea class="large-text code" rows="3" name="%1$s[probe_extra]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'probe_extra', '' ) ), esc_html__( 'Same format. Paths your site never serves that scanners keep asking for.', 'bot-storm-radar' ) );
+		}, self::PAGE, 'bsr_probes' );
 		add_settings_field( 'trust_all_forwarding', __( 'Trust all forwarding headers', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[trust_all_forwarding]" value="1" %2$s /> %3$s</label><p class="description bsr-danger">%4$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BSR_Helpers::opt( 'trust_all_forwarding', 0 ), false ), esc_html__( 'Insecure, previous behavior', 'bot-storm-radar' ), esc_html__( 'Any client can then choose the address it is counted under. Use it only while you find your proxy address, then declare the proxy above and turn this off.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'bsr_proxies' );
@@ -191,7 +205,7 @@ class BSR_Admin {
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
-		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding' ] as $k ) {
+		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal' ] as $k ) {
 			$out[ $k ] = empty( $input[ $k ] ) ? 0 : 1;
 		}
 		if ( array_key_exists( 'trusted_proxies', $input ) ) {
@@ -205,6 +219,18 @@ class BSR_Admin {
 				}
 			}
 			$out['trusted_proxies'] = implode( "\n", $kept );
+		}
+		foreach ( [ 'probe_allow', 'probe_extra' ] as $k ) {
+			if ( array_key_exists( $k, $input ) ) {
+				$lines = [];
+				foreach ( preg_split( '/\r\n|\r|\n/', sanitize_textarea_field( (string) $input[ $k ] ) ) as $line ) {
+					$line = trim( $line );
+					if ( '' !== $line && '#' !== $line[0] ) {
+						$lines[] = '/' . ltrim( $line, '/' );
+					}
+				}
+				$out[ $k ] = implode( "\n", array_slice( $lines, 0, 100 ) );
+			}
 		}
 		if ( array_key_exists( 'allowlist', $input ) ) {
 			$kept = [];
@@ -371,7 +397,7 @@ class BSR_Admin {
 				<span class="dashicons dashicons-visibility bsr-header-icon"></span>
 				<div>
 					<h1><?php esc_html_e( 'Bot Storm Radar', 'bot-storm-radar' ); ?></h1>
-					<span class="bsr-version"><?php printf( esc_html__( 'Version %s, radar only: nothing is blocked', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
+					<span class="bsr-version"><?php printf( esc_html__( 'Version %s: scanner probes are refused, address bans only observe', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
 				</div>
 			</div>
 			<nav class="nav-tab-wrapper">
@@ -441,7 +467,7 @@ class BSR_Admin {
 		$opts     = BSR_Helpers::get_options();
 		$labels   = self::state_labels();
 		?>
-		<p class="bsr-intro"><?php esc_html_e( 'Bot Storm Radar watches your traffic as a crowd, not one visitor at a time. Every minute it counts the addresses that visited, how many made a single request, how many loaded a stylesheet or a script like a real browser, and how the browser names are spread, and turns that into a storm score from 0 to 100. A quiet site scores 0 and stays calm. This version only reports, nothing is ever blocked.', 'bot-storm-radar' ); ?></p>
+		<p class="bsr-intro"><?php esc_html_e( 'Bot Storm Radar watches your traffic as a crowd, not one visitor at a time. Every minute it counts the addresses that visited, how many made a single request, how many loaded a stylesheet or a script like a real browser, and how the browser names are spread, and turns that into a storm score from 0 to 100. A quiet site scores 0 and stays calm. Scores never block anyone; the only requests refused are scanner probes for files such as .env or backups (Settings, Probes).', 'bot-storm-radar' ); ?></p>
 		<div class="bsr-cards">
 			<div class="bsr-card bsr-state bsr-state-<?php echo esc_attr( $state['state'] ); ?>">
 				<div class="bsr-card-label"><?php esc_html_e( 'Current state', 'bot-storm-radar' ); ?></div>
@@ -845,6 +871,8 @@ class BSR_Admin {
 		<table class="widefat striped bsr-gate-table" style="max-width:900px">
 			<tbody>
 				<tr><th><?php esc_html_e( 'Gate copy', 'bot-storm-radar' ); ?></th><td><?php echo $g['gate_present'] ? esc_html( $g['gate'] ) : '<span class="bsr-danger">' . esc_html__( 'missing: deactivate and activate the plugin to write it again', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
+				<tr><th><?php esc_html_e( 'Probe refusal', 'bot-storm-radar' ); ?></th><td><?php echo BSR_Helpers::opt( 'probe_refusal', 1 ) ? esc_html__( 'on: probes get 403 before WordPress loads (Probes section above)', 'bot-storm-radar' ) : esc_html__( 'off', 'bot-storm-radar' ); ?></td></tr>
+				<tr><th><?php esc_html_e( 'Address bans', 'bot-storm-radar' ); ?></th><td><?php esc_html_e( 'observe only: no address is refused yet', 'bot-storm-radar' ); ?></td></tr>
 				<tr><th><?php esc_html_e( 'Must-use plugin', 'bot-storm-radar' ); ?></th><td><?php echo $g['mu_plugin'] ? esc_html__( 'installed', 'bot-storm-radar' ) : '<span class="bsr-danger">' . esc_html__( 'missing: the folder wp-content/mu-plugins may not be writable', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
 				<?php if ( $g['disabled'] ) : ?>
 					<tr><th><?php esc_html_e( 'Switched off', 'bot-storm-radar' ); ?></th><td class="bsr-danger"><?php esc_html_e( 'A file named "disabled" in the data directory stops the gate. Delete it, or deactivate and activate the plugin, to switch the gate back on.', 'bot-storm-radar' ); ?></td></tr>

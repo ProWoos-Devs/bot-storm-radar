@@ -147,9 +147,34 @@ class BSR_State {
 			],
 			'bans'       => $bans,
 			'unbans'     => $unbans,
-			'probe'      => [],
+			'probe'      => self::probe_config(),
 			'trips'      => [],
 			'mail'       => [ 'recipients' => BSR_Sources::alert_recipients( BSR_Sources::SITE ) ],
+		];
+	}
+
+	/**
+	 * The probe rules for BSR_Probe::classify(), from the options: switch,
+	 * WordPress address path, uploads path, WordPress folder, the bundled
+	 * scanner list, and the owner's patterns and exceptions compiled.
+	 *
+	 * @return array
+	 */
+	public static function probe_config() {
+		static $scanner = null;
+		if ( null === $scanner ) {
+			$scanner = array_map( 'strtolower', BSR_Helpers::bundled_list( 'scanner-paths.txt' ) );
+		}
+		$opts    = BSR_Helpers::get_options();
+		$uploads = wp_upload_dir( null, false );
+		return [
+			'on'      => ! empty( $opts['probe_refusal'] ),
+			'home'    => untrailingslashit( (string) wp_parse_url( (string) get_option( 'home' ), PHP_URL_PATH ) ),
+			'uploads' => trailingslashit( (string) wp_parse_url( (string) ( $uploads['baseurl'] ?? '' ), PHP_URL_PATH ) ),
+			'root'    => ABSPATH,
+			'scanner' => $scanner,
+			'extra'   => BSR_Probe::compile( (string) ( $opts['probe_extra'] ?? '' ) ),
+			'allow'   => BSR_Probe::compile( (string) ( $opts['probe_allow'] ?? '' ) ),
 		];
 	}
 

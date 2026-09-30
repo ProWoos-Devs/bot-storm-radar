@@ -4,7 +4,8 @@
  * cheap string matching on the path and a handful of query keys. Modules add
  * or override classes through the `bsr_request_class` filter.
  *
- * Classes: html, search, rest (detail: users, wc-store, other), xmlrpc,
+ * Classes: probe (detail: the BSR_Probe class), html, search, rest (detail:
+ * users, wc-store, other), xmlrpc,
  * login, register, comment, admin-ajax (detail: action), wc-ajax (detail:
  * action), checkout, cart, asset, 404, beacon, cron, other.
  *
@@ -32,7 +33,7 @@ class BSR_Classifier {
 	 * @return array
 	 */
 	public static function known_classes() {
-		return apply_filters( 'bsr_known_classes', [ 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'special', 'revision', 'other' ] );
+		return apply_filters( 'bsr_known_classes', [ 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'special', 'revision', 'probe', 'other' ] );
 	}
 
 	/**
@@ -92,7 +93,12 @@ class BSR_Classifier {
 
 		$ext = strtolower( (string) pathinfo( $lower, PATHINFO_EXTENSION ) );
 
-		if ( isset( $query['rest_route'] ) || false !== strpos( $lower, '/wp-json/' ) || '/wp-json' === substr( $lower, -8 ) ) {
+		// A probe that reached WordPress (gate off, or not loaded early enough).
+		$probe = BSR_Probe::classify( $path, BSR_State::probe_config(), (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
+		if ( '' !== $probe ) {
+			$class  = 'probe';
+			$detail = $probe;
+		} elseif ( isset( $query['rest_route'] ) || false !== strpos( $lower, '/wp-json/' ) || '/wp-json' === substr( $lower, -8 ) ) {
 			$route  = isset( $query['rest_route'] ) ? strtolower( (string) $query['rest_route'] ) : substr( $lower, (int) strpos( $lower, '/wp-json' ) + 8 );
 			$class  = 'rest';
 			$detail = 'other';

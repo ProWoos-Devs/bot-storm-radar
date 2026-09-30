@@ -45,6 +45,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-bans.php';
 		require_once $dir . 'class-bsr-guard.php';
 		require_once $dir . 'class-bsr-state-reader.php';
+		require_once $dir . 'class-bsr-probe.php';
 		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-gate-install.php';
 		require_once $dir . 'class-bsr-gate-early.php';
@@ -212,6 +213,9 @@ class Bot_Storm_Radar {
 			'trusted_proxies'       => '',
 			'trust_all_forwarding'  => 0,
 			'allowlist'             => '',
+			'probe_refusal'         => 1,
+			'probe_extra'           => '',
+			'probe_allow'           => '',
 		];
 	}
 }

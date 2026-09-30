@@ -1,0 +1,36 @@
+# Path prefixes of other applications' admin, debug and exploit targets that
+# scanners request on every site. Matched case-insensitively against the path
+# below the WordPress address. Kept specific (a trailing slash or a file name)
+# so no ordinary page slug collides; the owner can except any of them.
+/vendor/phpunit/
+/phpunit/
+/phpmyadmin/
+/pma/
+/myadmin/
+/mysqladmin/
+/adminer.php
+/cgi-bin/
+/server-status
+/server-info
+/actuator/
+/_ignition/
+/telescope/requests
+/boaform/
+/hnap1
+/owa/auth/
+/ecp/
+/autodiscover/autodiscover.xml
+/solr/admin/
+/geoserver/web/
+/manager/html
+/hudson/
+/jenkins/login
+/remote/login
+/global-protect/
+/dana-na/
+/stalker_portal/
+/cf_scripts/
+/_profiler/
+/debug/default/view
+/evox/about
+/nice ports,/
