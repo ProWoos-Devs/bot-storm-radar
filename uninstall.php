@@ -1,6 +1,7 @@
 <?php
 /**
- * Uninstall: removes the ban tables and their options.
+ * Uninstall: removes the ban tables, the data directory with the gate's
+ * state file, and their options.
  *
  * Everything else the plugin stores (settings, minute rows, baselines,
  * storm state) is left in place for now; removing it is a separate change.
@@ -14,5 +15,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 require_once __DIR__ . '/includes/class-bsr-ip-resolver.php';
 require_once __DIR__ . '/includes/class-bsr-bans.php';
+require_once __DIR__ . '/includes/class-bsr-state.php';
 
 BSR_Bans::uninstall();
+BSR_State::uninstall();

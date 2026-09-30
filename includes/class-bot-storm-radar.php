@@ -43,6 +43,8 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-sources.php';
 		require_once $dir . 'class-bsr-client-ip.php';
 		require_once $dir . 'class-bsr-bans.php';
+		require_once $dir . 'class-bsr-state-reader.php';
+		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-classifier.php';
 		require_once $dir . 'class-bsr-woocommerce.php';
 		require_once $dir . 'class-bsr-counters.php';
@@ -90,6 +92,7 @@ class Bot_Storm_Radar {
 		BSR_Recorder::init();
 		BSR_Client_IP::init();
 		BSR_Bans::init();
+		BSR_State::init();
 		BSR_Good_Bots::init();
 		BSR_Tick::init();
 	}
@@ -129,6 +132,7 @@ class Bot_Storm_Radar {
 		}
 		BSR_Baseline::ensure_started();
 		BSR_Bans::install();
+		BSR_State::rebuild();
 		BSR_Tick::schedule();
 		BSR_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BSR_VERSION, false );

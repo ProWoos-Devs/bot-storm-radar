@@ -244,7 +244,10 @@ class BSR_Bans {
 		if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery -- prepared above.
 			return 0;
 		}
-		return (int) $wpdb->insert_id;
+		$id = (int) $wpdb->insert_id;
+		/** Fires after a ban was created or extended (the state file rebuilds). */
+		do_action( 'bsr_bans_changed' );
+		return $id;
 	}
 
 	/**
@@ -282,6 +285,8 @@ class BSR_Bans {
 			return false;
 		}
 		self::bump_generation();
+		/** Fires after a ban was lifted (the state file rebuilds). */
+		do_action( 'bsr_bans_changed' );
 		return true;
 	}
 
