@@ -22,9 +22,9 @@
  * administrative change that affects bans. The gate stamps provisional bans
  * with it, so an unban wins over a ban decided before it (design v2, 3.6).
  *
- * Nothing here decides whether an address may be banned; the guard
- * (BSR_Guard::may_ban(), a separate change) becomes the only caller of
- * trip().
+ * trip() asks BSR_Guard::may_ban() before it writes anything, so a protected
+ * address (CDN, proxy, allowlist, administrator, verified bot) never gets a
+ * row, whoever calls.
  *
  * @package Bot_Storm_Radar
  */
@@ -210,6 +210,11 @@ class BSR_Bans {
 		global $wpdb;
 		$key = self::key( $ip, $prefix_len );
 		if ( null === $key || (int) $ttl <= 0 ) {
+			return 0;
+		}
+		// The guard is the only way in: CDN edges, proxies, the allowlist,
+		// administrators and verified bots are never banned, whoever asks.
+		if ( ! BSR_Guard::may_ban( $ip, $prefix_len ) ) {
 			return 0;
 		}
 		$now     = null === $now ? time() : (int) $now;
