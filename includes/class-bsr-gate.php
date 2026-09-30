@@ -12,6 +12,8 @@
  *      protected and refused requests are observed too; it records nothing
  *      until the health work fills it in);
  *   2. resolve the client address with the trust configuration of the state;
+ *   2b. a probe (BSR_Probe) answers 403, for every address and in both modes,
+ *      unless the owner switched probe refusal off;
  *   3. a protected address passes (allowlist, administrator addresses,
  *      verified bots, CDN and proxy ranges, private addresses);
  *   4. in enforce mode, an active ban answers 403. Expiry is compared with
@@ -23,7 +25,7 @@
  * that is merely present can be forged.
  *
  * This file is not loaded by the plugin. BSR_Gate_Install bundles it with
- * BSR_IP_Resolver and BSR_State_Reader into one self-contained gate file in
+ * BSR_IP_Resolver, BSR_State_Reader and BSR_Probe into one self-contained gate file in
  * the data directory, with every class renamed to a BSR_Gate_ prefix so it
  * never collides with the plugin's own copies.
  *
@@ -62,8 +64,9 @@ class BSR_Gate {
 		if ( null === $state ) {
 			return; // No state yet, or unreadable: fail open.
 		}
-		if ( 'ban' === self::decide( $_SERVER, $state, time() )['action'] ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every value as an IP address.
-			self::refuse();
+		$d = self::decide( $_SERVER, $state, time() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
+		if ( 'ban' === $d['action'] || 'probe' === $d['action'] ) {
+			self::refuse( 'probe' === $d['action'] ? 'probe' : 'refused' );
 		}
 	}
 
@@ -78,6 +81,12 @@ class BSR_Gate {
 	public static function decide( array $server, array $state, $now ) {
 		$trust = isset( $state['trust'] ) && is_array( $state['trust'] ) ? $state['trust'] : [];
 		$ip    = BSR_IP_Resolver::resolve( $server, $trust )['ip'];
+		// Probes first, for every address: these paths are never served by
+		// WordPress, so refusing them only turns a 404 into a cheap 403.
+		$probe = BSR_Probe::classify( (string) ( $server['REQUEST_URI'] ?? '' ), isset( $state['probe'] ) && is_array( $state['probe'] ) ? $state['probe'] : [], (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
+		if ( '' !== $probe ) {
+			return [ 'action' => 'probe', 'why' => $probe, 'ip' => $ip ];
+		}
 		if ( false === $ip ) {
 			return [ 'action' => 'pass', 'why' => 'no-address', 'ip' => false ];
 		}
@@ -207,13 +216,15 @@ class BSR_Gate {
 
 	/**
 	 * Answer 403 without WordPress and stop.
+	 *
+	 * @param string $kind refused (a ban) or probe.
 	 */
-	public static function refuse() {
+	public static function refuse( $kind = 'refused' ) {
 		if ( ! headers_sent() ) {
 			http_response_code( 403 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
 			header( 'Cache-Control: no-store' );
-			header( 'X-BSR-Gate: refused' );
+			header( 'X-BSR-Gate: ' . ( 'probe' === $kind ? 'probe' : 'refused' ) );
 		}
 		echo "Forbidden\n";
 		exit;

@@ -55,6 +55,11 @@ class BSR_Gate_Install {
 	const HISTORY_CAP   = 10;
 
 	/**
+	 * The source files bundled into a gate copy, in order.
+	 */
+	const SOURCES = [ 'class-bsr-ip-resolver.php', 'class-bsr-state-reader.php', 'class-bsr-probe.php', 'class-bsr-gate.php' ];
+
+	/**
 	 * Source class => class name inside the bundle. BSR_Gate first: the
 	 * pattern is anchored on word boundaries, so it never touches the
 	 * BSR_GATE constants or the already-renamed names.
@@ -63,6 +68,7 @@ class BSR_Gate_Install {
 		'BSR_Gate'         => 'BSR_Gate_Runner',
 		'BSR_IP_Resolver'  => 'BSR_Gate_IP_Resolver',
 		'BSR_State_Reader' => 'BSR_Gate_State_Reader',
+		'BSR_Probe'        => 'BSR_Gate_Probe',
 	];
 
 	/**
@@ -305,7 +311,7 @@ LOADER;
 	 */
 	public static function bundle( $includes, $version ) {
 		$parts = [];
-		foreach ( [ 'class-bsr-ip-resolver.php', 'class-bsr-state-reader.php', 'class-bsr-gate.php' ] as $f ) {
+		foreach ( self::SOURCES as $f ) {
 			$src = @file_get_contents( $includes . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
 			if ( ! is_string( $src ) || 0 !== strpos( $src, '<?php' ) ) {
 				self::$error = 'missing source ' . $f;
