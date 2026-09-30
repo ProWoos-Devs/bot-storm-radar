@@ -94,6 +94,7 @@ class Bot_Storm_Radar {
 		BSR_Client_IP::init();
 		BSR_Bans::init();
 		BSR_State::init();
+		BSR_Gate_Install::init();
 		BSR_Good_Bots::init();
 		BSR_Tick::init();
 	}
@@ -138,9 +139,14 @@ class Bot_Storm_Radar {
 		BSR_Tick::schedule();
 		BSR_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BSR_VERSION, false );
+		// Last: the gate runs again only once its copy, manifest and state exist.
+		BSR_Gate_Install::enable();
 	}
 
 	public function deactivate() {
+		// First: the marker stops the gate on the very next request, whatever
+		// loader (mu-plugin, or a cached auto_prepend_file line) still runs.
+		BSR_Gate_Install::disable();
 		BSR_Gate_Install::remove_loader();
 		BSR_Tick::unschedule();
 		BSR_Client_IP::unschedule();

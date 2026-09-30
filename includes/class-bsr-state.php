@@ -202,19 +202,23 @@ class BSR_State {
 	}
 
 	/**
-	 * Remove the data directory and its option (uninstall only).
+	 * Empty the data directory and forget its option (uninstall only). The
+	 * gate loader and a `disabled` marker stay behind, with the directory: a
+	 * cached auto_prepend_file line may still point at the loader, and a
+	 * prepend file that is missing breaks every request. The marker keeps the
+	 * loader from running anything.
 	 */
 	public static function uninstall() {
 		$suffix = (string) get_option( self::DIR_OPTION, '' );
 		if ( preg_match( '/^[a-f0-9]{16}$/', $suffix ) ) {
 			$dir = trailingslashit( WP_CONTENT_DIR ) . self::DIR_PREFIX . $suffix . '/';
 			if ( is_dir( $dir ) ) {
+				file_put_contents( $dir . 'disabled', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 				foreach ( (array) scandir( $dir ) as $f ) {
-					if ( is_string( $f ) && is_file( $dir . $f ) ) {
+					if ( is_string( $f ) && is_file( $dir . $f ) && ! in_array( $f, [ 'loader.php', 'disabled', 'index.php', '.htaccess' ], true ) ) {
 						@unlink( $dir . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
 					}
 				}
-				@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
 			}
 		}
 		delete_option( self::DIR_OPTION );
