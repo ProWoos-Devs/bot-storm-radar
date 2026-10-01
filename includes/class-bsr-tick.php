@@ -93,6 +93,7 @@ class BSR_Tick {
 
 		BSR_Baseline::maybe_rollover( $now );
 		BSR_Good_Bots::verify_pending();
+		BSR_Trips::process_pending( $now );
 
 		update_option( self::OPTION, [
 			'last_minute' => max( $target, $last ),

@@ -148,7 +148,7 @@ class BSR_State {
 			'bans'       => $bans,
 			'unbans'     => $unbans,
 			'probe'      => self::probe_config(),
-			'trips'      => [],
+			'trips'      => BSR_Trips::state_config(),
 			'mail'       => [ 'recipients' => BSR_Sources::alert_recipients( BSR_Sources::SITE ) ],
 		];
 	}
