@@ -55,7 +55,7 @@ class BSR_Admin {
 	private static function current_tab() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'radar';
-		return in_array( $tab, [ 'radar', 'settings' ], true ) ? $tab : 'radar';
+		return in_array( $tab, [ 'radar', 'bans', 'settings' ], true ) ? $tab : 'radar';
 	}
 
 	/**
@@ -73,6 +73,7 @@ class BSR_Admin {
 	private static function tabs() {
 		return [
 			'radar'    => __( 'Radar', 'bot-storm-radar' ),
+			'bans'     => __( 'Bans', 'bot-storm-radar' ),
 			'settings' => __( 'Settings', 'bot-storm-radar' ),
 		];
 	}
@@ -339,11 +340,25 @@ class BSR_Admin {
 					set_transient( 'bsr_gate_early_error', BSR_Gate_Early::last_error(), 300 );
 				}
 				break;
+			case 'unban':
+				$ip  = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
+				$len = isset( $_GET['prefix'] ) ? (int) $_GET['prefix'] : null;
+				if ( BSR_IP_Resolver::is_valid_ip( $ip ) && BSR_Bans::unban( $ip, get_current_user_id(), $len ) ) {
+					BSR_Bans::count_hand_unban();
+					$notice = 'unbanned';
+				} else {
+					$notice = 'unban_none';
+				}
+				break;
+			case 'clear_would':
+				delete_option( BSR_Bans::WOULD_OPTION );
+				$notice = 'would_cleared';
+				break;
 			case 'early_check':
 				$notice = 'early' === BSR_Gate_Early::verify() ? 'early_verified' : 'early_pending';
 				break;
 		}
-		$redirect = remove_query_arg( [ 'bsr_action', 'ip', '_wpnonce' ] );
+		$redirect = remove_query_arg( [ 'bsr_action', 'ip', 'prefix', '_wpnonce' ] );
 		wp_safe_redirect( add_query_arg( 'bsr_notice', $notice, $redirect ) );
 		exit;
 	}
@@ -378,6 +393,9 @@ class BSR_Admin {
 				'alert_sent'      => [ 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ],
 				'alert_failed'    => [ 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ],
 				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were refreshed.', 'bot-storm-radar' ) ],
+				'unbanned'        => [ 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ],
+				'unban_none'      => [ 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ],
+				'would_cleared'   => [ 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ],
 				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
 				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
 				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
@@ -440,6 +458,8 @@ class BSR_Admin {
 				</p>
 				<?php self::render_log_sources_table(); ?>
 				<?php self::render_gate_section(); ?>
+			<?php elseif ( 'bans' === $tab ) : ?>
+				<?php self::render_bans(); ?>
 			<?php else : ?>
 				<?php self::render_source_switcher(); ?>
 				<?php self::render_radar(); ?>
@@ -900,6 +920,163 @@ class BSR_Admin {
 	 * Read-only list of log sources on the Settings tab. Sources are defined
 	 * with WP-CLI, never from this screen.
 	 */
+	// ── Bans tab ────────────────────────────────────────────────────
+
+	/**
+	 * Bans in force and recently ended, would-be bans (observe mode), and
+	 * search-bot claims waiting for verification.
+	 */
+	private static function render_bans() {
+		$mode    = BSR_Trips::settings()['mode'];
+		$rows    = BSR_Bans::listing( 7 );
+		$active  = array_filter( $rows, function ( $r ) {
+			return $r['active'];
+		} );
+		$would   = BSR_Bans::would_bans();
+		$pending = BSR_Trips::pending();
+		$hand    = (int) get_option( BSR_Bans::HAND_UNBANS_OPTION, 0 );
+		$fmt     = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		?>
+		<p class="bsr-intro">
+			<?php
+			echo 'enforce' === $mode
+				? esc_html__( 'Address bans are enforced: an address that trips is refused by the gate until its ban ends or you unban it.', 'bot-storm-radar' )
+				: esc_html__( 'Address bans only observe: nobody is refused. The would-be bans below show what enforce mode would have done; switch it on in Settings, Address bans, once they look right for this site.', 'bot-storm-radar' );
+			echo ' ';
+			printf( esc_html__( '%1$d in force, %2$d would-be, %3$d waiting for a search-bot check, %4$d unbanned by hand so far.', 'bot-storm-radar' ), count( $active ), count( $would ), count( $pending ), (int) $hand );
+			?>
+		</p>
+
+		<h2><?php esc_html_e( 'Bans', 'bot-storm-radar' ); ?></h2>
+		<?php if ( empty( $rows ) ) : ?>
+			<p><?php esc_html_e( 'No ban in the last seven days.', 'bot-storm-radar' ); ?></p>
+		<?php else : ?>
+			<div class="bsr-table-wrap"><table class="widefat striped bsr-bans-table">
+				<thead><tr>
+					<th><?php esc_html_e( 'Address', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Reason', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Trips', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Since', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Until', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Evidence', 'bot-storm-radar' ); ?></th>
+					<th></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $rows as $r ) : ?>
+					<?php $single = (int) $r['prefix_len'] === ( false !== strpos( $r['ip_text'], ':' ) ? 128 : 32 ); ?>
+					<tr class="<?php echo $r['active'] ? '' : 'bsr-muted'; ?>">
+						<td><code><?php echo esc_html( $r['ip_text'] . ( $single ? '' : '/' . (int) $r['prefix_len'] ) ); ?></code></td>
+						<td><?php echo esc_html( self::reason_label( (string) $r['reason'] ) ); ?><br /><small><?php echo esc_html( 'gate' === $r['origin'] ? __( 'tripped in the gate', 'bot-storm-radar' ) : __( 'tripped in the radar', 'bot-storm-radar' ) ); ?></small></td>
+						<td><?php echo (int) $r['trips']; ?></td>
+						<td><?php echo esc_html( wp_date( $fmt, (int) $r['created_at'] ) ); ?></td>
+						<td>
+							<?php
+							if ( (int) $r['unbanned_at'] > 0 ) {
+								$who = get_userdata( (int) $r['unbanned_by'] );
+								echo esc_html( sprintf( __( 'unbanned %1$s by %2$s', 'bot-storm-radar' ), self::ago( (int) $r['unbanned_at'] ), $who ? $who->display_name : __( 'the system', 'bot-storm-radar' ) ) );
+							} elseif ( $r['active'] ) {
+								echo esc_html( self::ago( (int) $r['expires_at'] ) );
+							} else {
+								echo esc_html( sprintf( __( 'ended %s', 'bot-storm-radar' ), self::ago( (int) $r['expires_at'] ) ) );
+							}
+							?>
+						</td>
+						<td><?php self::render_evidence( is_array( $r['evidence'] ) ? $r['evidence'] : [] ); ?></td>
+						<td>
+							<?php if ( $r['active'] ) : ?>
+								<a class="button button-small" href="<?php echo esc_url( self::action_url( 'unban', [ 'ip' => $r['ip_text'], 'prefix' => (int) $r['prefix_len'] ] ) ); ?>"><?php esc_html_e( 'Unban', 'bot-storm-radar' ); ?></a>
+							<?php endif; ?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table></div>
+			<p class="description"><?php esc_html_e( 'Shown: bans in force and those that ended in the last seven days. To keep an address from ever being banned, add it to Settings, Never ban.', 'bot-storm-radar' ); ?></p>
+		<?php endif; ?>
+
+		<h2><?php esc_html_e( 'Would-be bans', 'bot-storm-radar' ); ?></h2>
+		<?php if ( empty( $would ) ) : ?>
+			<p><?php esc_html_e( 'None recorded.', 'bot-storm-radar' ); ?></p>
+		<?php else : ?>
+			<div class="bsr-table-wrap"><table class="widefat striped bsr-bans-table">
+				<thead><tr>
+					<th><?php esc_html_e( 'Address', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Reason', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Times', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'First', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Last', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Evidence', 'bot-storm-radar' ); ?></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $would as $ip => $w ) : ?>
+					<tr>
+						<td><code><?php echo esc_html( (string) $ip ); ?></code></td>
+						<td><?php echo esc_html( self::reason_label( (string) $w['reason'] ) ); ?></td>
+						<td><?php echo (int) $w['count']; ?></td>
+						<td><?php echo esc_html( wp_date( $fmt, (int) $w['first'] ) ); ?></td>
+						<td><?php echo esc_html( wp_date( $fmt, (int) $w['last'] ) ); ?></td>
+						<td><?php self::render_evidence( (array) $w['evidence'] ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table></div>
+			<p><a class="button" href="<?php echo esc_url( self::action_url( 'clear_would' ) ); ?>"><?php esc_html_e( 'Clear this list', 'bot-storm-radar' ); ?></a></p>
+		<?php endif; ?>
+
+		<?php if ( ! empty( $pending ) ) : ?>
+			<h2><?php esc_html_e( 'Waiting for a search-bot check', 'bot-storm-radar' ); ?></h2>
+			<p class="description"><?php esc_html_e( 'These addresses tripped while claiming to be a search engine. They are checked by reverse and forward DNS on the next minute tick; a real crawler is let go, a fake one is banned (or listed above in observe mode).', 'bot-storm-radar' ); ?></p>
+			<div class="bsr-table-wrap"><table class="widefat striped bsr-bans-table">
+				<thead><tr>
+					<th><?php esc_html_e( 'Address', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Claims to be', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Reason', 'bot-storm-radar' ); ?></th>
+					<th><?php esc_html_e( 'Since', 'bot-storm-radar' ); ?></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $pending as $ip => $p ) : ?>
+					<tr>
+						<td><code><?php echo esc_html( (string) $ip ); ?></code></td>
+						<td><?php echo esc_html( (string) ( BSR_Good_Bots::bots()[ $p['claim'] ]['label'] ?? $p['claim'] ) ); ?></td>
+						<td><?php echo esc_html( self::reason_label( (string) $p['reason'] ) ); ?></td>
+						<td><?php echo esc_html( self::ago( (int) $p['at'] ) ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table></div>
+		<?php endif; ?>
+		<?php
+	}
+
+	/**
+	 * @param string $reason
+	 * @return string
+	 */
+	private static function reason_label( $reason ) {
+		$labels = [
+			'probe' => __( 'scanner probes', 'bot-storm-radar' ),
+			'404'   => __( 'many missing pages', 'bot-storm-radar' ),
+		];
+		return $labels[ $reason ] ?? $reason;
+	}
+
+	/**
+	 * Bounded evidence as a compact list.
+	 *
+	 * @param array $ev
+	 */
+	private static function render_evidence( array $ev ) {
+		if ( empty( $ev ) ) {
+			echo '&ndash;';
+			return;
+		}
+		$parts = [];
+		foreach ( $ev as $k => $v ) {
+			$parts[] = '<strong>' . esc_html( str_replace( '_', ' ', (string) $k ) ) . '</strong> ' . esc_html( is_array( $v ) ? implode( ', ', array_map( 'strval', $v ) ) : (string) $v );
+		}
+		echo '<small class="bsr-evidence">' . wp_kses( implode( '<br />', $parts ), [ 'strong' => [], 'br' => [] ] ) . '</small>';
+	}
+
 	/**
 	 * Settings tab: how the gate is loaded, and early protection on or off.
 	 */
@@ -1080,7 +1257,7 @@ class BSR_Admin {
 .bsr-state-warning .bsr-state-name{color:#dba617}
 .bsr-state-storm .bsr-state-name{color:#d63638}
 .bsr-state-cooling .bsr-state-name{color:#2271b1}
-.bsr-danger{color:#d63638}
+.bsr-danger{color:#d63638}.bsr-muted{opacity:.6}.bsr-evidence{word-break:break-word}.bsr-table-wrap{overflow-x:auto;max-width:100%}.bsr-bans-table code{white-space:nowrap}.bsr-bans-table td{vertical-align:top}
 .bsr-baseline{font-style:italic}
 .bsr-wrap input[type=number].small-text{width:6em}
 .bsr-chart-wrap{background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:10px}
