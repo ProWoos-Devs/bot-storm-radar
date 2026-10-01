@@ -66,6 +66,8 @@ class BSR_Gate {
 		}
 		$d = self::decide( $_SERVER, $state, time() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
 		if ( 'ban' === $d['action'] || 'probe' === $d['action'] ) {
+			// The radar learns about it through the channel (drained by the tick).
+			BSR_Channel::write( dirname( $state_path ) . '/', $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
 			self::refuse( 'probe' === $d['action'] ? 'probe' : 'refused' );
 		}
 	}

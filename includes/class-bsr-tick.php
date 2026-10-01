@@ -73,6 +73,14 @@ class BSR_Tick {
 		$current = BSR_Helpers::minute( $now );
 		$target  = $current - 1;
 		$last    = (int) $status['last_minute'];
+		// What the gate refused comes in through its channel. A minute is
+		// drained once it ended at least BSR_Channel::GRACE seconds ago; a tick
+		// inside that grace leaves the last minute for the next tick, so its
+		// row includes the gate's count.
+		if ( $now - $current * 60 < BSR_Channel::GRACE ) {
+			$target--;
+		}
+		BSR_Channel_Drain::run( $now, $last > 0 ? $last : null );
 		$from    = $last > 0 ? max( $last + 1, $target - self::MAX_BACK + 1 ) : $target;
 		$rows    = [];
 
@@ -87,7 +95,7 @@ class BSR_Tick {
 		BSR_Good_Bots::verify_pending();
 
 		update_option( self::OPTION, [
-			'last_minute' => $target,
+			'last_minute' => max( $target, $last ),
 			'last_run'    => $now,
 			'source'      => self::$ran_inline ? 'inline' : ( wp_doing_cron() ? 'cron' : 'direct' ),
 		], true );

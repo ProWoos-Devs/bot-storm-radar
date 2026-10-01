@@ -507,6 +507,30 @@ class BSR_Admin {
 						<br /><?php esc_html_e( 'The fallback writes to the database on every request and can lose counts under load. Install a persistent object cache (Redis, Memcached) or enable APCu.', 'bot-storm-radar' ); ?>
 					<?php endif; ?>
 				</div>
+				<?php
+				$gate_probe = 0;
+				$gate_ban   = 0;
+				foreach ( $rows as $r ) {
+					$gate_probe += (int) ( $r['gate_probe'] ?? 0 );
+					$gate_ban   += (int) ( $r['gate_ban'] ?? 0 );
+				}
+				$ch      = BSR_Channel_Drain::status();
+				$waiting = BSR_Channel_Drain::oldest_waiting_age();
+				?>
+				<div class="bsr-card-sub <?php echo $waiting > 600 ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
+					<?php
+					printf( esc_html__( '%1$d probes and %2$d requests from banned addresses refused in the last 24 hours.', 'bot-storm-radar' ), (int) $gate_probe, (int) $gate_ban );
+					if ( $ch['last_drain'] ) {
+						echo ' ' . esc_html( sprintf( __( 'Channel %1$s, last emptied %2$s.', 'bot-storm-radar' ), $ch['channel'], self::ago( (int) $ch['last_drain'] ) ) );
+					}
+					if ( $waiting > 0 ) {
+						echo ' ' . esc_html( sprintf( __( 'The oldest refusals have waited %d minutes to be counted; they are counted on the next tick that runs.', 'bot-storm-radar' ), (int) ceil( $waiting / 60 ) ) );
+					}
+					if ( $ch['lost'] || $ch['full'] || $ch['late'] ) {
+						echo ' ' . esc_html( sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] ) );
+					}
+					?>
+				</div>
 				<div class="bsr-card-sub <?php echo BSR_Tick::is_late() ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Tick:', 'bot-storm-radar' ); ?></strong>
 					<?php
 					if ( (int) $tick['last_run'] > 0 ) {

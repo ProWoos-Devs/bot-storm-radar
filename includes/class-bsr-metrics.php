@@ -54,7 +54,7 @@ class BSR_Metrics {
 	public static function compute_minute( $minute, $opts = null, $baseline = null ) {
 		$minute = (int) $minute;
 		$p      = 'm:' . $minute . ':';
-		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow', 'refused' ];
+		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow', 'refused', 'gate_probe', 'gate_ban' ];
 		$keys   = [];
 		foreach ( $base as $k ) {
 			$keys[] = $p . $k;
@@ -249,6 +249,10 @@ class BSR_Metrics {
 		$volume = sprintf( __( 'Volume: %1$d distinct addresses in the minute, %2$s (%3$s×), gate %4$s.', 'bot-storm-radar' ), (int) ( $row['ips'] ?? 0 ), $ref, self::fmt( $row['vol'] ?? 0, 1 ), self::fmt( $row['gate'] ?? 0 ) );
 		if ( (int) ( $row['refused'] ?? 0 ) > 0 ) {
 			$volume .= ' ' . sprintf( __( '%d requests refused by the web server (403, 429, 444) are not counted.', 'bot-storm-radar' ), (int) $row['refused'] );
+		}
+		$gate = (int) ( $row['gate_probe'] ?? 0 ) + (int) ( $row['gate_ban'] ?? 0 );
+		if ( $gate > 0 ) {
+			$volume .= ' ' . sprintf( __( '%1$d requests refused by the gate (%2$d probes, %3$d from banned addresses) are not counted.', 'bot-storm-radar' ), $gate, (int) ( $row['gate_probe'] ?? 0 ), (int) ( $row['gate_ban'] ?? 0 ) );
 		}
 
 		if ( empty( $parts ) ) {
