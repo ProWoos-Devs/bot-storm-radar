@@ -81,7 +81,8 @@ class BSR_Bans {
 	 */
 	const GENERATION_SETTINGS = [ 'ban_mode', 'probe_refusal', 'probe_extra', 'probe_allow', 'allowlist', 'trusted_proxies', 'trust_all_forwarding' ];
 
-	const WOULD_OPTION = 'bsr_would_bans';
+	const WOULD_OPTION       = 'bsr_would_bans';
+	const HAND_UNBANS_OPTION = 'bsr_hand_unbans';
 	const WOULD_CAP    = 200;
 
 	public static function init() {
@@ -227,6 +228,7 @@ class BSR_Bans {
 		delete_option( self::DB_VERSION_OPTION );
 		delete_option( self::GENERATION_OPTION );
 		delete_option( self::WOULD_OPTION );
+		delete_option( self::HAND_UNBANS_OPTION );
 	}
 
 	// ── Keys ──────────────────────────────────────────────────────────
@@ -448,6 +450,47 @@ class BSR_Bans {
 			ARRAY_A
 		);
 		return is_array( $rows ) ? $rows : [];
+	}
+
+	/**
+	 * Rows for the Bans tab: in force now, or ended within the last $days
+	 * days, newest first, evidence decoded.
+	 *
+	 * @param int      $days
+	 * @param int      $limit
+	 * @param int|null $now
+	 * @return array[]
+	 */
+	public static function listing( $days = 7, $limit = 200, $now = null ) {
+		global $wpdb;
+		$now   = null === $now ? time() : (int) $now;
+		$table = self::table();
+		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT id, ip_text, prefix_len, reason, evidence, origin, trips, created_at, updated_at, expires_at, unbanned_at, unbanned_by FROM {$table} WHERE expires_at > %d ORDER BY (expires_at > %d) DESC, updated_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+				$now - (int) $days * DAY_IN_SECONDS,
+				$now,
+				(int) $limit
+			),
+			ARRAY_A
+		);
+		$rows = is_array( $rows ) ? $rows : [];
+		foreach ( $rows as &$r ) {
+			$r['evidence'] = json_decode( (string) $r['evidence'], true );
+			$r['active']   = (int) $r['expires_at'] > $now && 0 === (int) $r['unbanned_at'];
+		}
+		return $rows;
+	}
+
+	/**
+	 * Count an unban made by hand (the false-positive signal).
+	 *
+	 * @return int The new total.
+	 */
+	public static function count_hand_unban() {
+		$n = (int) get_option( self::HAND_UNBANS_OPTION, 0 ) + 1;
+		update_option( self::HAND_UNBANS_OPTION, $n, false );
+		return $n;
 	}
 
 	/**
