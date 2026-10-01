@@ -87,12 +87,36 @@ class BSR_CLI {
 	 * <file>...
 	 * : Log files, plain or .gz, merged by minute.
 	 *
-	 * --profile=<profile>
-	 * : Request classes to use.
+	 * [--profile=<profile>]
+	 * : Request classes to use. Required without --gate.
 	 * ---
 	 * options:
 	 *   - mediawiki
 	 *   - wordpress
+	 * ---
+	 *
+	 * [--gate]
+	 * : Instead of the radar, simulate the gate and the trips with this site's
+	 * settings (as in enforce mode) over the logs of a WordPress site: which
+	 * requests reached PHP, which the gate would have refused as probes or as
+	 * banned, which addresses would have tripped. Nothing is written.
+	 *
+	 * [--root=<path>]
+	 * : With --gate, the WordPress folder of the site the logs come from, for
+	 * the missing-PHP rule. Without it that rule is skipped.
+	 *
+	 * [--home=<path>]
+	 * : With --gate, the path of that site's WordPress address, for a site in a
+	 * subfolder (for example /blog).
+	 *
+	 * [--verify-bots]
+	 * : With --gate, verify search-bot claims by reverse and forward DNS
+	 * instead of only listing them as pending.
+	 *
+	 * [--list=<n>]
+	 * : With --gate, how many trips to list.
+	 * ---
+	 * default: 30
 	 * ---
 	 *
 	 * [--baseline-ips=<n>]
@@ -118,6 +142,13 @@ class BSR_CLI {
 			if ( ! is_readable( $f ) ) {
 				WP_CLI::error( sprintf( 'Cannot read %s.', $f ) );
 			}
+		}
+		if ( ! empty( $assoc['gate'] ) ) {
+			$this->replay_gate( $args, $assoc );
+			return;
+		}
+		if ( empty( $assoc['profile'] ) ) {
+			WP_CLI::error( 'Give --profile=mediawiki|wordpress, or --gate.' );
 		}
 		$baseline = isset( $assoc['baseline-ips'] ) ? [ 'ips_median' => (float) $assoc['baseline-ips'] ] : null;
 		$t0       = microtime( true );
@@ -162,6 +193,49 @@ class BSR_CLI {
 			}
 		}
 		BSR_Log_Source::purge( BSR_Sources::REPLAY );
+	}
+
+	/**
+	 * The --gate dry run.
+	 *
+	 * @param array $args
+	 * @param array $assoc
+	 */
+	private function replay_gate( $args, $assoc ) {
+		$t0  = microtime( true );
+		$s   = BSR_Gate_Replay::run( $args, [
+			'root'        => $assoc['root'] ?? '',
+			'home'        => $assoc['home'] ?? '',
+			'verify_bots' => ! empty( $assoc['verify-bots'] ),
+		] );
+		$ms  = (int) round( ( microtime( true ) - $t0 ) * 1000 );
+		$set = BSR_Trips::settings();
+		$pct = function ( $a, $b ) {
+			return $b > 0 ? round( 100 * $a / $b ) . '%' : '-';
+		};
+		WP_CLI::log( sprintf( 'Gate dry run over %s to %s UTC: %d lines (%d unparsed), %d ms. Nothing was written.', gmdate( 'Y-m-d H:i', (int) $s['first'] ), gmdate( 'Y-m-d H:i', (int) $s['last'] ), $s['lines'], $s['bad'], $ms ) );
+		WP_CLI::log( sprintf( 'Settings: probe trip %d in %d min, page-404 trip %d a minute, ban %d min (%d h on a repeat), simulated as enforce mode.', $set['probe']['count'], intdiv( $set['probe']['window'], 60 ), $set['404']['count'], intdiv( $set['probe']['ttl'], 60 ), intdiv( $set['ttl_repeat'], 3600 ) ) );
+		WP_CLI::log( '' );
+		WP_CLI::log( sprintf( 'Refused by the web server already (403, 429, 444): %d, of which %d probes. The gate never sees these.', $s['server_refused'], $s['server_probes'] ) );
+		WP_CLI::log( sprintf( 'Static files served by the web server: %d.', $s['static'] ) );
+		WP_CLI::log( sprintf( 'Reached PHP: %d.', $s['php'] ) );
+		$cls = [];
+		foreach ( $s['probe_classes'] as $c => $n ) {
+			$cls[] = $c . ' ' . $n;
+		}
+		WP_CLI::log( sprintf( '  probes the gate would refuse: %d (%s)', $s['probes'], $cls ? implode( ', ', $cls ) : 'none' ) );
+		WP_CLI::log( sprintf( '  requests from addresses under a simulated ban: %d', $s['banned_hits'] ) );
+		WP_CLI::log( sprintf( '  WordPress builds saved: %d of %d (%s)', $s['saved'], $s['php'], $pct( $s['saved'], $s['php'] ) ) );
+		WP_CLI::log( '' );
+		WP_CLI::log( sprintf( 'Trips: %d bans for %d addresses; %d trips on protected addresses skipped; %d search-bot claims %s.', count( $s['trips'] ), $s['trip_addresses'], $s['protected_skip'], count( $s['pending'] ), empty( $assoc['verify-bots'] ) ? 'held pending (not verified; add --verify-bots)' : 'checked by DNS' ) );
+		foreach ( array_slice( $s['trips'], 0, max( 0, (int) ( $assoc['list'] ?? 30 ) ) ) as $t ) {
+			WP_CLI::log( sprintf( '  %s UTC  %-39s %-5s until %s%s  %s', gmdate( 'Y-m-d H:i:s', $t['at'] ), $t['ip'], $t['reason'], gmdate( 'H:i', $t['until'] ), '' === $t['claim'] ? '' : '  claims ' . $t['claim'], implode( ' ', $t['paths'] ) ) );
+		}
+		foreach ( $s['pending'] as $ip => $claim ) {
+			WP_CLI::log( sprintf( '  pending  %-39s claims %s', $ip, $claim ) );
+		}
+		WP_CLI::log( '' );
+		WP_CLI::log( 'A log does not say who was logged in; every request was treated as anonymous. Without --root the missing-PHP rule was skipped.' );
 	}
 
 	/**

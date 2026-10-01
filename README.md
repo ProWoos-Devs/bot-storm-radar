@@ -63,6 +63,16 @@ include_once '/path/to/wp-content/bot-storm-radar-<random>/loader.php';
 
 **Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
 
+## Trying the gate on your own logs
+
+Before switching address bans to enforce, replay a few days of the site's access logs through the gate. Nothing is written and nothing is mailed:
+
+```
+wp bot-storm-radar replay --gate /var/log/nginx/access.log.2.gz /var/log/nginx/access.log.1
+```
+
+It reports how many requests reached PHP, how many the gate would have refused as probes or as coming from a banned address, and every address that would have tripped, with the paths it asked for. Add `--verify-bots` to check search-bot claims by DNS, and `--root=/path/to/wordpress` to include the missing-PHP rule.
+
 ## Data directory
 
 The plugin keeps the files its gate reads in `wp-content/bot-storm-radar-<random>/`. Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
