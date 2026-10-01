@@ -62,6 +62,9 @@ class BSR_Channel_Drain {
 				list( $kind, $detail, $ip ) = array_pad( explode( "\t", $line ), 3, '' );
 				if ( isset( $tot[ $kind ] ) ) {
 					$tot[ $kind ] += (int) $n;
+				} elseif ( 'trip' === $kind || 'wouldban' === $kind ) {
+					// Bans are never lost to a late row: handled whatever the minute.
+					self::trip_event( $kind, $detail, $ip, $m, $events, $st );
 				}
 			}
 			if ( null !== $computed_up_to && $m <= (int) $computed_up_to ) {
@@ -98,6 +101,56 @@ class BSR_Channel_Drain {
 	}
 
 	/**
+	 * A gate-side trip. `trip` (enforce mode) becomes a ban row through the
+	 * guard unless an administrative change voided it: the generation moved
+	 * on since the gate decided, or the address was unbanned after that.
+	 * `wouldban` (observe mode) is recorded for the Bans tab.
+	 *
+	 * @param string $kind
+	 * @param string $detail <reason>-<generation>-<ttl>
+	 * @param string $ip
+	 * @param int    $minute
+	 * @param array  $events The minute's events (evidence).
+	 * @param array  $st     Status, updated.
+	 */
+	private static function trip_event( $kind, $detail, $ip, $minute, array $events, array &$st ) {
+		list( $reason, $gen, $ttl ) = array_pad( explode( '-', (string) $detail ), 3, '' );
+		if ( '' === $ip || '' === $reason ) {
+			return;
+		}
+		$evidence = [ 'by' => 'gate', 'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC' ];
+		foreach ( $events as $line => $n ) {
+			list( $k, $class, $addr ) = array_pad( explode( "\t", $line ), 3, '' );
+			if ( 'probe' === $k && $addr === $ip ) {
+				$evidence[ 'probes_' . $class ] = (int) $n;
+			}
+		}
+		if ( 'wouldban' === $kind ) {
+			if ( BSR_Bans::would_ban( $ip, $reason, $evidence, $minute * 60 ) ) {
+				$st['wouldban']++;
+			} else {
+				$st['guarded']++;
+			}
+			return;
+		}
+		$overridden = (int) $gen !== BSR_Bans::generation();
+		foreach ( BSR_Bans::recent_unbans( $minute * 60 ) as $u ) {
+			if ( BSR_IP_Resolver::ip_in_cidr( $ip, $u['ip_text'] . '/' . (int) $u['prefix_len'] ) ) {
+				$overridden = true;
+			}
+		}
+		if ( $overridden ) {
+			$st['overridden']++;
+			return;
+		}
+		if ( BSR_Bans::trip( $ip, max( 60, (int) $ttl ), $reason, $evidence, 'gate' ) > 0 ) {
+			$st['trips']++;
+		} else {
+			$st['guarded']++;
+		}
+	}
+
+	/**
 	 * How long the oldest closed minute has been waiting for a drain, in
 	 * seconds (0 when none waits). On a site whose cron only runs on visits
 	 * nothing can promise when the next drain comes; the Radar shows this.
@@ -116,7 +169,9 @@ class BSR_Channel_Drain {
 	}
 
 	/**
-	 * @return array last_drain, minutes, events, late, lost, full, channel
+	 * @return array last_drain, minutes, events, late, lost, full, channel,
+	 *               trips (ban rows written), wouldban, overridden (voided by an
+	 *               administrative change), guarded (refused by the guard)
 	 */
 	public static function status() {
 		$s = get_option( self::STATUS_OPTION, [] );
@@ -128,6 +183,10 @@ class BSR_Channel_Drain {
 			'lost'       => 0,
 			'full'       => 0,
 			'channel'    => '',
+			'trips'      => 0,
+			'wouldban'   => 0,
+			'overridden' => 0,
+			'guarded'    => 0,
 		] );
 	}
 }

@@ -76,9 +76,82 @@ class BSR_Bans {
 		return $wpdb->prefix . 'bsr_ban_exports';
 	}
 
+	/**
+	 * Settings whose change voids provisional bans decided before it.
+	 */
+	const GENERATION_SETTINGS = [ 'ban_mode', 'probe_refusal', 'probe_extra', 'probe_allow', 'allowlist', 'trusted_proxies', 'trust_all_forwarding' ];
+
+	const WOULD_OPTION = 'bsr_would_bans';
+	const WOULD_CAP    = 200;
+
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
 		add_action( BSR_Client_IP::CRON_HOOK, [ __CLASS__, 'cleanup' ], 30, 0 );
+		// Before the state rebuild (priority 10), so the file carries the new number.
+		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'settings_changed' ], 5, 2 );
+	}
+
+	/**
+	 * Raise the generation when a setting that affects bans changed (any
+	 * `trip_*` key too).
+	 *
+	 * @param mixed $old
+	 * @param mixed $new
+	 */
+	public static function settings_changed( $old, $new ) {
+		$old  = is_array( $old ) ? $old : [];
+		$new  = is_array( $new ) ? $new : [];
+		$keys = self::GENERATION_SETTINGS;
+		foreach ( array_merge( array_keys( $old ), array_keys( $new ) ) as $k ) {
+			if ( 0 === strpos( (string) $k, 'trip_' ) ) {
+				$keys[] = $k;
+			}
+		}
+		foreach ( array_unique( $keys ) as $k ) {
+			if ( ( $old[ $k ] ?? null ) != ( $new[ $k ] ?? null ) ) { // phpcs:ignore WordPress.PHP.StrictComparisons -- '1' and 1 are the same setting.
+				self::bump_generation();
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Record a would-be ban (observe mode) for the Bans tab: per address the
+	 * reason, first and last time, count and the latest evidence, capped at
+	 * WOULD_CAP addresses (oldest dropped). Never a ban, never through the
+	 * table. Protected addresses are not recorded.
+	 *
+	 * @param string $ip
+	 * @param string $reason
+	 * @param array  $evidence
+	 * @param int    $at
+	 * @return bool
+	 */
+	public static function would_ban( $ip, $reason, array $evidence, $at ) {
+		if ( ! BSR_Guard::may_ban( $ip ) ) {
+			return false;
+		}
+		$list = get_option( self::WOULD_OPTION, [] );
+		$list = is_array( $list ) ? $list : [];
+		$cur  = $list[ $ip ] ?? [ 'first' => (int) $at, 'count' => 0 ];
+		unset( $list[ $ip ] );
+		$list = [ $ip => [
+			'reason'   => substr( sanitize_key( (string) $reason ), 0, 40 ),
+			'first'    => (int) $cur['first'],
+			'last'     => (int) $at,
+			'count'    => (int) $cur['count'] + 1,
+			'evidence' => self::bound_evidence( $evidence ),
+		] ] + $list;
+		update_option( self::WOULD_OPTION, array_slice( $list, 0, self::WOULD_CAP, true ), false );
+		return true;
+	}
+
+	/**
+	 * @return array ip => reason, first, last, count, evidence (newest first)
+	 */
+	public static function would_bans() {
+		$l = get_option( self::WOULD_OPTION, [] );
+		return is_array( $l ) ? $l : [];
 	}
 
 	// ── Schema ────────────────────────────────────────────────────────
@@ -153,6 +226,7 @@ class BSR_Bans {
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange -- table name from $wpdb->prefix.
 		delete_option( self::DB_VERSION_OPTION );
 		delete_option( self::GENERATION_OPTION );
+		delete_option( self::WOULD_OPTION );
 	}
 
 	// ── Keys ──────────────────────────────────────────────────────────
