@@ -75,7 +75,7 @@ class BSR_Gate {
 			// The radar learns about it through the channel (drained by the tick).
 			BSR_Channel::write( $dir, $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
 			if ( 'probe' === $d['action'] ) {
-				self::probe_trip( $dir, (string) $d['ip'], $state, $now );
+				self::probe_trip( $dir, (string) $d['ip'], $state, $now, (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only matched against the bot patterns.
 			}
 			self::refuse( 'probe' === $d['action'] ? 'probe' : 'refused' );
 		}
@@ -86,15 +86,19 @@ class BSR_Gate {
 	 * channel counts). On the probe that reaches the threshold: in enforce
 	 * mode a provisional ban, stamped with the generation, plus a `trip`
 	 * event the drain turns into a ban row; in observe mode only a `wouldban`
-	 * event. Protected addresses never trip. Returns trip | wouldban | ''.
+	 * event. Protected addresses never trip. A user agent that claims a
+	 * verified-bot family gets no provisional ban: the gate cannot verify it,
+	 * so it sends a `claimtrip` event and the radar decides after verifying.
+	 * Returns trip | wouldban | claimtrip | ''.
 	 *
 	 * @param string $dir
 	 * @param string $ip
 	 * @param array  $state
 	 * @param int    $now
+	 * @param string $ua
 	 * @return string
 	 */
-	public static function probe_trip( $dir, $ip, array $state, $now ) {
+	public static function probe_trip( $dir, $ip, array $state, $now, $ua = '' ) {
 		$cfg = $state['trips']['probe'] ?? null;
 		if ( ! is_array( $cfg ) || empty( $cfg['count'] ) || '' === $ip || ! BSR_Channel::apcu() || self::is_protected( $ip, $state ) ) {
 			return '';
@@ -105,6 +109,12 @@ class BSR_Gate {
 		}
 		$ttl = max( 60, (int) ( $cfg['ttl'] ?? 3600 ) );
 		$gen = (int) ( $state['generation'] ?? 0 );
+		foreach ( (array) ( $cfg['claims'] ?? [] ) as $name => $pattern ) {
+			if ( '' !== $ua && is_string( $pattern ) && 1 === @preg_match( $pattern, $ua ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
+				BSR_Channel::write( $dir, 'claimtrip', 'probe-' . $gen . '-' . $ttl . '-' . $name, $ip, $now );
+				return 'claimtrip';
+			}
+		}
 		if ( 'enforce' === ( $state['mode'] ?? 'observe' ) ) {
 			BSR_Channel::ban_set( $dir, $ip, $now + $ttl, $gen, 'probe', $now );
 			BSR_Channel::write( $dir, 'trip', 'probe-' . $gen . '-' . $ttl, $ip, $now );

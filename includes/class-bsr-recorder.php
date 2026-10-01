@@ -98,6 +98,9 @@ class BSR_Recorder {
 		$t0 = microtime( true );
 		self::ingest( $event );
 		self::$spent = microtime( true ) - $t0;
+		if ( '404' === $event['class'] ) {
+			self::trip_404( $event );
+		}
 
 		// Opt-in overhead log for calibration: define( 'BSR_DEBUG_TIMING', true ).
 		if ( defined( 'BSR_DEBUG_TIMING' ) && BSR_DEBUG_TIMING ) {
@@ -125,6 +128,36 @@ class BSR_Recorder {
 			'ms'      => (int) round( ( microtime( true ) - $start ) * 1000 ),
 			'method'  => isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET', // phpcs:ignore WordPress.Security
 		];
+	}
+
+	/**
+	 * Page 404s per address and minute (assets are their own class and never
+	 * get here). The request that reaches the count trips, once per minute.
+	 * Live requests only; log sources never trip.
+	 *
+	 * @param array $e
+	 * @return string BSR_Trips::trip() result, or ''.
+	 */
+	public static function trip_404( array $e ) {
+		$count = BSR_Trips::settings()['404']['count'];
+		$ip    = (string) ( $e['ip'] ?? '' );
+		if ( $count <= 0 || '' === $ip ) {
+			return '';
+		}
+		$minute = BSR_Helpers::minute();
+		$n      = BSR_Counters::incr( 'm:' . $minute . ':p404:' . $ip );
+		if ( $n !== $count ) {
+			return '';
+		}
+		BSR_Counters::flush();
+		$ev = [
+			'by'         => 'radar',
+			'page_404s'  => $n,
+			'last_path'  => substr( (string) BSR_Helpers::request_path(), 0, 200 ),
+			'user_agent' => (string) ( $e['ua'] ?? '' ),
+			'minute'     => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',
+		];
+		return BSR_Trips::trip( $ip, '404', $ev, 'radar', BSR_Good_Bots::claimed( (string) ( $e['ua'] ?? '' ) ) );
 	}
 
 	/**

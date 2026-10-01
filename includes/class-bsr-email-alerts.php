@@ -138,6 +138,40 @@ class BSR_Email_Alerts {
 	}
 
 	/**
+	 * One mail when more than BSR_Trips::DIGEST_COUNT addresses were banned
+	 * within an hour (never one mail per trip).
+	 *
+	 * @param array $recent ip => [t, reason]
+	 * @param int   $now
+	 * @return bool
+	 */
+	public static function send_trip_digest( array $recent, $now ) {
+		$addresses = BSR_Sources::alert_recipients( BSR_Sources::SITE );
+		if ( empty( $addresses ) ) {
+			return false;
+		}
+		$site    = get_bloginfo( 'name' );
+		$subject = sprintf( '[%s — Bot Storm Radar] %s', $site, sprintf( __( '%d addresses banned in the last hour', 'bot-storm-radar' ), count( $recent ) ) );
+		$by      = [];
+		foreach ( $recent as $r ) {
+			$by[ $r['reason'] ] = ( $by[ $r['reason'] ] ?? 0 ) + 1;
+		}
+		$body   = [];
+		$body[] = sprintf( __( '%1$d addresses were banned for a while between %2$s and %3$s, each after crossing a trip on its own (probes for files only scanners ask for, or many missing pages in a minute).', 'bot-storm-radar' ), count( $recent ), wp_date( get_option( 'time_format' ), $now - BSR_Trips::DIGEST_WINDOW ), wp_date( get_option( 'time_format' ), $now ) );
+		$body[] = __( 'This is the only mail for this hour. Nothing else changed; the storm state is separate.', 'bot-storm-radar' );
+		$body[] = '';
+		$parts = [];
+		foreach ( $by as $reason => $n ) {
+			$parts[] = $reason . ' ' . (int) $n;
+		}
+		$body[] = __( 'By reason: ', 'bot-storm-radar' ) . implode( ', ', $parts );
+		$body[] = __( 'Latest: ', 'bot-storm-radar' ) . implode( ', ', array_slice( array_keys( $recent ), -10 ) );
+		$body[] = '';
+		$body[] = sprintf( __( 'Bans and Unban: %s', 'bot-storm-radar' ), admin_url( 'admin.php?page=bot-storm-radar&tab=bans' ) );
+		return self::deliver( $addresses, $subject, $body );
+	}
+
+	/**
 	 * Append the footer and send the plain-text mail to every recipient.
 	 *
 	 * @param array  $addresses

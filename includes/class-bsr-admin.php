@@ -132,6 +132,21 @@ class BSR_Admin {
 		add_settings_field( 'allowlist', __( 'Never ban', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BSR_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'bsr_proxies' );
+		add_settings_section( 'bsr_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
+			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: the gate answers it 403 before the site loads. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
+		}, self::PAGE );
+		add_settings_field( 'ban_mode', __( 'Mode', 'bot-storm-radar' ), function () {
+			$v = BSR_Helpers::opt( 'ban_mode', 'observe' );
+			foreach ( [ 'observe' => __( 'Observe only: list would-be bans, refuse nobody', 'bot-storm-radar' ), 'enforce' => __( 'Enforce: ban addresses that trip', 'bot-storm-radar' ) ] as $k => $label ) {
+				printf( '<label><input type="radio" name="%1$s[ban_mode]" value="%2$s" %3$s /> %4$s</label><br />', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( $k ), checked( $k, $v, false ), esc_html( $label ) );
+			}
+		}, self::PAGE, 'bsr_bans' );
+		self::number_field( 'trip_probe_count', __( 'Probe trip', 'bot-storm-radar' ), 'bsr_bans', 0, 1000, 1, __( 'Probes from one address within the window below that trip it. 0 turns probe trips off.', 'bot-storm-radar' ) );
+		self::number_field( 'trip_probe_window_minutes', __( 'Probe window (minutes)', 'bot-storm-radar' ), 'bsr_bans', 1, 1440, 1, '' );
+		self::number_field( 'trip_404_count', __( 'Missing-page trip', 'bot-storm-radar' ), 'bsr_bans', 0, 10000, 1, __( 'Pages not found for one address within one minute that trip it. Missing images and other files never count. 0 turns this off.', 'bot-storm-radar' ) );
+		self::number_field( 'trip_ban_minutes', __( 'Ban length (minutes)', 'bot-storm-radar' ), 'bsr_bans', 1, 10080, 1, '' );
+		self::number_field( 'trip_ban_repeat_hours', __( 'Ban length on a repeat (hours)', 'bot-storm-radar' ), 'bsr_bans', 1, 720, 1, __( 'For an address that trips again within a day of its last ban.', 'bot-storm-radar' ) );
 		add_settings_section( 'bsr_probes', __( 'Probes', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'Scanners ask every site for files that only exist by mistake: .env and .git files, backups, database dumps, other applications\' admin pages. On many servers each of those requests builds a whole WordPress page just to say "not found". The gate answers them with 403 before WordPress loads, for every visitor, whether address bans are enforced or not. Files the web server serves itself (an existing .zip, for example) never reach it.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Always refused: any path with a part that starts with a dot (except /.well-known/); copies of PHP files such as config.php.txt or wp-config.php.bak; configuration and log files (.yml .yaml .toml .ini .log .lock .cfg .conf, package.json, composer.json, web.config and similar); .zip .tar .tgz .gz .bz2 .tbz2 .xz .zst .rar .7z .sql .bak .old .orig .save .swp outside the uploads folder (compressed sitemaps excepted); .php files that do not exist; and these paths of other applications:', 'bot-storm-radar' ) . '</p>';
@@ -181,7 +196,10 @@ class BSR_Admin {
 			return $current;
 		}
 		$out = $current;
-		$ints = [ 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
+		if ( isset( $input['ban_mode'] ) ) {
+			$out['ban_mode'] = 'enforce' === $input['ban_mode'] ? 'enforce' : 'observe';
+		}
+		$ints = [ 'trip_probe_count' => [ 0, 1000 ], 'trip_probe_window_minutes' => [ 1, 1440 ], 'trip_404_count' => [ 0, 10000 ], 'trip_ban_minutes' => [ 1, 10080 ], 'trip_ban_repeat_hours' => [ 1, 720 ], 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
 		foreach ( $ints as $k => $range ) {
 			if ( isset( $input[ $k ] ) ) {
 				$out[ $k ] = (int) BSR_Helpers::clamp( (int) $input[ $k ], $range[0], $range[1] );
@@ -397,7 +415,7 @@ class BSR_Admin {
 				<span class="dashicons dashicons-visibility bsr-header-icon"></span>
 				<div>
 					<h1><?php esc_html_e( 'Bot Storm Radar', 'bot-storm-radar' ); ?></h1>
-					<span class="bsr-version"><?php printf( esc_html__( 'Version %s: scanner probes are refused, address bans only observe', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
+					<span class="bsr-version"><?php printf( 'enforce' === BSR_Helpers::opt( 'ban_mode', 'observe' ) ? esc_html__( 'Version %s: scanner probes are refused, addresses that trip are banned', 'bot-storm-radar' ) : esc_html__( 'Version %s: scanner probes are refused, address bans only observe', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
 				</div>
 			</div>
 			<nav class="nav-tab-wrapper">
@@ -896,7 +914,7 @@ class BSR_Admin {
 			<tbody>
 				<tr><th><?php esc_html_e( 'Gate copy', 'bot-storm-radar' ); ?></th><td><?php echo $g['gate_present'] ? esc_html( $g['gate'] ) : '<span class="bsr-danger">' . esc_html__( 'missing: deactivate and activate the plugin to write it again', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
 				<tr><th><?php esc_html_e( 'Probe refusal', 'bot-storm-radar' ); ?></th><td><?php echo BSR_Helpers::opt( 'probe_refusal', 1 ) ? esc_html__( 'on: probes get 403 before WordPress loads (Probes section above)', 'bot-storm-radar' ) : esc_html__( 'off', 'bot-storm-radar' ); ?></td></tr>
-				<tr><th><?php esc_html_e( 'Address bans', 'bot-storm-radar' ); ?></th><td><?php esc_html_e( 'observe only: no address is refused yet', 'bot-storm-radar' ); ?></td></tr>
+				<tr><th><?php esc_html_e( 'Address bans', 'bot-storm-radar' ); ?></th><td><?php echo 'enforce' === BSR_Helpers::opt( 'ban_mode', 'observe' ) ? esc_html__( 'enforce: addresses that trip are refused for a while (Address bans above)', 'bot-storm-radar' ) : esc_html__( 'observe only: trips are listed as would-be bans, nobody is refused', 'bot-storm-radar' ); ?></td></tr>
 				<tr><th><?php esc_html_e( 'Must-use plugin', 'bot-storm-radar' ); ?></th><td><?php echo $g['mu_plugin'] ? esc_html__( 'installed', 'bot-storm-radar' ) : '<span class="bsr-danger">' . esc_html__( 'missing: the folder wp-content/mu-plugins may not be writable', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
 				<?php if ( $g['disabled'] ) : ?>
 					<tr><th><?php esc_html_e( 'Switched off', 'bot-storm-radar' ); ?></th><td class="bsr-danger"><?php esc_html_e( 'A file named "disabled" in the data directory stops the gate. Delete it, or deactivate and activate the plugin, to switch the gate back on.', 'bot-storm-radar' ); ?></td></tr>

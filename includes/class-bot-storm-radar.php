@@ -48,6 +48,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-probe.php';
 		require_once $dir . 'class-bsr-channel.php';
 		require_once $dir . 'class-bsr-channel-drain.php';
+		require_once $dir . 'class-bsr-trips.php';
 		require_once $dir . 'class-bsr-state.php';
 		require_once $dir . 'class-bsr-gate-install.php';
 		require_once $dir . 'class-bsr-gate-early.php';
@@ -218,6 +219,12 @@ class Bot_Storm_Radar {
 			'probe_refusal'         => 1,
 			'probe_extra'           => '',
 			'probe_allow'           => '',
+			'ban_mode'              => 'observe',
+			'trip_probe_count'      => 3,
+			'trip_probe_window_minutes' => 10,
+			'trip_404_count'        => 20,
+			'trip_ban_minutes'      => 60,
+			'trip_ban_repeat_hours' => 24,
 		];
 	}
 }
