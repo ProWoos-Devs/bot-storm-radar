@@ -74,6 +74,7 @@ class Bot_Storm_Radar {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			require_once $dir . 'class-bsr-log-line.php';
 			require_once $dir . 'class-bsr-log-source.php';
+			require_once $dir . 'class-bsr-gate-replay.php';
 			require_once $dir . 'class-bsr-cli.php';
 			WP_CLI::add_command( 'bot-storm-radar', 'BSR_CLI' );
 			WP_CLI::add_command( 'bot-storm-radar source', 'BSR_CLI_Source' );
