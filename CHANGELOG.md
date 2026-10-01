@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
+The gate: Bot Storm Radar now protects as well as reports. Probe refusal is on from the start; address bans start in observe mode.
+
 ### Added
 - `wp bot-storm-radar replay --gate <file>...`: a dry run of the gate and the trips over a WordPress site's access logs (plain or .gz, merged in time order), with this site's settings simulated as enforce mode. It reports the requests the web server already refused, the static files it served, the requests that reached PHP, the probes the gate would refuse, the requests it would refuse from banned addresses, the WordPress builds that saves, and every trip with its time and paths. Protected addresses never trip; search-bot claims are listed as pending, or checked by DNS with `--verify-bots`. `--root` enables the missing-PHP rule, `--home` handles a site in a subfolder. Nothing is written and nothing is mailed. `--profile` is now required only without `--gate`.
 - A Bans tab. It lists the bans in force and those that ended in the last seven days (address or range, reason, where it tripped, trip count, since, until or who unbanned it, and the evidence) with an Unban button, the would-be bans recorded in observe mode with a Clear button, and the addresses waiting for a search-bot check. Unbans made by hand are counted (`bsr_hand_unbans`) as the false-positive signal. The tables scroll on their own on narrow screens.

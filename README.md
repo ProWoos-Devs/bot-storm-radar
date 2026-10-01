@@ -1,13 +1,15 @@
 # Bot Storm Radar
 
-[![Version](https://img.shields.io/badge/Version-0.1.7-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
+[![Version](https://img.shields.io/badge/Version-0.2.0-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 
 **Bot attacks no longer come from one address.** They come as swarms of thousands of addresses that each make one or two requests, so a tool that judges visitors one by one sees nothing wrong. Bot Storm Radar is a WordPress plugin that watches the crowd instead. Every minute it counts how many different addresses visited, how many made only one request, how many loaded a stylesheet or a script the way a real browser does, and how evenly the browser names are spread. It turns that into a storm score, learns what normal traffic looks like on your site, and tells you in plain words whether a bot storm is running right now and why.
 
-> **Current Version: 0.1.7** | **Released: September 22, 2026**
+Since 0.2 it also protects. A gate that runs before WordPress refuses requests for files only scanners ask for (`.env`, `.git`, backups, other applications' admin pages), and a single address that keeps probing or asking for missing pages can be banned for a while. Address bans start in observe mode: they are listed, nobody is refused, until you switch them on.
+
+> **Current Version: 0.2.0** | **Released: October 1, 2026**
 
 ## Why
 
@@ -15,9 +17,9 @@ On 2026-08-19 one operator sent 268,851 requests to a WordPress site in three ho
 
 Bot Storm Radar looks at the crowd instead of the individual.
 
-## What 0.1 does
+## What the radar does
 
-This is the radar-only release. It observes and reports. **Nothing is blocked, challenged, or rate-limited.** Its purpose is to calibrate the swarm metrics against real traffic before any later release can affect a visitor. On a quiet site or a test install the numbers stay near zero and the state stays calm. That is the radar saying nothing looks like a swarm, not a plugin doing nothing.
+The radar observes and reports; swarms are never blocked by it. On a quiet site or a test install the numbers stay near zero and the state stays calm. That is the radar saying nothing looks like a swarm, not a plugin doing nothing.
 
 - **Request classes.** Every request is classified once: html, search, rest (users, Store API, other), xmlrpc, login, register, comment, admin-ajax, wc-ajax, checkout, cart, asset, 404. WooCommerce adds its classes when present.
 - **Counters** in sliding one-minute and ten-minute windows keyed by address, IPv4 /24, IPv6 /48, user-agent hash and WordPress session. Stored in the persistent object cache when there is one (Redis, Memcached), in APCu next, and in a transient fallback as the last resort. The Radar screen says which backend is active and warns on the fallback.
@@ -29,9 +31,17 @@ This is the radar-only release. It observes and reports. **Nothing is blocked, c
 - **Trusted-proxy address resolution.** A forwarding header is believed only when the request arrived through a known proxy: Cloudflare (ranges fetched daily, bundled fallback), a local proxy (private, link-local or loopback peer address), or a proxy you declare. Spoofed `X-Forwarded-For` from an ordinary client is ignored. An undeclared public proxy is detected and can be trusted with one click.
 - **Radar screen** with the current state, the last 24 hours per minute, top classes, top keys, bot claims, and the storm timeline. Dashboard widget with the state and the last storm.
 
+## What the protection does (0.2)
+
+- **The gate**, loaded by a must-use plugin before other plugins, or before WordPress itself with early protection. It never loads WordPress or queries the database.
+- **Probe refusal** (on by default): 403 for `.env` and other dot-files, copies of PHP files, configuration and log files, backups and dumps, other applications' admin paths and `.php` files that do not exist. Files the web server serves itself never reach it.
+- **Address bans by trips**, observe mode first: probes from one address (3 in 10 minutes) or missing pages (20 in a minute) ban it for an hour, a day on a repeat. Administrators, verified search bots, Cloudflare and declared proxies, and a never-ban list are never banned; a search-bot claim is verified by DNS first.
+- **The Bans tab**: bans with their evidence and Unban, would-be bans, claims waiting for verification. One digest mail when more than 10 addresses are banned in an hour.
+- **`replay --gate`**: a dry run over your access logs before you switch bans on.
+
 ## What it does not do yet
 
-Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, fail2ban, web-server include, AbuseIPDB), the tarpit, telemetry, multisite. See the roadmap in the design document.
+Storm mode with the Cloudflare exporter and the challenge, the other exporters (CrowdSec, fail2ban, web-server include, AbuseIPDB), health signals for a database that is down, a capacity estimate, telemetry, multisite. See the roadmap in the design document.
 
 ## Requirements
 
@@ -47,7 +57,7 @@ Bans, the challenge ladder, the must-use gate, exporters (Cloudflare, CrowdSec, 
 
 ## Gate
 
-The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-radar-gate.php`, that loads its gate before any other plugin. The gate reads the state file in the data directory, never loads WordPress and never queries the database, and answers 403 to an address under an active ban. Until address bans can be switched to enforce, it only observes. Deactivating Bot Storm Radar removes the loader. If the gate file is missing the loader does nothing, so the site keeps working.
+The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-radar-gate.php`, that loads its gate before any other plugin. The gate reads the state file in the data directory, never loads WordPress and never queries the database, and answers 403 to probes and to an address under an active ban. Address bans start in observe mode. Deactivating Bot Storm Radar removes the loader. If the gate file is missing the loader does nothing, so the site keeps working.
 
 **Probes.** The gate also refuses, with 403, requests for files only scanners ask for: `.env` and `.git` files, copies of PHP files, configuration and log files, backups and database dumps, other applications' admin pages, and `.php` files that do not exist. It does this for every visitor. Files your web server serves itself never reach it, so on a normal site these requests would only ever have ended as a WordPress "not found" page. The full list, a switch and your own exceptions are on the Settings tab under Probes.
 
