@@ -16,7 +16,9 @@
  *      unless the owner switched probe refusal off;
  *   3. a protected address passes (allowlist, administrator addresses,
  *      verified bots, CDN and proxy ranges, private addresses);
- *   4. in enforce mode, an active ban answers 403. Expiry is compared with
+ *   4. in enforce mode, an active ban answers 403: one from the state file,
+ *      or a provisional one the gate set itself in APCu (see probe_trip())
+ *      while it still holds (provisional_holds()). Expiry is compared with
  *      the current time on every decision, so a ban ends even if cron never
  *      runs. Observe mode never refuses.
  *
@@ -64,23 +66,87 @@ class BSR_Gate {
 		if ( null === $state ) {
 			return; // No state yet, or unreadable: fail open.
 		}
-		$d = self::decide( $_SERVER, $state, time() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
+		$dir = dirname( $state_path ) . '/';
+		$now = time();
+		$d   = self::decide( $_SERVER, $state, $now, function ( $ip ) use ( $dir ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
+			return BSR_Channel::ban_get( $dir, $ip );
+		} );
 		if ( 'ban' === $d['action'] || 'probe' === $d['action'] ) {
 			// The radar learns about it through the channel (drained by the tick).
-			BSR_Channel::write( dirname( $state_path ) . '/', $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
+			BSR_Channel::write( $dir, $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
+			if ( 'probe' === $d['action'] ) {
+				self::probe_trip( $dir, (string) $d['ip'], $state, $now );
+			}
 			self::refuse( 'probe' === $d['action'] ? 'probe' : 'refused' );
 		}
 	}
 
 	/**
+	 * Gate-side probe trip (APCu only; without APCu the radar trips from the
+	 * channel counts). On the probe that reaches the threshold: in enforce
+	 * mode a provisional ban, stamped with the generation, plus a `trip`
+	 * event the drain turns into a ban row; in observe mode only a `wouldban`
+	 * event. Protected addresses never trip. Returns trip | wouldban | ''.
+	 *
+	 * @param string $dir
+	 * @param string $ip
+	 * @param array  $state
+	 * @param int    $now
+	 * @return string
+	 */
+	public static function probe_trip( $dir, $ip, array $state, $now ) {
+		$cfg = $state['trips']['probe'] ?? null;
+		if ( ! is_array( $cfg ) || empty( $cfg['count'] ) || '' === $ip || ! BSR_Channel::apcu() || self::is_protected( $ip, $state ) ) {
+			return '';
+		}
+		$n = BSR_Channel::probe_count( $dir, $ip, (int) ( $cfg['window'] ?? 600 ), $now );
+		if ( $n !== (int) $cfg['count'] ) {
+			return '';
+		}
+		$ttl = max( 60, (int) ( $cfg['ttl'] ?? 3600 ) );
+		$gen = (int) ( $state['generation'] ?? 0 );
+		if ( 'enforce' === ( $state['mode'] ?? 'observe' ) ) {
+			BSR_Channel::ban_set( $dir, $ip, $now + $ttl, $gen, 'probe', $now );
+			BSR_Channel::write( $dir, 'trip', 'probe-' . $gen . '-' . $ttl, $ip, $now );
+			return 'trip';
+		}
+		BSR_Channel::write( $dir, 'wouldban', 'probe-' . $gen . '-' . $ttl, $ip, $now );
+		return 'wouldban';
+	}
+
+	/**
+	 * Whether a provisional ban still holds: not expired, decided under the
+	 * current generation (any unban, mode switch or settings change since
+	 * raised it), and the address not unbanned after it was decided.
+	 *
+	 * @param array|null $pb    exp, gen, reason, t
+	 * @param string     $ip
+	 * @param array      $state
+	 * @param int        $now
+	 * @return bool
+	 */
+	public static function provisional_holds( $pb, $ip, array $state, $now ) {
+		if ( ! is_array( $pb ) || (int) ( $pb['exp'] ?? 0 ) <= $now || (int) ( $pb['gen'] ?? -1 ) !== (int) ( $state['generation'] ?? 0 ) ) {
+			return false;
+		}
+		foreach ( (array) ( $state['unbans'] ?? [] ) as $u ) {
+			if ( is_array( $u ) && isset( $u[0], $u[2] ) && (int) $u[2] >= (int) ( $pb['t'] ?? 0 ) && BSR_IP_Resolver::ip_in_cidr( $ip, $u[0] . '/' . (int) ( $u[1] ?? 32 ) ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * The decision for one request, pure: no output, no globals.
 	 *
-	 * @param array $server
-	 * @param array $state  Decoded state (with or without the index).
-	 * @param int   $now
-	 * @return array {action: pass|ban, why: string, ip: string|false}
+	 * @param array         $server
+	 * @param array         $state       Decoded state (with or without the index).
+	 * @param int           $now
+	 * @param callable|null $provisional fn( $ip ) => provisional ban or null.
+	 * @return array {action: pass|ban|probe, why: string, ip: string|false}
 	 */
-	public static function decide( array $server, array $state, $now ) {
+	public static function decide( array $server, array $state, $now, $provisional = null ) {
 		$trust = isset( $state['trust'] ) && is_array( $state['trust'] ) ? $state['trust'] : [];
 		$ip    = BSR_IP_Resolver::resolve( $server, $trust )['ip'];
 		// Probes first, for every address: these paths are never served by
@@ -100,6 +166,9 @@ class BSR_Gate {
 		}
 		if ( self::banned( $ip, $state, (int) $now ) ) {
 			return [ 'action' => 'ban', 'why' => 'banned', 'ip' => $ip ];
+		}
+		if ( is_callable( $provisional ) && self::provisional_holds( call_user_func( $provisional, $ip ), $ip, $state, (int) $now ) ) {
+			return [ 'action' => 'ban', 'why' => 'provisional', 'ip' => $ip ];
 		}
 		return [ 'action' => 'pass', 'why' => 'clear', 'ip' => $ip ];
 	}

@@ -123,6 +123,64 @@ class BSR_Channel {
 		return $ok;
 	}
 
+	// ── Gate-side trips and provisional bans (APCu only) ─────────────
+
+	/**
+	 * Count one probe from an address in a fixed window. Returns the count
+	 * in the current window, 0 without APCu.
+	 *
+	 * @param string $dir
+	 * @param string $ip
+	 * @param int    $window Seconds.
+	 * @param int    $now
+	 * @return int
+	 */
+	public static function probe_count( $dir, $ip, $window, $now ) {
+		if ( ! self::apcu() || '' === (string) $ip ) {
+			return 0;
+		}
+		$window = max( 60, (int) $window );
+		$key    = self::PREFIX . self::site_id( $dir ) . ':pc:' . $ip . ':' . intdiv( (int) $now, $window );
+		apcu_add( $key, 0, $window + 60 );
+		return (int) apcu_inc( $key );
+	}
+
+	/**
+	 * Store a provisional ban: enforced by the gate at once, written to the
+	 * ban table by the next drain. Stamped with the generation it was decided
+	 * under, so any administrative change since makes it void.
+	 *
+	 * @param string $dir
+	 * @param string $ip
+	 * @param int    $expires
+	 * @param int    $generation
+	 * @param string $reason
+	 * @param int    $now
+	 * @return bool
+	 */
+	public static function ban_set( $dir, $ip, $expires, $generation, $reason, $now ) {
+		if ( ! self::apcu() || '' === (string) $ip || $expires <= $now ) {
+			return false;
+		}
+		return apcu_store( self::PREFIX . self::site_id( $dir ) . ':pban:' . $ip, [ 'exp' => (int) $expires, 'gen' => (int) $generation, 'reason' => (string) $reason, 't' => (int) $now ], (int) $expires - (int) $now );
+	}
+
+	/**
+	 * The provisional ban stored for an address, or null.
+	 *
+	 * @param string $dir
+	 * @param string $ip
+	 * @return array|null exp, gen, reason, t
+	 */
+	public static function ban_get( $dir, $ip ) {
+		if ( ! self::apcu() || '' === (string) $ip ) {
+			return null;
+		}
+		$ok = false;
+		$v  = apcu_fetch( self::PREFIX . self::site_id( $dir ) . ':pban:' . $ip, $ok );
+		return $ok && is_array( $v ) ? $v : null;
+	}
+
 	// ── Read side (the drain) ─────────────────────────────────────────
 
 	/**
