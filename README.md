@@ -131,7 +131,14 @@ Behind a page cache PHP sees mostly cache misses, so the site's "slow request" m
 ./dev-tools/version-bump.sh [major|minor|patch] "description"
 ```
 
-Updates the version in the plugin header, the `BSR_VERSION` constant, the README.md badge, and CHANGELOG.md.
+Updates the version in the plugin header, the `BSR_VERSION` constant, the README.md badge, the `readme.txt` stable tag, and CHANGELOG.md.
+
+### Build
+
+```bash
+./build-zip.sh           # GitHub build, with the release updater
+./build-zip.sh --wporg   # wordpress.org build, without it
+```
 
 ## Changelog
 
