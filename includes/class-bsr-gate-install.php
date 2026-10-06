@@ -319,7 +319,7 @@ LOADER;
 				return '';
 			}
 			$src = substr( $src, 5 );
-			$src = preg_replace( "/if \\( ! defined\\( 'ABSPATH' \\) && ! defined\\( 'BSR_GATE' \\) \\) \\{\\s*exit;\\s*\\}/", '', $src, 1, $count );
+			$src = preg_replace( "/defined\\( 'BSR_GATE' \\) \\|\\| defined\\( 'ABSPATH' \\) \\|\\| exit;/", '', $src, 1, $count );
 			if ( 1 !== $count ) {
 				self::$error = 'unexpected guard in ' . $f;
 				return '';

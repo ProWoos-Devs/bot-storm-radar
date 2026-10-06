@@ -33,9 +33,7 @@
  */
 
 // Loadable inside WordPress or by the gate, which defines BSR_GATE first.
-if ( ! defined( 'ABSPATH' ) && ! defined( 'BSR_GATE' ) ) {
-	exit;
-}
+defined( 'BSR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
 class BSR_Channel {
 
