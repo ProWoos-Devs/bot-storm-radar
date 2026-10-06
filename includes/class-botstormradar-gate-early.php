@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Gate_Early {
 
-	const OPTION       = 'bsr_gate_early';
+	const OPTION       = 'botstormradar_gate_early';
 	const MARKER       = 'Bot Storm Radar gate';
 	const CHECK_HEADER = 'X-BSR-Gate-Check';
 
@@ -197,7 +197,7 @@ class BotStormRadar_Gate_Early {
 	 * @return string
 	 */
 	public static function verify() {
-		$r = wp_remote_get( admin_url( 'admin-ajax.php?action=bsr_gate_check&_=' . wp_rand() ), [
+		$r = wp_remote_get( admin_url( 'admin-ajax.php?action=botstormradar_gate_check&_=' . wp_rand() ), [
 			'timeout'     => 10,
 			'redirection' => 3,
 			'sslverify'   => apply_filters( 'https_local_ssl_verify', false ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals -- core filter.

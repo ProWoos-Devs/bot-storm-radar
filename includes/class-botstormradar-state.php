@@ -3,7 +3,7 @@
  * The gate's state file and the plugin's data directory.
  *
  * Data directory: `bot-storm-radar-<random>/` in the uploads folder, the
- * suffix created once and kept in option `bsr_data_dir`. Up to 0.2.0 it sat
+ * suffix created once and kept in option `botstormradar_data_dir`. Up to 0.2.0 it sat
  * directly in wp-content; the move is described at leave_legacy(). It holds an
  * `index.php`, an Apache
  * `.htaccess` that denies everything, and the files the gate reads. Every
@@ -32,8 +32,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_State {
 
-	const DIR_OPTION   = 'bsr_data_dir';
-	const MOVED_OPTION = 'bsr_data_dir_moved';
+	const DIR_OPTION   = 'botstormradar_data_dir';
+	const MOVED_OPTION = 'botstormradar_data_dir_moved';
 	const DIR_PREFIX   = 'bot-storm-radar-';
 	const FILE         = 'state.php';
 	const LOCK         = 'state.lock';

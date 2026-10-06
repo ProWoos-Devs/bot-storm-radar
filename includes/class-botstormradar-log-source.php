@@ -275,10 +275,10 @@ class BotStormRadar_Log_Source {
 	 */
 	public static function purge( $id ) {
 		BotStormRadar_Storage::clear( $id );
-		foreach ( [ BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Baseline::OPTION, BotStormRadar_Error_Burst::OPTION, 'bsr_log_state', 'bsr_log_lock' ] as $name ) {
+		foreach ( [ BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Baseline::OPTION, BotStormRadar_Error_Burst::OPTION, 'botstormradar_log_state', 'botstormradar_log_lock' ] as $name ) {
 			delete_option( BotStormRadar_Sources::option( $name, $id ) );
 		}
-		delete_transient( BotStormRadar_Sources::option( 'bsr_log_globals', $id ) );
+		delete_transient( BotStormRadar_Sources::option( 'botstormradar_log_globals', $id ) );
 	}
 
 	/**
@@ -303,7 +303,7 @@ class BotStormRadar_Log_Source {
 			return [ 'status' => 'unknown' ];
 		}
 		$now  = null === $now ? time() : (int) $now;
-		$lock = BotStormRadar_Sources::option( 'bsr_log_lock', $id );
+		$lock = BotStormRadar_Sources::option( 'botstormradar_log_lock', $id );
 		if ( ! add_option( $lock, $now, '', false ) ) {
 			if ( $now - (int) get_option( $lock ) < self::LOCK_STALE_S ) {
 				return [ 'status' => 'locked' ];
@@ -331,7 +331,7 @@ class BotStormRadar_Log_Source {
 				$state['last_minute'] = $target;
 				$state['last_run']    = $now;
 				$state['stats']       = [ 'status' => $status, 'skipped_minutes' => 0 === $last ? 0 : $target - $last ];
-				update_option( BotStormRadar_Sources::option( 'bsr_log_state', $id ), $state, false );
+				update_option( BotStormRadar_Sources::option( 'botstormradar_log_state', $id ), $state, false );
 				return $state['stats'];
 			}
 
@@ -344,7 +344,7 @@ class BotStormRadar_Log_Source {
 			$state                = $summary['state'];
 			$state['last_run']    = $now;
 			$state['stats']       = array_diff_key( $summary, [ 'state' => 1, 'transitions' => 1 ] ) + [ 'status' => 'ok' ];
-			update_option( BotStormRadar_Sources::option( 'bsr_log_state', $id ), $state, false );
+			update_option( BotStormRadar_Sources::option( 'botstormradar_log_state', $id ), $state, false );
 			return $state['stats'] + [ 'transitions' => $summary['transitions'] ];
 		} finally {
 			foreach ( $cursors ?? [] as $c ) {
@@ -431,7 +431,7 @@ class BotStormRadar_Log_Source {
 				}
 			}
 			if ( $live ) {
-				update_option( BotStormRadar_Sources::option( 'bsr_log_state', $id ), $state, false );
+				update_option( BotStormRadar_Sources::option( 'botstormradar_log_state', $id ), $state, false );
 			}
 		};
 
@@ -525,7 +525,7 @@ class BotStormRadar_Log_Source {
 		BotStormRadar_Counters::force( 'memory' );
 		BotStormRadar_Counters::memory_reset();
 		if ( $load_globals ) {
-			$g = get_transient( BotStormRadar_Sources::option( 'bsr_log_globals', $id ) );
+			$g = get_transient( BotStormRadar_Sources::option( 'botstormradar_log_globals', $id ) );
 			if ( is_array( $g ) ) {
 				BotStormRadar_Counters::memory_import( $g );
 			}
@@ -540,7 +540,7 @@ class BotStormRadar_Log_Source {
 	 */
 	private static function end_memory( $id, $save_globals = true ) {
 		if ( $save_globals ) {
-			set_transient( BotStormRadar_Sources::option( 'bsr_log_globals', $id ), BotStormRadar_Counters::memory_export( 'g:' ), self::GLOBALS_TTL );
+			set_transient( BotStormRadar_Sources::option( 'botstormradar_log_globals', $id ), BotStormRadar_Counters::memory_export( 'g:' ), self::GLOBALS_TTL );
 		}
 		BotStormRadar_Counters::memory_reset();
 		BotStormRadar_Counters::force( null );

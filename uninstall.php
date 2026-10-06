@@ -17,6 +17,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 require_once __DIR__ . '/includes/class-botstormradar-ip-resolver.php';
+require_once __DIR__ . '/includes/class-botstormradar-migration.php';
 require_once __DIR__ . '/includes/class-botstormradar-bans.php';
 require_once __DIR__ . '/includes/class-botstormradar-state.php';
 require_once __DIR__ . '/includes/class-botstormradar-gate-install.php';

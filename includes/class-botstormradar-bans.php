@@ -2,7 +2,7 @@
 /**
  * Ban tables: the durable, concurrency-safe record of temporary bans.
  *
- * `{prefix}bsr_bans` holds one row per banned key, unique on (address in
+ * `{prefix}botstormradar_bans` holds one row per banned key, unique on (address in
  * binary form, prefix length), so an address and its /64 are distinct keys
  * and a second trip on the same key never creates a second row. Every change
  * is one atomic statement (addresses travel as hex through UNHEX(), because
@@ -14,11 +14,11 @@
  *     when, then raises the generation number.
  * No code path reads a row, changes it in PHP and writes it back.
  *
- * `{prefix}bsr_ban_exports` holds one row per ban and enforcement layer
+ * `{prefix}botstormradar_ban_exports` holds one row per ban and enforcement layer
  * (Cloudflare, web-server include, AbuseIPDB, from v0.3 on). Its schema is
  * created now so the cleanup rule can already respect pending exports.
  *
- * The generation number (option `bsr_generation`) changes on every
+ * The generation number (option `botstormradar_generation`) changes on every
  * administrative change that affects bans. The gate stamps provisional bans
  * with it, so an unban wins over a ban decided before it (design v2, 3.6).
  *
@@ -40,9 +40,9 @@ class BotStormRadar_Bans {
 	 */
 	const DB_VERSION = 1;
 
-	const DB_VERSION_OPTION = 'bsr_db_version';
+	const DB_VERSION_OPTION = 'botstormradar_db_version';
 
-	const GENERATION_OPTION = 'bsr_generation';
+	const GENERATION_OPTION = 'botstormradar_generation';
 
 	/**
 	 * Evidence limits: entries per list and characters per entry.
@@ -65,7 +65,7 @@ class BotStormRadar_Bans {
 	 */
 	public static function table() {
 		global $wpdb;
-		return $wpdb->prefix . 'bsr_bans';
+		return $wpdb->prefix . 'botstormradar_bans';
 	}
 
 	/**
@@ -73,7 +73,7 @@ class BotStormRadar_Bans {
 	 */
 	public static function exports_table() {
 		global $wpdb;
-		return $wpdb->prefix . 'bsr_ban_exports';
+		return $wpdb->prefix . 'botstormradar_ban_exports';
 	}
 
 	/**
@@ -81,8 +81,8 @@ class BotStormRadar_Bans {
 	 */
 	const GENERATION_SETTINGS = [ 'ban_mode', 'probe_refusal', 'probe_extra', 'probe_allow', 'allowlist', 'trusted_proxies', 'trust_all_forwarding' ];
 
-	const WOULD_OPTION       = 'bsr_would_bans';
-	const HAND_UNBANS_OPTION = 'bsr_hand_unbans';
+	const WOULD_OPTION       = 'botstormradar_would_bans';
+	const HAND_UNBANS_OPTION = 'botstormradar_hand_unbans';
 	const WOULD_CAP    = 200;
 
 	public static function init() {
@@ -225,6 +225,10 @@ class BotStormRadar_Bans {
 		global $wpdb;
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::exports_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
+		// The tables of 0.2.x, where the plugin was never loaded after the update.
+		foreach ( array_keys( BotStormRadar_Migration::TABLES ) as $old ) {
+			$wpdb->query( 'DROP TABLE IF EXISTS `' . $wpdb->prefix . $old . '`' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix and a constant.
+		}
 		delete_option( self::DB_VERSION_OPTION );
 		delete_option( self::GENERATION_OPTION );
 		delete_option( self::WOULD_OPTION );

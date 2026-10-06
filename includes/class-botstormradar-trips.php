@@ -34,10 +34,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Trips {
 
-	const PENDING_OPTION = 'bsr_pending_trips';
+	const PENDING_OPTION = 'botstormradar_pending_trips';
 	const PENDING_CAP    = 100;
 	const PENDING_MAX    = DAY_IN_SECONDS;
-	const DIGEST_OPTION  = 'bsr_trip_digest';
+	const DIGEST_OPTION  = 'botstormradar_trip_digest';
 	const DIGEST_COUNT   = 10;
 	const DIGEST_WINDOW  = HOUR_IN_SECONDS;
 

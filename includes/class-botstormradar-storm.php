@@ -36,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Storm {
 
-	const STATE_OPTION         = 'bsr_state';
+	const STATE_OPTION         = 'botstormradar_state';
 	const RUNG_PERSIST_MINUTES = 10;
 	const MAX_RUNG             = 3;
 

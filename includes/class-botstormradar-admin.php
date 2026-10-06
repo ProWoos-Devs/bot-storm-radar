@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class BotStormRadar_Admin {
 
 	const PAGE         = 'bot-storm-radar';
-	const ACTION_NONCE = 'bsr_admin_action';
+	const ACTION_NONCE = 'botstormradar_admin_action';
 	const CAP          = 'manage_options';
 
 	public static function init() {
@@ -81,48 +81,48 @@ class BotStormRadar_Admin {
 	// ── Settings ────────────────────────────────────────────────────
 
 	public static function register_settings() {
-		register_setting( 'bsr_group', Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'sanitize' ] );
+		register_setting( 'botstormradar_group', Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'sanitize' ] );
 
 		$b = BotStormRadar_Baseline::effective();
 		$baseline_note = self::baseline_sentence( $b );
 
-		add_settings_section( 'bsr_thresholds', __( 'Storm thresholds', 'bot-storm-radar' ), function () use ( $baseline_note ) {
+		add_settings_section( 'botstormradar_thresholds', __( 'Storm thresholds', 'bot-storm-radar' ), function () use ( $baseline_note ) {
 			echo '<p>' . esc_html__( 'The storm score runs from 0 to 100. It only rises when the number of distinct addresses in a minute exceeds the baseline by the spike factor, so a quiet minute never scores.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="bsr-baseline">' . esc_html( $baseline_note ) . '</p>';
 			if ( self::page_cache_counts_slow() ) {
 				echo '<p class="bsr-danger">' . esc_html__( 'A page cache is installed (WP_CACHE is on). PHP then sees mostly cache misses, so slow requests measure the cache and not the site. Set "Slow request" to 0 so that error pressure counts 5xx responses only.', 'bot-storm-radar' ) . '</p>';
 			}
 		}, self::PAGE );
-		self::number_field( 'warning_threshold', __( 'Warning threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which the state moves from calm to warning.', 'bot-storm-radar' ) );
-		self::number_field( 'storm_threshold', __( 'Storm threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which warning becomes storm.', 'bot-storm-radar' ) );
-		self::number_field( 'error_pressure_storm', __( 'Error pressure alone', 'bot-storm-radar' ), 'bsr_thresholds', 0, 1, 0.01, __( 'Share of 5xx and slow responses (0 to 1) that turns a warning into a storm on its own, whatever the score.', 'bot-storm-radar' ) );
+		self::number_field( 'warning_threshold', __( 'Warning threshold', 'bot-storm-radar' ), 'botstormradar_thresholds', 0, 100, 1, __( 'Score at or above which the state moves from calm to warning.', 'bot-storm-radar' ) );
+		self::number_field( 'storm_threshold', __( 'Storm threshold', 'bot-storm-radar' ), 'botstormradar_thresholds', 0, 100, 1, __( 'Score at or above which warning becomes storm.', 'bot-storm-radar' ) );
+		self::number_field( 'error_pressure_storm', __( 'Error pressure alone', 'bot-storm-radar' ), 'botstormradar_thresholds', 0, 1, 0.01, __( 'Share of 5xx and slow responses (0 to 1) that turns a warning into a storm on its own, whatever the score.', 'bot-storm-radar' ) );
 		/* translators: %s: learned baseline of distinct addresses per minute, or a dash */
-		self::number_field( 'min_distinct_ips', __( 'Minimum distinct addresses', 'bot-storm-radar' ), 'bsr_thresholds', 1, 100000, 1, sprintf( __( 'Below this many distinct addresses in a minute the score is always 0. Also the reference volume until a baseline is learned. Baseline: %s', 'bot-storm-radar' ), self::fmt_or_dash( $b['ips_median'] ?? null, 0 ) ) );
-		self::number_field( 'spike_factor', __( 'Spike factor', 'bot-storm-radar' ), 'bsr_thresholds', 1.5, 100, 0.5, __( 'The score reaches full weight when the minute has this many times the baseline addresses.', 'bot-storm-radar' ) );
-		self::number_field( 'slow_request_ms', __( 'Slow request (ms)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 60000, 100, __( 'PHP requests taking at least this long count toward error pressure. 0 disables. Behind a page cache PHP sees mostly cache misses, so slow requests then measure the cache, not the site; use 0 there.', 'bot-storm-radar' ) );
-		self::number_field( 'error_burst_5xx', __( '5xx burst (log sources)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100000, 1, __( 'A log source minute with at least this many 5xx responses sends one alert per episode, whatever the ratio and the score. The storm state is not changed. 0 disables. Applies to log sources only.', 'bot-storm-radar' ) );
+		self::number_field( 'min_distinct_ips', __( 'Minimum distinct addresses', 'bot-storm-radar' ), 'botstormradar_thresholds', 1, 100000, 1, sprintf( __( 'Below this many distinct addresses in a minute the score is always 0. Also the reference volume until a baseline is learned. Baseline: %s', 'bot-storm-radar' ), self::fmt_or_dash( $b['ips_median'] ?? null, 0 ) ) );
+		self::number_field( 'spike_factor', __( 'Spike factor', 'bot-storm-radar' ), 'botstormradar_thresholds', 1.5, 100, 0.5, __( 'The score reaches full weight when the minute has this many times the baseline addresses.', 'bot-storm-radar' ) );
+		self::number_field( 'slow_request_ms', __( 'Slow request (ms)', 'bot-storm-radar' ), 'botstormradar_thresholds', 0, 60000, 100, __( 'PHP requests taking at least this long count toward error pressure. 0 disables. Behind a page cache PHP sees mostly cache misses, so slow requests then measure the cache, not the site; use 0 there.', 'bot-storm-radar' ) );
+		self::number_field( 'error_burst_5xx', __( '5xx burst (log sources)', 'bot-storm-radar' ), 'botstormradar_thresholds', 0, 100000, 1, __( 'A log source minute with at least this many 5xx responses sends one alert per episode, whatever the ratio and the score. The storm state is not changed. 0 disables. Applies to log sources only.', 'bot-storm-radar' ) );
 
-		add_settings_section( 'bsr_timing', __( 'Timing', 'bot-storm-radar' ), function () {
+		add_settings_section( 'botstormradar_timing', __( 'Timing', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'Consecutive finished minutes. One minute is sixty seconds of observation.', 'bot-storm-radar' ) . '</p>';
 		}, self::PAGE );
-		self::number_field( 'warning_minutes', __( 'Minutes above warning before warning', 'bot-storm-radar' ), 'bsr_timing', 1, 60, 1 );
-		self::number_field( 'storm_minutes', __( 'Minutes above storm before storm', 'bot-storm-radar' ), 'bsr_timing', 1, 60, 1 );
-		self::number_field( 'warning_clear_minutes', __( 'Minutes below warning to clear a warning', 'bot-storm-radar' ), 'bsr_timing', 1, 240, 1 );
-		self::number_field( 'storm_hold_minutes', __( 'Storm hold (minutes below warning before cooling)', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
-		self::number_field( 'cooling_hold_minutes', __( 'Cooling hold (minutes before calm)', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
-		self::number_field( 'error_burst_clear_minutes', __( 'Minutes below the 5xx burst threshold before the episode ends', 'bot-storm-radar' ), 'bsr_timing', 1, 720, 1 );
+		self::number_field( 'warning_minutes', __( 'Minutes above warning before warning', 'bot-storm-radar' ), 'botstormradar_timing', 1, 60, 1 );
+		self::number_field( 'storm_minutes', __( 'Minutes above storm before storm', 'bot-storm-radar' ), 'botstormradar_timing', 1, 60, 1 );
+		self::number_field( 'warning_clear_minutes', __( 'Minutes below warning to clear a warning', 'bot-storm-radar' ), 'botstormradar_timing', 1, 240, 1 );
+		self::number_field( 'storm_hold_minutes', __( 'Storm hold (minutes below warning before cooling)', 'bot-storm-radar' ), 'botstormradar_timing', 1, 720, 1 );
+		self::number_field( 'cooling_hold_minutes', __( 'Cooling hold (minutes before calm)', 'bot-storm-radar' ), 'botstormradar_timing', 1, 720, 1 );
+		self::number_field( 'error_burst_clear_minutes', __( 'Minutes below the 5xx burst threshold before the episode ends', 'bot-storm-radar' ), 'botstormradar_timing', 1, 720, 1 );
 
-		add_settings_section( 'bsr_alerts', __( 'Alerts', 'bot-storm-radar' ), '__return_null', self::PAGE );
+		add_settings_section( 'botstormradar_alerts', __( 'Alerts', 'bot-storm-radar' ), '__return_null', self::PAGE );
 		add_settings_field( 'email_recipients', __( 'Alert email recipients', 'bot-storm-radar' ), function () {
 			printf( '<input type="text" class="regular-text" name="%1$s[email_recipients]" value="%2$s" /><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( BotStormRadar_Helpers::opt( 'email_recipients', '' ) ), esc_html__( 'Comma-separated. Leave empty to disable email alerts.', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_alerts' );
+		}, self::PAGE, 'botstormradar_alerts' );
 		add_settings_field( 'alerts_on', __( 'Send an email on', 'bot-storm-radar' ), function () {
 			foreach ( [ 'alert_on_warning' => __( 'warning', 'bot-storm-radar' ), 'alert_on_storm' => __( 'storm', 'bot-storm-radar' ), 'alert_on_calm' => __( 'all-clear after a storm', 'bot-storm-radar' ) ] as $k => $label ) {
 				printf( '<label><input type="checkbox" name="%1$s[%2$s]" value="1" %3$s /> %4$s</label><br />', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( $k ), checked( 1, (int) BotStormRadar_Helpers::opt( $k, 1 ), false ), esc_html( $label ) );
 			}
-		}, self::PAGE, 'bsr_alerts' );
+		}, self::PAGE, 'botstormradar_alerts' );
 
-		add_settings_section( 'bsr_proxies', __( 'Client addresses', 'bot-storm-radar' ), function () {
+		add_settings_section( 'botstormradar_proxies', __( 'Client addresses', 'bot-storm-radar' ), function () {
 			$cf_count   = count( BotStormRadar_Client_IP::cloudflare_ranges() );
 			$cf_fetched = BotStormRadar_Client_IP::cloudflare_ranges_fetched_at();
 			echo '<p>' . esc_html__( 'A forwarding header is believed only when the request arrived through a known proxy: Cloudflare, a local proxy (private peer address), or one declared here. Anything else is the client itself.', 'bot-storm-radar' ) . '</p>';
@@ -131,11 +131,11 @@ class BotStormRadar_Admin {
 		}, self::PAGE );
 		add_settings_field( 'trusted_proxies', __( 'Trusted proxy addresses', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[trusted_proxies]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'trusted_proxies', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. Only for a proxy with a public address (external load balancer, a CDN other than Cloudflare).', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_proxies' );
+		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_field( 'allowlist', __( 'Never ban', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_proxies' );
-		add_settings_section( 'bsr_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
+		}, self::PAGE, 'botstormradar_proxies' );
+		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: the gate answers it 403 before the site loads. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
 		}, self::PAGE );
@@ -144,29 +144,29 @@ class BotStormRadar_Admin {
 			foreach ( [ 'observe' => __( 'Observe only: list would-be bans, refuse nobody', 'bot-storm-radar' ), 'enforce' => __( 'Enforce: ban addresses that trip', 'bot-storm-radar' ) ] as $k => $label ) {
 				printf( '<label><input type="radio" name="%1$s[ban_mode]" value="%2$s" %3$s /> %4$s</label><br />', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( $k ), checked( $k, $v, false ), esc_html( $label ) );
 			}
-		}, self::PAGE, 'bsr_bans' );
-		self::number_field( 'trip_probe_count', __( 'Probe trip', 'bot-storm-radar' ), 'bsr_bans', 0, 1000, 1, __( 'Probes from one address within the window below that trip it. 0 turns probe trips off.', 'bot-storm-radar' ) );
-		self::number_field( 'trip_probe_window_minutes', __( 'Probe window (minutes)', 'bot-storm-radar' ), 'bsr_bans', 1, 1440, 1, '' );
-		self::number_field( 'trip_404_count', __( 'Missing-page trip', 'bot-storm-radar' ), 'bsr_bans', 0, 10000, 1, __( 'Pages not found for one address within one minute that trip it. Missing images and other files never count. 0 turns this off.', 'bot-storm-radar' ) );
-		self::number_field( 'trip_ban_minutes', __( 'Ban length (minutes)', 'bot-storm-radar' ), 'bsr_bans', 1, 10080, 1, '' );
-		self::number_field( 'trip_ban_repeat_hours', __( 'Ban length on a repeat (hours)', 'bot-storm-radar' ), 'bsr_bans', 1, 720, 1, __( 'For an address that trips again within a day of its last ban.', 'bot-storm-radar' ) );
-		add_settings_section( 'bsr_probes', __( 'Probes', 'bot-storm-radar' ), function () {
+		}, self::PAGE, 'botstormradar_bans' );
+		self::number_field( 'trip_probe_count', __( 'Probe trip', 'bot-storm-radar' ), 'botstormradar_bans', 0, 1000, 1, __( 'Probes from one address within the window below that trip it. 0 turns probe trips off.', 'bot-storm-radar' ) );
+		self::number_field( 'trip_probe_window_minutes', __( 'Probe window (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 1440, 1, '' );
+		self::number_field( 'trip_404_count', __( 'Missing-page trip', 'bot-storm-radar' ), 'botstormradar_bans', 0, 10000, 1, __( 'Pages not found for one address within one minute that trip it. Missing images and other files never count. 0 turns this off.', 'bot-storm-radar' ) );
+		self::number_field( 'trip_ban_minutes', __( 'Ban length (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 10080, 1, '' );
+		self::number_field( 'trip_ban_repeat_hours', __( 'Ban length on a repeat (hours)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 720, 1, __( 'For an address that trips again within a day of its last ban.', 'bot-storm-radar' ) );
+		add_settings_section( 'botstormradar_probes', __( 'Probes', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'Scanners ask every site for files that only exist by mistake: .env and .git files, backups, database dumps, other applications\' admin pages. On many servers each of those requests builds a whole WordPress page just to say "not found". The gate answers them with 403 before WordPress loads, for every visitor, whether address bans are enforced or not. Files the web server serves itself (an existing .zip, for example) never reach it.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Always refused: any path with a part that starts with a dot (except /.well-known/); copies of PHP files such as config.php.txt or wp-config.php.bak; configuration and log files (.yml .yaml .toml .ini .log .lock .cfg .conf, package.json, composer.json, web.config and similar); .zip .tar .tgz .gz .bz2 .tbz2 .xz .zst .rar .7z .sql .bak .old .orig .save .swp outside the uploads folder (compressed sitemaps excepted); .php files that do not exist; and these paths of other applications:', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description"><code>' . esc_html( implode( '  ', BotStormRadar_Helpers::bundled_list( 'scanner-paths.txt' ) ) ) . '</code></p>';
 		}, self::PAGE );
 		add_settings_field( 'probe_refusal', __( 'Probe refusal', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[probe_refusal]" value="1" %2$s /> %3$s</label>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'probe_refusal', 1 ), false ), esc_html__( 'Refuse probes with 403 before WordPress loads', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_probes' );
+		}, self::PAGE, 'botstormradar_probes' );
 		add_settings_field( 'probe_allow', __( 'Never treat as a probe', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="3" name="%1$s[probe_allow]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'probe_allow', '' ) ), esc_html__( 'One path per line below the site address, * matches anything. For example /downloads/*.zip if a plugin serves zip files through WordPress.', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_probes' );
+		}, self::PAGE, 'botstormradar_probes' );
 		add_settings_field( 'probe_extra', __( 'Also treat as a probe', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="3" name="%1$s[probe_extra]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'probe_extra', '' ) ), esc_html__( 'Same format. Paths your site never serves that scanners keep asking for.', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_probes' );
+		}, self::PAGE, 'botstormradar_probes' );
 		add_settings_field( 'trust_all_forwarding', __( 'Trust all forwarding headers', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[trust_all_forwarding]" value="1" %2$s /> %3$s</label><p class="description bsr-danger">%4$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'trust_all_forwarding', 0 ), false ), esc_html__( 'Insecure, previous behavior', 'bot-storm-radar' ), esc_html__( 'Any client can then choose the address it is counted under. Use it only while you find your proxy address, then declare the proxy above and turn this off.', 'bot-storm-radar' ) );
-		}, self::PAGE, 'bsr_proxies' );
+		}, self::PAGE, 'botstormradar_proxies' );
 	}
 
 	/**
@@ -216,13 +216,13 @@ class BotStormRadar_Admin {
 		}
 		if ( $out['storm_threshold'] < $out['warning_threshold'] ) {
 			$out['storm_threshold'] = $out['warning_threshold'];
-			add_settings_error( 'storm_threshold', 'bsr_order', __( 'The storm threshold cannot be below the warning threshold; it was raised to match.', 'bot-storm-radar' ), 'warning' );
+			add_settings_error( 'storm_threshold', 'botstormradar_order', __( 'The storm threshold cannot be below the warning threshold; it was raised to match.', 'bot-storm-radar' ), 'warning' );
 		}
 		if ( array_key_exists( 'email_recipients', $input ) ) {
 			$raw   = sanitize_text_field( (string) $input['email_recipients'] );
 			$valid = BotStormRadar_Helpers::sanitize_email_list( $raw );
 			if ( '' !== trim( $raw ) && count( $valid ) !== count( array_filter( array_map( 'trim', explode( ',', $raw ) ) ) ) ) {
-				add_settings_error( 'email_recipients', 'bsr_emails', __( 'Some alert addresses are not valid email addresses and were dropped.', 'bot-storm-radar' ), 'warning' );
+				add_settings_error( 'email_recipients', 'botstormradar_emails', __( 'Some alert addresses are not valid email addresses and were dropped.', 'bot-storm-radar' ), 'warning' );
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
@@ -237,7 +237,7 @@ class BotStormRadar_Admin {
 					$kept[] = $e;
 				} else {
 					/* translators: %s: the rejected entry as typed */
-					add_settings_error( 'trusted_proxies', 'bsr_proxy_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
+					add_settings_error( 'trusted_proxies', 'botstormradar_proxy_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
 				}
 			}
 			$out['trusted_proxies'] = implode( "\n", $kept );
@@ -261,7 +261,7 @@ class BotStormRadar_Admin {
 					$kept[] = $e;
 				} else {
 					/* translators: %s: the rejected entry as typed */
-					add_settings_error( 'allowlist', 'bsr_allow_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
+					add_settings_error( 'allowlist', 'botstormradar_allow_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
 				}
 			}
 			$out['allowlist'] = implode( "\n", $kept );
@@ -274,14 +274,14 @@ class BotStormRadar_Admin {
 
 	public static function handle_admin_actions() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- verified below.
-		if ( ! isset( $_GET['bsr_action'] ) || ! isset( $_GET['page'] ) || self::PAGE !== $_GET['page'] ) {
+		if ( ! isset( $_GET['botstormradar_action'] ) || ! isset( $_GET['page'] ) || self::PAGE !== $_GET['page'] ) {
 			return;
 		}
 		if ( ! current_user_can( self::CAP ) ) {
 			return;
 		}
 		check_admin_referer( self::ACTION_NONCE );
-		$action = sanitize_key( wp_unslash( $_GET['bsr_action'] ) );
+		$action = sanitize_key( wp_unslash( $_GET['botstormradar_action'] ) );
 		$notice = '';
 		switch ( $action ) {
 			case 'reset_baseline':
@@ -334,14 +334,14 @@ class BotStormRadar_Admin {
 				if ( BotStormRadar_Gate_Early::enable() ) {
 					$notice = 'early_' . ( 'early' === BotStormRadar_Gate_Early::verify() ? 'verified' : 'pending' );
 				} else {
-					set_transient( 'bsr_gate_early_error', BotStormRadar_Gate_Early::last_error(), 300 );
+					set_transient( 'botstormradar_gate_early_error', BotStormRadar_Gate_Early::last_error(), 300 );
 					$notice = 'early_failed';
 				}
 				break;
 			case 'early_off':
 				$notice = BotStormRadar_Gate_Early::disable() ? 'early_off' : 'early_failed';
 				if ( 'early_failed' === $notice ) {
-					set_transient( 'bsr_gate_early_error', BotStormRadar_Gate_Early::last_error(), 300 );
+					set_transient( 'botstormradar_gate_early_error', BotStormRadar_Gate_Early::last_error(), 300 );
 				}
 				break;
 			case 'unban':
@@ -362,8 +362,8 @@ class BotStormRadar_Admin {
 				$notice = 'early' === BotStormRadar_Gate_Early::verify() ? 'early_verified' : 'early_pending';
 				break;
 		}
-		$redirect = remove_query_arg( [ 'bsr_action', 'ip', 'prefix', '_wpnonce' ] );
-		wp_safe_redirect( add_query_arg( 'bsr_notice', $notice, $redirect ) );
+		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
+		wp_safe_redirect( add_query_arg( 'botstormradar_notice', $notice, $redirect ) );
 		exit;
 	}
 
@@ -374,7 +374,7 @@ class BotStormRadar_Admin {
 	 */
 	public static function action_url( $action, array $extra = [] ) {
 		$tab  = self::current_tab();
-		$args = array_merge( [ 'page' => self::PAGE, 'tab' => $tab, 'bsr_action' => $action ], $extra );
+		$args = array_merge( [ 'page' => self::PAGE, 'tab' => $tab, 'botstormradar_action' => $action ], $extra );
 		return wp_nonce_url( add_query_arg( $args, admin_url( 'admin.php' ) ), self::ACTION_NONCE );
 	}
 
@@ -383,9 +383,9 @@ class BotStormRadar_Admin {
 			return;
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
-		if ( ! empty( $_GET['bsr_notice'] ) ) {
+		if ( ! empty( $_GET['botstormradar_notice'] ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$key      = sanitize_key( wp_unslash( $_GET['bsr_notice'] ) );
+			$key      = sanitize_key( wp_unslash( $_GET['botstormradar_notice'] ) );
 			$messages = [
 				'baseline_reset'  => [ 'success', __( 'The baseline was reset and will learn again over the next seven days.', 'bot-storm-radar' ) ],
 				'state_reset'     => [ 'success', __( 'The storm state was reset to calm.', 'bot-storm-radar' ) ],
@@ -417,9 +417,9 @@ class BotStormRadar_Admin {
 				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
 				/* translators: 1: address the requests arrived from, 2: address named in the forwarding header */
 				esc_html( sprintf( __( 'recent admin requests arrived from %1$s with a forwarding header naming %2$s, so a proxy with that public address appears to sit in front of the site. Until it is trusted, every visitor is counted under that one address and the per-address metrics are meaningless.', 'bot-storm-radar' ), $suspect['ip'], $suspect['forwarded'] ) ),
-				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'trust_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'trust_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
 				esc_html__( 'Trust this proxy', 'bot-storm-radar' ),
-				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'dismiss_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'dismiss_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
 				esc_html__( 'Not a proxy', 'bot-storm-radar' )
 			);
 		}
@@ -449,7 +449,7 @@ class BotStormRadar_Admin {
 			<?php settings_errors(); ?>
 			<?php if ( 'settings' === $tab ) : ?>
 				<form method="post" action="options.php">
-					<?php settings_fields( 'bsr_group' ); ?>
+					<?php settings_fields( 'botstormradar_group' ); ?>
 					<?php do_settings_sections( self::PAGE ); ?>
 					<?php submit_button( __( 'Save Settings', 'bot-storm-radar' ) ); ?>
 				</form>
@@ -831,7 +831,7 @@ class BotStormRadar_Admin {
 
 	public static function add_dashboard_widget() {
 		if ( current_user_can( self::CAP ) ) {
-			wp_add_dashboard_widget( 'bsr_dashboard_widget', __( 'Bot Storm Radar', 'bot-storm-radar' ), [ __CLASS__, 'render_dashboard_widget' ] );
+			wp_add_dashboard_widget( 'botstormradar_dashboard_widget', __( 'Bot Storm Radar', 'bot-storm-radar' ), [ __CLASS__, 'render_dashboard_widget' ] );
 		}
 	}
 
@@ -1108,7 +1108,7 @@ class BotStormRadar_Admin {
 		BotStormRadar_State::remove_legacy();
 		$g    = BotStormRadar_Gate_Install::status();
 		$e    = BotStormRadar_Gate_Early::status();
-		$err  = get_transient( 'bsr_gate_early_error' );
+		$err  = get_transient( 'botstormradar_gate_early_error' );
 		$left = BotStormRadar_State::left_behind();
 		?>
 		<h2><?php esc_html_e( 'Gate', 'bot-storm-radar' ); ?></h2>

@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Error_Burst {
 
-	const OPTION = 'bsr_errors';
+	const OPTION = 'botstormradar_errors';
 
 	/**
 	 * @param string $source

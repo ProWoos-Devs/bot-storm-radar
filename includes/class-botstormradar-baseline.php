@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Baseline {
 
-	const OPTION     = 'bsr_baseline';
+	const OPTION     = 'botstormradar_baseline';
 	const LEARN_DAYS = 7;
 	const KEEP_DAYS  = 14;
 

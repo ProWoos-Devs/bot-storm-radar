@@ -11,8 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Bot_Storm_Radar {
 
-	const OPTION_KEY     = 'bsr_options';
-	const VERSION_OPTION = 'bsr_version';
+	const OPTION_KEY     = 'botstormradar_options';
+	const VERSION_OPTION = 'botstormradar_version';
 
 	/**
 	 * @var Bot_Storm_Radar|null
@@ -68,6 +68,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-tick.php';
 		require_once $dir . 'class-botstormradar-email-alerts.php';
 		require_once $dir . 'class-botstormradar-admin.php';
+		require_once $dir . 'class-botstormradar-migration.php';
 		// github-build-only:start (build-zip.sh --wporg removes this block and the file it loads)
 		require_once $dir . 'class-botstormradar-github-updater.php';
 		// github-build-only:end
@@ -95,6 +96,12 @@ class Bot_Storm_Radar {
 	 * Everything that must be in place before the request is classified.
 	 */
 	public function on_plugins_loaded() {
+		// First: stored names of 0.2.x move to the new prefix before anything
+		// reads them. While another process is moving them, this request
+		// leaves the plugin alone (no tables, no cron, no counting).
+		if ( ! BotStormRadar_Migration::prefix() ) {
+			return;
+		}
 		BotStormRadar_Bans::maybe_install();
 		$this->maybe_upgrade();
 		BotStormRadar_WooCommerce::init();
@@ -128,8 +135,8 @@ class Bot_Storm_Radar {
 	 * @return array
 	 */
 	public function cron_schedules( $schedules ) {
-		if ( ! isset( $schedules['bsr_minute'] ) ) {
-			$schedules['bsr_minute'] = [
+		if ( ! isset( $schedules['botstormradar_minute'] ) ) {
+			$schedules['botstormradar_minute'] = [
 				'interval' => 60,
 				'display'  => __( 'Every minute (Bot Storm Radar)', 'bot-storm-radar' ),
 			];
@@ -138,6 +145,9 @@ class Bot_Storm_Radar {
 	}
 
 	public function activate() {
+		if ( ! BotStormRadar_Migration::prefix() ) {
+			return; // Another process is moving the stored names; the next load finishes the upgrade.
+		}
 		$defaults = self::get_default_options();
 		$existing = get_option( self::OPTION_KEY, [] );
 		update_option( self::OPTION_KEY, wp_parse_args( is_array( $existing ) ? $existing : [], $defaults ) );

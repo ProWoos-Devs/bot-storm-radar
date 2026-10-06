@@ -15,8 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Tick {
 
-	const HOOK       = 'bsr_tick';
-	const OPTION     = 'bsr_tick';
+	const HOOK       = 'botstormradar_tick';
+	const OPTION     = 'botstormradar_tick';
 	const LOCK       = 'g:tick_lock';
 	const MAX_BACK   = 15;
 	const LATE_AFTER = 90;
@@ -32,7 +32,7 @@ class BotStormRadar_Tick {
 
 	public static function schedule() {
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
-			wp_schedule_event( time() + 60, 'bsr_minute', self::HOOK );
+			wp_schedule_event( time() + 60, 'botstormradar_minute', self::HOOK );
 		}
 	}
 

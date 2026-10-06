@@ -34,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Guard {
 
-	const ADMINS_OPTION = 'bsr_admin_addresses';
+	const ADMINS_OPTION = 'botstormradar_admin_addresses';
 
 	/**
 	 * How long an administrator address stays protected after it was last

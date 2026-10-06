@@ -17,7 +17,7 @@ class BotStormRadar_GitHub_Updater {
 	const SLUG         = 'bot-storm-radar';
 	const REPO         = 'ProWoos-Devs/bot-storm-radar';
 	const ASSETS_URL   = 'https://raw.githubusercontent.com/ProWoos-Devs/bot-storm-radar/main/assets';
-	const CACHE_KEY    = 'bsr_update_data';
+	const CACHE_KEY    = 'botstormradar_update_data';
 	const CACHE_EXPIRY = 43200; // 12 hours
 
 	/**

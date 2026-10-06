@@ -42,7 +42,7 @@ class BotStormRadar_Gate {
 	/**
 	 * APCu key prefix for the decoded state.
 	 */
-	const CACHE_PREFIX = 'bsr_gate_state:';
+	const CACHE_PREFIX = 'botstormradar_gate_state:';
 
 	/**
 	 * The gate for this request. Runs once, whichever loader called it.

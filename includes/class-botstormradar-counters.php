@@ -498,7 +498,7 @@ class BotStormRadar_Counters {
 	 * @return string Transient name (<= 172 chars for the option table).
 	 */
 	private static function t_name( $group ) {
-		return 'bsr_' . ( strlen( $group ) > 40 ? md5( $group ) : preg_replace( '/[^a-z0-9_:.\-]/i', '_', $group ) );
+		return 'botstormradar_' . ( strlen( $group ) > 40 ? md5( $group ) : preg_replace( '/[^a-z0-9_:.\-]/i', '_', $group ) );
 	}
 
 	/**

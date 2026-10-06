@@ -6,8 +6,8 @@
  * state and transition log, so their traffic never mixes into the site's.
  *
  * The site keeps the option names 0.1.x used; another source inserts its id
- * after the prefix: `bsr_state` becomes `bsr_wiki_state`, `bsr_min_` chunks
- * become `bsr_wiki_min_`. Ids are validated where a source is defined, not
+ * after the prefix: `botstormradar_state` becomes `botstormradar_wiki_state`, `botstormradar_min_` chunks
+ * become `botstormradar_wiki_min_`. Ids are validated where a source is defined, not
  * on every option lookup.
  *
  * @package Bot_Storm_Radar
@@ -25,7 +25,7 @@ class BotStormRadar_Sources {
 	 * Log source definitions (id => label, profile, logs, alert_to, created),
 	 * written only by `wp bot-storm-radar source add|remove`.
 	 */
-	const LOG_OPTION = 'bsr_log_sources';
+	const LOG_OPTION = 'botstormradar_log_sources';
 
 	/**
 	 * A baseline day counts as full for alerts with this many minute rows
@@ -35,8 +35,8 @@ class BotStormRadar_Sources {
 
 	/**
 	 * Ids that would produce option names 0.1.x already uses
-	 * (`bsr_min_chunks`, `bsr_tick`, `bsr_version`, ...), `log` because the
-	 * source definitions live in `bsr_log_sources`, and `replay`, the scratch
+	 * (`botstormradar_min_chunks`, `botstormradar_tick`, `botstormradar_version`, ...), `log` because the
+	 * source definitions live in `botstormradar_log_sources`, and `replay`, the scratch
 	 * source `wp bot-storm-radar replay` purges.
 	 */
 	const RESERVED = [ 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update', 'log', 'replay' ];
@@ -50,7 +50,7 @@ class BotStormRadar_Sources {
 	/**
 	 * The option name a per-source option has for this source.
 	 *
-	 * @param string $name   Site option name, starting with `bsr_`.
+	 * @param string $name   Site option name, starting with `botstormradar_`.
 	 * @param string $source
 	 * @return string
 	 */
@@ -58,7 +58,7 @@ class BotStormRadar_Sources {
 		if ( self::SITE === $source ) {
 			return $name;
 		}
-		return 'bsr_' . $source . '_' . substr( $name, 4 );
+		return 'botstormradar_' . $source . '_' . substr( $name, strlen( 'botstormradar_' ) );
 	}
 
 	/**
@@ -111,7 +111,7 @@ class BotStormRadar_Sources {
 	 * @return array
 	 */
 	public static function log_state( $source ) {
-		$s = get_option( self::option( 'bsr_log_state', $source ), [] );
+		$s = get_option( self::option( 'botstormradar_log_state', $source ), [] );
 		return wp_parse_args( is_array( $s ) ? $s : [], [ 'last_minute' => 0, 'last_run' => 0, 'files' => [], 'stats' => [] ] );
 	}
 

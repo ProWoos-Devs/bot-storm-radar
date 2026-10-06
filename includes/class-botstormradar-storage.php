@@ -19,10 +19,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Storage {
 
-	const CHUNK_PREFIX      = 'bsr_min_';
-	const CHUNK_INDEX       = 'bsr_min_chunks';
+	const CHUNK_PREFIX      = 'botstormradar_min_';
+	const CHUNK_INDEX       = 'botstormradar_min_chunks';
 	const CHUNK_HOURS       = 25;
-	const TRANSITIONS       = 'bsr_transitions';
+	const TRANSITIONS       = 'botstormradar_transitions';
 	const TRANSITIONS_CAP   = 200;
 
 	/**

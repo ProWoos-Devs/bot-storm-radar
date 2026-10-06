@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Channel_Drain {
 
-	const STATUS_OPTION = 'bsr_channel_status';
+	const STATUS_OPTION = 'botstormradar_channel_status';
 	const REGISTRY_CAP  = 200;
 
 	/**

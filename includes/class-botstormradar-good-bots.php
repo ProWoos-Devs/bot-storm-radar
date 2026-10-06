@@ -32,7 +32,7 @@ class BotStormRadar_Good_Bots {
 	const PENDING_CAP     = 200;
 	const RECENT_KEY      = 'g:bot_recent';
 	const RECENT_CAP      = 50;
-	const DDG_OPTION      = 'bsr_duckduckbot_ranges';
+	const DDG_OPTION      = 'botstormradar_duckduckbot_ranges';
 	const DDG_URL         = 'https://duckduckgo.com/duckduckbot.json';
 	const DDG_FILE        = 'duckduckbot-ips.txt';
 	const VERIFY_PER_TICK = 20;

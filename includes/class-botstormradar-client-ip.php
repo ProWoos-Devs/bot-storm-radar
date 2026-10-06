@@ -30,7 +30,7 @@
  * (1.7.0, commit b3f15f8) with the prefix renamed and two plugin-specific
  * option names (`trust_all_forwarding` here, `trust_all_proxy_headers`
  * there). Fix bugs in both; do not let the two drift. Compare with:
- *   diff <(sed -e 's/WCAF_/BotStormRadar_/g' -e "s/'wcaf_/'bsr_/g" -e 's/WC_Antifraud::/Bot_Storm_Radar::/' \
+ *   diff <(sed -e 's/WCAF_/BotStormRadar_/g' -e "s/'wcaf_/'botstormradar_/g" -e 's/WC_Antifraud::/Bot_Storm_Radar::/' \
  *          -e 's/trust_all_proxy_headers/trust_all_forwarding/' ../../../WC_Antifraud/www/wc-antifraud/includes/class-wcaf-client-ip.php) \
  *        includes/class-botstormradar-client-ip.php
  *
@@ -46,7 +46,7 @@ class BotStormRadar_Client_IP {
 	/**
 	 * Option holding the fetched Cloudflare ranges: [ 'ranges' => [...], 'fetched' => ts ].
 	 */
-	const CF_OPTION = 'bsr_cloudflare_ips';
+	const CF_OPTION = 'botstormradar_cloudflare_ips';
 
 	/**
 	 * Bundled fallback, relative to the plugin root.
@@ -64,17 +64,17 @@ class BotStormRadar_Client_IP {
 	/**
 	 * Daily refresh hook.
 	 */
-	const CRON_HOOK = 'bsr_refresh_cloudflare_ips';
+	const CRON_HOOK = 'botstormradar_refresh_cloudflare_ips';
 
 	/**
 	 * Option recording a suspected undeclared public-address proxy.
 	 */
-	const SUSPECT_OPTION = 'bsr_proxy_suspect';
+	const SUSPECT_OPTION = 'botstormradar_proxy_suspect';
 
 	/**
 	 * Transient set when the admin says the suspect is not a proxy (30 days).
 	 */
-	const DISMISS_TRANSIENT = 'bsr_proxy_suspect_dismissed';
+	const DISMISS_TRANSIENT = 'botstormradar_proxy_suspect_dismissed';
 
 	/**
 	 * Admin requests showing the pattern before the automatic IP rules are suspended.
