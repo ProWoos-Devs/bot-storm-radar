@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `build-zip.sh` builds the release zip. `./build-zip.sh` gives the GitHub build as before, without the development files; `./build-zip.sh --wporg` gives the wordpress.org build, which leaves out the GitHub updater (the class and the two marked blocks that load it) and stops if any updater code is left.
 - `readme.txt` in the wordpress.org format, with an External services section for the two address lists the plugin downloads once a day (Cloudflare ranges, DuckDuckBot). `version-bump.sh` updates its stable tag.
+- Six screenshots for the wordpress.org listing in `.wordpress-org/` (not part of either zip) and a Screenshots section in `readme.txt`. They show demo data on documentation address ranges.
 
 ### Changed
 - The five files the gate bundles (`class-bsr-ip-resolver.php`, `-state-reader.php`, `-probe.php`, `-channel.php`, `-gate.php`) carry their direct-access guard as `defined( 'BSR_GATE' ) || defined( 'ABSPATH' ) || exit;`. Same rule as before, in a form Plugin Check recognizes. The bundler removes the new form.

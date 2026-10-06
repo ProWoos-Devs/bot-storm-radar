@@ -98,6 +98,15 @@ By default the gate runs from a must-use plugin, after WordPress has connected t
 
 The data directory keeps a few-line `loader.php` and the `disabled` marker, because a cached `auto_prepend_file` setting may still point at the loader. They do nothing and can be deleted by hand.
 
+== Screenshots ==
+
+1. The Radar tab during a storm, with the current state, the score of the last minute, the learned baseline and the last 24 hours.
+2. The storm timeline. Every transition is listed with the numbers that caused it, in words.
+3. Request classes, the busiest networks and user agents, and search-bot claims with their verification.
+4. The Bans tab, with each ban's evidence and an Unban button, the bans that would have happened in observe mode, and claims waiting for a search-bot check.
+5. The settings for address bans and probe refusal.
+6. The dashboard widget.
+
 == Changelog ==
 
 = 0.2.0 =
