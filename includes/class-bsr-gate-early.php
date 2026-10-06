@@ -90,7 +90,11 @@ class BSR_Gate_Early {
 	public static function conflict( $method, $current = null, $file = null ) {
 		$current = null === $current ? (string) ini_get( 'auto_prepend_file' ) : (string) $current;
 		$loader  = self::loader_path();
-		if ( '' !== $current && ! self::same_file( $current, $loader ) ) {
+		// Our own loader in the data directory of 0.2.0 is no conflict: PHP
+		// may still cache the line that pointed there before the move.
+		$legacy = BSR_State::legacy_dir();
+		$ours   = self::same_file( $current, $loader ) || ( '' !== $legacy && self::same_file( $current, $legacy . BSR_Gate_Install::LOADER_FILE ) );
+		if ( '' !== $current && ! $ours ) {
 			return $current;
 		}
 		if ( null === $file ) {
@@ -132,6 +136,32 @@ class BSR_Gate_Early {
 			return false;
 		}
 		update_option( self::OPTION, [ 'method' => $method, 'target' => $target, 'loader' => $loader, 'at' => time(), 'result' => 'pending', 'checked' => 0 ], false );
+		return true;
+	}
+
+	/**
+	 * After the data directory moved: point the block at the loader's new
+	 * place. PHP-FPM keeps the old line for up to user_ini.cache_ttl seconds;
+	 * the old loader stays where it was and runs nothing meanwhile, so those
+	 * requests get the gate from the must-use plugin.
+	 *
+	 * @return bool
+	 */
+	public static function repoint() {
+		$state = get_option( self::OPTION, [] );
+		if ( ! is_array( $state ) || empty( $state['method'] ) ) {
+			return true;
+		}
+		$loader = self::loader_path();
+		if ( '' === $loader || ! is_file( $loader ) || $loader === ( $state['loader'] ?? '' ) ) {
+			return true;
+		}
+		$method = (string) $state['method'];
+		$target = ! empty( $state['target'] ) ? (string) $state['target'] : self::target( $method );
+		if ( ! self::write_block( $target, $method, self::block( $method, $loader ) ) ) {
+			return false;
+		}
+		update_option( self::OPTION, [ 'loader' => $loader, 'at' => time(), 'result' => 'pending', 'checked' => 0 ] + $state, false );
 		return true;
 	}
 

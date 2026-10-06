@@ -1105,9 +1105,11 @@ class BSR_Admin {
 	 * Settings tab: how the gate is loaded, and early protection on or off.
 	 */
 	private static function render_gate_section() {
-		$g   = BSR_Gate_Install::status();
-		$e   = BSR_Gate_Early::status();
-		$err = get_transient( 'bsr_gate_early_error' );
+		BSR_State::remove_legacy();
+		$g    = BSR_Gate_Install::status();
+		$e    = BSR_Gate_Early::status();
+		$err  = get_transient( 'bsr_gate_early_error' );
+		$left = BSR_State::left_behind();
 		?>
 		<h2><?php esc_html_e( 'Gate', 'bot-storm-radar' ); ?></h2>
 		<p><?php esc_html_e( 'The gate answers requests from banned addresses before the rest of the site loads. The must-use plugin loads it before other plugins; early protection loads it before WordPress itself, so it also costs no database connection and keeps working while the database is down.', 'bot-storm-radar' ); ?></p>
@@ -1119,6 +1121,18 @@ class BSR_Admin {
 				<tr><th><?php esc_html_e( 'Must-use plugin', 'bot-storm-radar' ); ?></th><td><?php echo $g['mu_plugin'] ? esc_html__( 'installed', 'bot-storm-radar' ) : '<span class="bsr-danger">' . esc_html__( 'missing: the folder wp-content/mu-plugins may not be writable', 'bot-storm-radar' ) . '</span>'; ?></td></tr>
 				<?php if ( $g['disabled'] ) : ?>
 					<tr><th><?php esc_html_e( 'Switched off', 'bot-storm-radar' ); ?></th><td class="bsr-danger"><?php esc_html_e( 'A file named "disabled" in the data directory stops the gate. Delete it, or deactivate and activate the plugin, to switch the gate back on.', 'bot-storm-radar' ); ?></td></tr>
+				<?php endif; ?>
+				<?php if ( $left ) : ?>
+					<tr><th><?php esc_html_e( 'Previous data directory', 'bot-storm-radar' ); ?></th><td>
+						<?php
+						/* translators: %s: path of a directory */
+						echo esc_html( sprintf( __( '%s holds only the old gate loader, switched off. It is kept while a server setting may still point at it and is removed by itself after that.', 'bot-storm-radar' ), $left['from'] ) );
+						if ( $left['seen'] >= $left['at'] + BSR_State::legacy_wait() ) {
+							/* translators: %s: path of a file */
+							echo ' <span class="bsr-danger">' . esc_html( sprintf( __( 'Something still loads that old loader on every request, most likely a line in wp-config.php. Change the line to %s, or the gate only starts with the must-use plugin.', 'bot-storm-radar' ), $e['loader'] ) ) . '</span>';
+						}
+						?>
+					</td></tr>
 				<?php endif; ?>
 				<tr><th><?php esc_html_e( 'Early protection', 'bot-storm-radar' ); ?></th><td>
 					<?php
@@ -1163,6 +1177,9 @@ class BSR_Admin {
 				<?php endif; ?>
 			</tbody>
 		</table>
+		<?php if ( '' !== $e['method'] && '' === $e['conflict'] ) : ?>
+			<p class="description"><?php esc_html_e( 'The gate loader is a small PHP file in the uploads folder. If your host or a security scanner deletes PHP files there, leave early protection off: PHP stops every request when the file it is told to load first is missing. The must-use plugin has no such risk, it checks that the loader exists.', 'bot-storm-radar' ); ?></p>
+		<?php endif; ?>
 		<p>
 			<?php if ( '' !== $e['method'] && '' === $e['conflict'] && ! $e['enabled'] && $g['gate_present'] ) : ?>
 				<a class="button button-primary" href="<?php echo esc_url( self::action_url( 'early_on' ) ); ?>"><?php esc_html_e( 'Enable early protection', 'bot-storm-radar' ); ?></a>

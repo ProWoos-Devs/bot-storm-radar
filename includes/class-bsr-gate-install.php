@@ -1,6 +1,7 @@
 <?php
 /**
- * Installs the gate: versioned gate copies in the data directory, a manifest
+ * Installs the gate: versioned gate copies in the data directory (in the
+ * uploads folder; BSR_State describes it and the move out of wp-content), a manifest
  * naming the current one, a stable loader that reads the manifest, and a
  * small mu-plugin that includes the loader before any regular plugin.
  *
@@ -79,7 +80,20 @@ class BSR_Gate_Install {
 
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
+		add_action( BSR_Client_IP::CRON_HOOK, [ __CLASS__, 'finish_move' ], 45, 0 );
 		add_action( BSR_Client_IP::CRON_HOOK, [ __CLASS__, 'retire' ], 50, 0 );
+	}
+
+	/**
+	 * Daily: a move out of the old data directory that could not be completed
+	 * (the new place or the must-use plugin could not be written) is tried
+	 * again. Until it succeeds the old directory keeps running the gate.
+	 */
+	public static function finish_move() {
+		if ( BSR_State::move_pending() ) {
+			BSR_State::rebuild();
+			self::install();
+		}
 	}
 
 	/**
@@ -100,6 +114,7 @@ class BSR_Gate_Install {
 			self::$error = 'no data directory: ' . BSR_State::last_error();
 			return false;
 		}
+		BSR_State::carry_over();
 		$version = null === $version ? BSR_VERSION : (string) $version;
 		$bundle  = self::bundle( null === $includes ? BSR_PLUGIN_DIR . 'includes/' : $includes, $version );
 		if ( '' === $bundle ) {
@@ -139,6 +154,11 @@ class BSR_Gate_Install {
 			if ( ! self::write_atomic( $mu, $mu_code ) ) {
 				return false;
 			}
+		}
+		// Everything is in place in the data directory: leave the one of
+		// 0.2.0, if it still runs the gate, and move a prepend line along.
+		if ( BSR_State::leave_legacy( $now ) ) {
+			BSR_Gate_Early::repoint();
 		}
 		self::retire( $now );
 		return true;
@@ -204,6 +224,7 @@ class BSR_Gate_Install {
 				$deleted[] = $f;
 			}
 		}
+		BSR_State::remove_legacy( $now );
 		return $deleted;
 	}
 
@@ -331,7 +352,11 @@ LOADER;
 			$code = preg_replace( '/\b' . $from . '\b/', $to, $code );
 		}
 		$bundle = "<?php\n/**\n * Bot Storm Radar gate, generated for version " . $version . ". Do not edit:\n * the plugin rewrites this file from its includes/ on activation and update.\n */\n"
-			. "if ( ! defined( 'BSR_GATE' ) ) {\n\tdefine( 'BSR_GATE', true );\n}\n"
+			// Every gate copy defines BSR_GATE, the ones of 0.2.0 included. A
+			// second copy in the same request (an old prepend line and the
+			// must-use plugin pointing at two directories) returns here,
+			// before it would declare the same classes again.
+			. "if ( defined( 'BSR_GATE' ) ) {\n\treturn;\n}\ndefine( 'BSR_GATE', true );\n"
 			. $code
 			. "\nBSR_Gate_Runner::run( __DIR__ . '/state.php' );\n";
 		try {

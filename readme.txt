@@ -62,7 +62,7 @@ To verify a visitor that claims to be Googlebot, Bingbot, Applebot or Yandex, th
 
 On nginx, add this inside the site's `server` block so that the plugin's data directory is never served.
 
-`location ^~ /wp-content/bot-storm-radar- { deny all; }`
+`location ^~ /wp-content/uploads/bot-storm-radar- { deny all; }`
 
 == Frequently Asked Questions ==
 
@@ -80,7 +80,7 @@ Administrators, verified search bots, Cloudflare and declared proxies, and the a
 
 = How do I switch the gate off without wp-admin? =
 
-Create an empty file named `disabled` in the data directory, `wp-content/bot-storm-radar-<random>/`, by SFTP or in your host's file manager. The gate stops on the next request. Delete the file to switch it back on.
+Create an empty file named `disabled` in the data directory, `wp-content/uploads/bot-storm-radar-<random>/`, by SFTP or in your host's file manager. The gate stops on the next request. Delete the file to switch it back on.
 
 = Does it work behind Cloudflare or another proxy? =
 
@@ -93,6 +93,10 @@ No, but a persistent object cache (Redis, Memcached) or APCu is strongly recomme
 = What is early protection? =
 
 By default the gate runs from a must-use plugin, after WordPress has connected to the database. With early protection the gate runs before WordPress, through PHP's `auto_prepend_file`, so a refused request costs no database connection. The plugin writes one marked block to `.user.ini` or `.htaccess`, checks that the gate really runs first, and removes the block on deactivation. If another plugin already uses `auto_prepend_file`, Bot Storm Radar reports it and changes nothing.
+
+= Where does the plugin keep its files? =
+
+In `bot-storm-radar-<random>/` in the uploads folder. Every file there is written so that a web request for it returns nothing. With early protection, PHP loads the gate loader from that folder before anything else and stops every request when the file is missing, so leave early protection off if your host or a security scanner deletes PHP files from uploads.
 
 = What stays behind after uninstalling? =
 

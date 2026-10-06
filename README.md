@@ -68,10 +68,10 @@ The plugin installs a small must-use plugin, `wp-content/mu-plugins/bot-storm-ra
 On a server that honors neither file, the same can be done by hand with one line at the very top of `wp-config.php`, right after `<?php`, using the loader path shown on the Settings tab. The plugin never edits `wp-config.php`:
 
 ```php
-include_once '/path/to/wp-content/bot-storm-radar-<random>/loader.php';
+include_once '/path/to/wp-content/uploads/bot-storm-radar-<random>/loader.php';
 ```
 
-**Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
+**Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/uploads/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
 
 ## Trying the gate on your own logs
 
@@ -85,13 +85,17 @@ It reports how many requests reached PHP, how many the gate would have refused a
 
 ## Data directory
 
-The plugin keeps the files its gate reads in `wp-content/bot-storm-radar-<random>/`. Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
+The plugin keeps the files its gate reads in `bot-storm-radar-<random>/` in the uploads folder (`wp-content/uploads/` unless the site moved it). Nothing there is meant to be served. On Apache the directory's own `.htaccess` refuses every request. On nginx, add this inside the site's `server` block (`^~` makes it win over the site's `\.php$` location):
 
 ```nginx
-location ^~ /wp-content/bot-storm-radar- {
+location ^~ /wp-content/uploads/bot-storm-radar- {
     deny all;
 }
 ```
+
+Up to 0.2.0 the directory sat directly in `wp-content/`. An update moves it: the gate is installed in the new place, the must-use plugin and an early-protection line are pointed there, and the old directory is switched off with its `disabled` marker and emptied down to its loader. That loader is kept while a setting PHP still caches may point at it, and removed by itself about a day later. A site that added the line to `wp-config.php` by hand has to change the path in it; the Settings tab says so when it sees the old loader still being loaded. If you added the nginx rule above for the old path, change it to the new one.
+
+With early protection, PHP is told to load the gate loader first, and it stops every request when that file is missing. If your host or a security scanner deletes PHP files from the uploads folder, leave early protection off. The must-use plugin checks that the loader exists and has no such risk.
 
 Every data file in the directory is written with `<?php exit; ?>` as its first line and a `.php` name, so a server that runs PHP returns an empty body for it even without that rule. The one exception is `gate.php`, the gate itself; requested directly it only runs the gate check and returns nothing else.
 

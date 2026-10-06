@@ -2,8 +2,10 @@
 /**
  * The gate's state file and the plugin's data directory.
  *
- * Data directory: `wp-content/bot-storm-radar-<random>/`, the suffix created
- * once and kept in option `bsr_data_dir`. It holds an `index.php`, an Apache
+ * Data directory: `bot-storm-radar-<random>/` in the uploads folder, the
+ * suffix created once and kept in option `bsr_data_dir`. Up to 0.2.0 it sat
+ * directly in wp-content; the move is described at leave_legacy(). It holds an
+ * `index.php`, an Apache
  * `.htaccess` that denies everything, and the files the gate reads. Every
  * file the plugin writes there, temporaries included, starts with
  * `<?php exit; ?>` and has a `.php` name, so a web request for it runs as
@@ -30,10 +32,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BSR_State {
 
-	const DIR_OPTION = 'bsr_data_dir';
-	const DIR_PREFIX = 'bot-storm-radar-';
-	const FILE       = 'state.php';
-	const LOCK       = 'state.lock';
+	const DIR_OPTION   = 'bsr_data_dir';
+	const MOVED_OPTION = 'bsr_data_dir_moved';
+	const DIR_PREFIX   = 'bot-storm-radar-';
+	const FILE         = 'state.php';
+	const LOCK         = 'state.lock';
+
+	/**
+	 * What stays in a directory the plugin has left: the loader, because a
+	 * prepend setting may still point at it, the marker that keeps it from
+	 * running anything, and the two files that keep the directory closed.
+	 */
+	const LEFT_BEHIND = [ 'loader.php', 'disabled', 'index.php', '.htaccess' ];
 
 	/**
 	 * How long an unban keeps the address on the gate's recent-unban list.
@@ -71,13 +81,29 @@ class BSR_State {
 			$suffix = bin2hex( random_bytes( 8 ) );
 			update_option( self::DIR_OPTION, $suffix, true );
 		}
-		$dir = trailingslashit( WP_CONTENT_DIR ) . self::DIR_PREFIX . $suffix . '/';
+		$dir = self::location( $suffix );
+		if ( '' === $dir ) {
+			self::$error = 'no uploads folder';
+			return '';
+		}
 		if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
 			self::$error = 'cannot create ' . $dir;
 			return '';
 		}
 		self::protect( $dir );
 		return $dir;
+	}
+
+	/**
+	 * Where the data directory belongs for a suffix, without creating it.
+	 *
+	 * @param string $suffix
+	 * @return string
+	 */
+	private static function location( $suffix ) {
+		$uploads = wp_upload_dir( null, false );
+		$base    = is_array( $uploads ) ? (string) ( $uploads['basedir'] ?? '' ) : '';
+		return '' === $base ? '' : trailingslashit( $base ) . self::DIR_PREFIX . $suffix . '/';
 	}
 
 	/**
@@ -231,26 +257,182 @@ class BSR_State {
 		return self::$error;
 	}
 
+	// ── The directory of 0.2.0 ────────────────────────────────────────
+
+	/**
+	 * Up to 0.2.0 the data directory sat directly in wp-content. Its path
+	 * with a trailing slash for as long as it exists, otherwise ''.
+	 *
+	 * @return string
+	 */
+	public static function legacy_dir() {
+		$suffix = (string) get_option( self::DIR_OPTION, '' );
+		if ( ! preg_match( '/^[a-f0-9]{16}$/', $suffix ) ) {
+			return '';
+		}
+		$old = trailingslashit( WP_CONTENT_DIR ) . self::DIR_PREFIX . $suffix . '/';
+		return ( is_dir( $old ) && self::location( $suffix ) !== $old ) ? $old : '';
+	}
+
+	/**
+	 * True while the old directory still runs the gate: it exists and the
+	 * move has not been completed.
+	 *
+	 * @return bool
+	 */
+	public static function move_pending() {
+		return '' !== self::legacy_dir() && ! is_array( get_option( self::MOVED_OPTION ) );
+	}
+
+	/**
+	 * First step of the move, before the gate is installed in the new
+	 * directory: an owner who switched the gate off with the marker keeps it
+	 * switched off. Only while the new directory has no loader yet, so a
+	 * repeated run copies nothing the move itself wrote.
+	 */
+	public static function carry_over() {
+		if ( ! self::move_pending() ) {
+			return;
+		}
+		$old = self::legacy_dir();
+		$new = self::dir();
+		if ( '' !== $new && is_file( $old . 'disabled' ) && ! is_file( $new . 'loader.php' ) && ! is_file( $new . 'disabled' ) ) {
+			file_put_contents( $new . 'disabled', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		}
+	}
+
+	/**
+	 * Last step of the move, once the gate is installed in the new directory
+	 * and the must-use plugin points there. The old directory is switched off
+	 * with its marker and emptied down to LEFT_BEHIND: its loader stays,
+	 * because an auto_prepend_file setting PHP still caches, or a line in
+	 * wp-config.php, may point at it, and a prepend file that is missing
+	 * breaks every request. With the marker the old loader runs nothing, so
+	 * two copies of the gate never run in one request. remove_legacy()
+	 * deletes the rest when nothing loads it any more.
+	 *
+	 * @param int|null $now Tests.
+	 * @return bool
+	 */
+	public static function leave_legacy( $now = null ) {
+		if ( ! self::move_pending() ) {
+			return true;
+		}
+		$old = self::legacy_dir();
+		if ( ! is_file( $old . 'disabled' ) && false === file_put_contents( $old . 'disabled', '' ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+			self::$error = 'cannot switch off the gate in ' . $old;
+			return false;
+		}
+		self::strip( $old );
+		update_option( self::MOVED_OPTION, [ 'from' => $old, 'at' => null === $now ? time() : (int) $now, 'seen' => 0 ], false );
+		return true;
+	}
+
+	/**
+	 * The directory the plugin moved out of, while it still exists.
+	 *
+	 * @return array|null {from: string, at: int, seen: int}
+	 */
+	public static function left_behind() {
+		$moved = get_option( self::MOVED_OPTION );
+		if ( ! is_array( $moved ) || empty( $moved['from'] ) || ! is_dir( (string) $moved['from'] ) ) {
+			return null;
+		}
+		return [ 'from' => (string) $moved['from'], 'at' => (int) ( $moved['at'] ?? 0 ), 'seen' => (int) ( $moved['seen'] ?? 0 ) ];
+	}
+
+	/**
+	 * How long the old directory is kept at least: longer than PHP caches a
+	 * per-directory ini file, with a wide margin.
+	 *
+	 * @return int Seconds.
+	 */
+	public static function legacy_wait() {
+		return max( DAY_IN_SECONDS, 2 * (int) ini_get( 'user_ini.cache_ttl' ) );
+	}
+
+	/**
+	 * Delete what is left of the old directory once nothing loads its loader:
+	 * not in this request, not from the command line (which does not see the
+	 * web server's prepend settings), and not before legacy_wait() has
+	 * passed. A request that did load it is remembered, so the Settings tab
+	 * can say that a setting still points there. Returns true when the
+	 * directory is gone.
+	 *
+	 * @param int|null      $now      Tests.
+	 * @param string|null   $sapi     Tests.
+	 * @param string[]|null $included Files included in this request (tests).
+	 * @return bool
+	 */
+	public static function remove_legacy( $now = null, $sapi = null, $included = null ) {
+		$moved = get_option( self::MOVED_OPTION );
+		if ( ! is_array( $moved ) || empty( $moved['from'] ) ) {
+			return false;
+		}
+		$now = null === $now ? time() : (int) $now;
+		$old = (string) $moved['from'];
+		if ( ! is_dir( $old ) ) {
+			delete_option( self::MOVED_OPTION );
+			return true;
+		}
+		$loader   = $old . 'loader.php';
+		$real     = realpath( $loader );
+		$included = null === $included ? get_included_files() : $included;
+		if ( in_array( $loader, $included, true ) || ( false !== $real && in_array( $real, $included, true ) ) ) {
+			if ( $now - (int) ( $moved['seen'] ?? 0 ) >= HOUR_IN_SECONDS ) {
+				$moved['seen'] = $now;
+				update_option( self::MOVED_OPTION, $moved, false );
+			}
+			return false;
+		}
+		if ( 'cli' === ( null === $sapi ? PHP_SAPI : $sapi ) || $now - (int) ( $moved['at'] ?? $now ) < self::legacy_wait() ) {
+			return false;
+		}
+		foreach ( self::LEFT_BEHIND as $f ) {
+			if ( is_file( $old . $f ) ) {
+				@unlink( $old . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
+			}
+		}
+		@rmdir( $old ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
+		if ( is_dir( $old ) ) {
+			return false; // Something that is not ours is in there.
+		}
+		delete_option( self::MOVED_OPTION );
+		return true;
+	}
+
+	/**
+	 * Delete every file of a directory except LEFT_BEHIND.
+	 *
+	 * @param string $dir
+	 */
+	private static function strip( $dir ) {
+		foreach ( (array) scandir( $dir ) as $f ) {
+			if ( is_string( $f ) && is_file( $dir . $f ) && ! in_array( $f, self::LEFT_BEHIND, true ) ) {
+				@unlink( $dir . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
+			}
+		}
+	}
+
 	/**
 	 * Empty the data directory and forget its option (uninstall only). The
 	 * gate loader and a `disabled` marker stay behind, with the directory: a
 	 * cached auto_prepend_file line may still point at the loader, and a
 	 * prepend file that is missing breaks every request. The marker keeps the
-	 * loader from running anything.
+	 * loader from running anything. The same goes for the directory of 0.2.0
+	 * where it still exists.
 	 */
 	public static function uninstall() {
 		$suffix = (string) get_option( self::DIR_OPTION, '' );
 		if ( preg_match( '/^[a-f0-9]{16}$/', $suffix ) ) {
-			$dir = trailingslashit( WP_CONTENT_DIR ) . self::DIR_PREFIX . $suffix . '/';
-			if ( is_dir( $dir ) ) {
-				file_put_contents( $dir . 'disabled', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-				foreach ( (array) scandir( $dir ) as $f ) {
-					if ( is_string( $f ) && is_file( $dir . $f ) && ! in_array( $f, [ 'loader.php', 'disabled', 'index.php', '.htaccess' ], true ) ) {
-						@unlink( $dir . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
-					}
+			foreach ( array_filter( [ self::location( $suffix ), self::legacy_dir() ] ) as $left ) {
+				if ( is_dir( $left ) ) {
+					file_put_contents( $left . 'disabled', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+					self::strip( $left );
 				}
 			}
 		}
 		delete_option( self::DIR_OPTION );
+		delete_option( self::MOVED_OPTION );
 	}
 }
