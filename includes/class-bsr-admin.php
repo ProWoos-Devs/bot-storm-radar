@@ -96,6 +96,7 @@ class BSR_Admin {
 		self::number_field( 'warning_threshold', __( 'Warning threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which the state moves from calm to warning.', 'bot-storm-radar' ) );
 		self::number_field( 'storm_threshold', __( 'Storm threshold', 'bot-storm-radar' ), 'bsr_thresholds', 0, 100, 1, __( 'Score at or above which warning becomes storm.', 'bot-storm-radar' ) );
 		self::number_field( 'error_pressure_storm', __( 'Error pressure alone', 'bot-storm-radar' ), 'bsr_thresholds', 0, 1, 0.01, __( 'Share of 5xx and slow responses (0 to 1) that turns a warning into a storm on its own, whatever the score.', 'bot-storm-radar' ) );
+		/* translators: %s: learned baseline of distinct addresses per minute, or a dash */
 		self::number_field( 'min_distinct_ips', __( 'Minimum distinct addresses', 'bot-storm-radar' ), 'bsr_thresholds', 1, 100000, 1, sprintf( __( 'Below this many distinct addresses in a minute the score is always 0. Also the reference volume until a baseline is learned. Baseline: %s', 'bot-storm-radar' ), self::fmt_or_dash( $b['ips_median'] ?? null, 0 ) ) );
 		self::number_field( 'spike_factor', __( 'Spike factor', 'bot-storm-radar' ), 'bsr_thresholds', 1.5, 100, 0.5, __( 'The score reaches full weight when the minute has this many times the baseline addresses.', 'bot-storm-radar' ) );
 		self::number_field( 'slow_request_ms', __( 'Slow request (ms)', 'bot-storm-radar' ), 'bsr_thresholds', 0, 60000, 100, __( 'PHP requests taking at least this long count toward error pressure. 0 disables. Behind a page cache PHP sees mostly cache misses, so slow requests then measure the cache, not the site; use 0 there.', 'bot-storm-radar' ) );
@@ -125,6 +126,7 @@ class BSR_Admin {
 			$cf_count   = count( BSR_Client_IP::cloudflare_ranges() );
 			$cf_fetched = BSR_Client_IP::cloudflare_ranges_fetched_at();
 			echo '<p>' . esc_html__( 'A forwarding header is believed only when the request arrived through a known proxy: Cloudflare, a local proxy (private peer address), or one declared here. Anything else is the client itself.', 'bot-storm-radar' ) . '</p>';
+			/* translators: 1: number of Cloudflare address ranges, 2: "fetched <date>" or "bundled copy, fetch pending". In "fetched %s", %s: date */
 			echo '<p class="description">' . esc_html( sprintf( __( 'Cloudflare ranges: %1$d entries, %2$s.', 'bot-storm-radar' ), $cf_count, $cf_fetched > 0 ? sprintf( __( 'fetched %s', 'bot-storm-radar' ), wp_date( get_option( 'date_format' ), $cf_fetched ) ) : __( 'bundled copy, fetch pending', 'bot-storm-radar' ) ) ) . '</p>';
 		}, self::PAGE );
 		add_settings_field( 'trusted_proxies', __( 'Trusted proxy addresses', 'bot-storm-radar' ), function () {
@@ -234,6 +236,7 @@ class BSR_Admin {
 				if ( BSR_Helpers::is_valid_ip( $addr ) ) {
 					$kept[] = $e;
 				} else {
+					/* translators: %s: the rejected entry as typed */
 					add_settings_error( 'trusted_proxies', 'bsr_proxy_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
 				}
 			}
@@ -257,6 +260,7 @@ class BSR_Admin {
 				if ( BSR_Helpers::is_valid_ip( explode( '/', $e )[0] ) ) {
 					$kept[] = $e;
 				} else {
+					/* translators: %s: the rejected entry as typed */
 					add_settings_error( 'allowlist', 'bsr_allow_' . md5( $e ), sprintf( __( 'Ignored "%s": not an IP address or CIDR range.', 'bot-storm-radar' ), $e ), 'warning' );
 				}
 			}
@@ -411,6 +415,7 @@ class BSR_Admin {
 			printf(
 				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s <a class="button button-small" href="%3$s">%4$s</a> <a class="button button-small" href="%5$s">%6$s</a></p></div>',
 				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
+				/* translators: 1: address the requests arrived from, 2: address named in the forwarding header */
 				esc_html( sprintf( __( 'recent admin requests arrived from %1$s with a forwarding header naming %2$s, so a proxy with that public address appears to sit in front of the site. Until it is trusted, every visitor is counted under that one address and the per-address metrics are meaningless.', 'bot-storm-radar' ), $suspect['ip'], $suspect['forwarded'] ) ),
 				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'bsr_action' => 'trust_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
 				esc_html__( 'Trust this proxy', 'bot-storm-radar' ),
@@ -433,7 +438,7 @@ class BSR_Admin {
 				<span class="dashicons dashicons-visibility bsr-header-icon"></span>
 				<div>
 					<h1><?php esc_html_e( 'Bot Storm Radar', 'bot-storm-radar' ); ?></h1>
-					<span class="bsr-version"><?php printf( 'enforce' === BSR_Helpers::opt( 'ban_mode', 'observe' ) ? esc_html__( 'Version %s: scanner probes are refused, addresses that trip are banned', 'bot-storm-radar' ) : esc_html__( 'Version %s: scanner probes are refused, address bans only observe', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
+					<span class="bsr-version"><?php /* translators: %s: plugin version number */ printf( 'enforce' === BSR_Helpers::opt( 'ban_mode', 'observe' ) ? esc_html__( 'Version %s: scanner probes are refused, addresses that trip are banned', 'bot-storm-radar' ) : esc_html__( 'Version %s: scanner probes are refused, address bans only observe', 'bot-storm-radar' ), esc_html( BSR_VERSION ) ); ?></span>
 				</div>
 			</div>
 			<nav class="nav-tab-wrapper">
@@ -510,18 +515,18 @@ class BSR_Admin {
 			<div class="bsr-card bsr-state bsr-state-<?php echo esc_attr( $state['state'] ); ?>">
 				<div class="bsr-card-label"><?php esc_html_e( 'Current state', 'bot-storm-radar' ); ?></div>
 				<div class="bsr-state-name"><?php echo esc_html( $labels[ $state['state'] ] ?? $state['state'] ); ?></div>
-				<div class="bsr-card-sub"><?php printf( esc_html__( 'since %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $state['since'] ) ) ); ?></div>
-				<div class="bsr-card-sub"><?php printf( esc_html__( 'last score %1$s, %2$d storms so far', 'bot-storm-radar' ), esc_html( (string) (int) $state['last_score'] ), (int) $state['storms'] ); ?></div>
+				<div class="bsr-card-sub"><?php /* translators: %s: relative time, such as "5 mins ago" */ printf( esc_html__( 'since %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $state['since'] ) ) ); ?></div>
+				<div class="bsr-card-sub"><?php /* translators: 1: storm score of the last minute, 2: number of storms */ printf( esc_html__( 'last score %1$s, %2$d storms so far', 'bot-storm-radar' ), esc_html( (string) (int) $state['last_score'] ), (int) $state['storms'] ); ?></div>
 			</div>
 			<div class="bsr-card">
 				<div class="bsr-card-label"><?php esc_html_e( 'Last finished minute', 'bot-storm-radar' ); ?></div>
 				<?php if ( $last ) : ?>
 					<div class="bsr-big"><?php echo esc_html( (string) (int) $last['score'] ); ?> <small><?php esc_html_e( 'score', 'bot-storm-radar' ); ?></small></div>
-					<div class="bsr-card-sub"><?php printf( esc_html__( '0 means nothing looks like a swarm. Warning starts at %1$d, storm at %2$d.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'] ); ?></div>
-					<div class="bsr-card-sub"><?php printf( esc_html__( '%1$d requests from %2$d addresses, %3$d single-hit', 'bot-storm-radar' ), (int) $last['total'], (int) $last['ips'], (int) $last['single'] ); ?></div>
-					<div class="bsr-card-sub"><?php printf( esc_html__( 'asset ratio %1$s, %2$d user agents, %3$d networks', 'bot-storm-radar' ), esc_html( null === $last['asset_ratio'] ? '–' : BSR_Metrics::fmt( $last['asset_ratio'] ) ), (int) $last['uas'], (int) $last['nets'] ); ?></div>
+					<div class="bsr-card-sub"><?php /* translators: 1: warning threshold, 2: storm threshold */ printf( esc_html__( '0 means nothing looks like a swarm. Warning starts at %1$d, storm at %2$d.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'] ); ?></div>
+					<div class="bsr-card-sub"><?php /* translators: 1: number of requests, 2: number of distinct addresses, 3: number of addresses that made exactly one request */ printf( esc_html__( '%1$d requests from %2$d addresses, %3$d single-hit', 'bot-storm-radar' ), (int) $last['total'], (int) $last['ips'], (int) $last['single'] ); ?></div>
+					<div class="bsr-card-sub"><?php /* translators: 1: asset ratio, 2: number of distinct user agents, 3: number of networks */ printf( esc_html__( 'asset ratio %1$s, %2$d user agents, %3$d networks', 'bot-storm-radar' ), esc_html( null === $last['asset_ratio'] ? '–' : BSR_Metrics::fmt( $last['asset_ratio'] ) ), (int) $last['uas'], (int) $last['nets'] ); ?></div>
 					<?php if ( (int) ( $last['refused'] ?? 0 ) > 0 ) : ?>
-						<div class="bsr-card-sub"><?php printf( esc_html__( '%d refused by the web server (403, 429, 444), not counted', 'bot-storm-radar' ), (int) $last['refused'] ); ?></div>
+						<div class="bsr-card-sub"><?php /* translators: %d: number of requests */ printf( esc_html__( '%d refused by the web server (403, 429, 444), not counted', 'bot-storm-radar' ), (int) $last['refused'] ); ?></div>
 					<?php endif; ?>
 					<div class="bsr-card-sub"><?php echo esc_html( wp_date( get_option( 'time_format' ), (int) $last['m'] * 60 ) ); ?></div>
 				<?php elseif ( $is_site ) : ?>
@@ -533,7 +538,7 @@ class BSR_Admin {
 			<div class="bsr-card">
 				<div class="bsr-card-label"><?php esc_html_e( 'Baseline', 'bot-storm-radar' ); ?></div>
 				<div class="bsr-card-sub"><?php echo esc_html( self::baseline_sentence( $baseline ) ); ?></div>
-				<div class="bsr-card-sub"><?php printf( esc_html__( 'Thresholds: warning %1$d, storm %2$d, minimum addresses %3$d, spike factor %4$s.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'], (int) $opts['min_distinct_ips'], esc_html( BSR_Metrics::fmt( $opts['spike_factor'], 1 ) ) ); ?></div>
+				<div class="bsr-card-sub"><?php /* translators: 1: warning threshold, 2: storm threshold, 3: minimum distinct addresses, 4: spike factor */ printf( esc_html__( 'Thresholds: warning %1$d, storm %2$d, minimum addresses %3$d, spike factor %4$s.', 'bot-storm-radar' ), (int) $opts['warning_threshold'], (int) $opts['storm_threshold'], (int) $opts['min_distinct_ips'], esc_html( BSR_Metrics::fmt( $opts['spike_factor'], 1 ) ) ); ?></div>
 			</div>
 			<?php if ( ! $is_site ) : ?>
 				<?php self::render_log_card( $source ); ?>
@@ -557,14 +562,18 @@ class BSR_Admin {
 				?>
 				<div class="bsr-card-sub <?php echo $waiting > 600 ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
 					<?php
+					/* translators: 1: number of probe requests, 2: number of requests from banned addresses */
 					printf( esc_html__( '%1$d probes and %2$d requests from banned addresses refused in the last 24 hours.', 'bot-storm-radar' ), (int) $gate_probe, (int) $gate_ban );
 					if ( $ch['last_drain'] ) {
+						/* translators: 1: name of the gate channel, 2: relative time, such as "5 mins ago" */
 						echo ' ' . esc_html( sprintf( __( 'Channel %1$s, last emptied %2$s.', 'bot-storm-radar' ), $ch['channel'], self::ago( (int) $ch['last_drain'] ) ) );
 					}
 					if ( $waiting > 0 ) {
+						/* translators: %d: number of minutes */
 						echo ' ' . esc_html( sprintf( __( 'The oldest refusals have waited %d minutes to be counted; they are counted on the next tick that runs.', 'bot-storm-radar' ), (int) ceil( $waiting / 60 ) ) );
 					}
 					if ( $ch['lost'] || $ch['full'] || $ch['late'] ) {
+						/* translators: 1: number of minutes lost, 2: number of minutes that hit the size cap, 3: number of late refusals */
 						echo ' ' . esc_html( sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] ) );
 					}
 					?>
@@ -572,6 +581,7 @@ class BSR_Admin {
 				<div class="bsr-card-sub <?php echo BSR_Tick::is_late() ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Tick:', 'bot-storm-radar' ); ?></strong>
 					<?php
 					if ( (int) $tick['last_run'] > 0 ) {
+						/* translators: 1: relative time, such as "5 mins ago", 2: what ran the tick, for example cron */
 						printf( esc_html__( 'last ran %1$s (%2$s)', 'bot-storm-radar' ), esc_html( self::ago( (int) $tick['last_run'] ) ), esc_html( (string) $tick['source'] ) );
 						if ( BSR_Tick::is_late() ) {
 							echo ' ' . esc_html__( 'WP cron looks stalled; the guard runs the tick from front-end requests meanwhile.', 'bot-storm-radar' );
@@ -584,6 +594,7 @@ class BSR_Admin {
 					}
 					$next = wp_next_scheduled( BSR_Tick::HOOK );
 					if ( $next ) {
+						/* translators: %s: relative time, such as "in 1 min" */
 						printf( ', ' . esc_html__( 'next scheduled %s', 'bot-storm-radar' ), esc_html( self::ago( $next ) ) );
 					}
 					?>
@@ -592,6 +603,7 @@ class BSR_Admin {
 					<?php
 					$src  = BSR_Client_IP::source();
 					$srcs = [ 'direct' => __( 'direct (no proxy)', 'bot-storm-radar' ), 'cloudflare' => __( 'behind Cloudflare', 'bot-storm-radar' ), 'cloudflare-forwarded' => __( 'behind Cloudflare without CF-Connecting-IP', 'bot-storm-radar' ), 'local-proxy' => __( 'behind a local proxy', 'bot-storm-radar' ), 'trusted-proxy' => __( 'behind a declared proxy', 'bot-storm-radar' ), 'legacy' => __( 'trusting all forwarding headers (insecure)', 'bot-storm-radar' ), 'none' => __( 'unknown', 'bot-storm-radar' ) ];
+					/* translators: 1: how the request reached the site, for example "behind Cloudflare", 2: IP address */
 					printf( esc_html__( 'this request %1$s, you are %2$s', 'bot-storm-radar' ), esc_html( $srcs[ $src ] ?? $src ), esc_html( (string) BSR_Client_IP::resolve() ) );
 					if ( BSR_Client_IP::ip_rules_suspended() ) {
 						echo ' <span class="bsr-danger">' . esc_html__( 'undeclared proxy detected, per-address metrics unreliable', 'bot-storm-radar' ) . '</span>';
@@ -670,10 +682,10 @@ class BSR_Admin {
 				<?php endif; ?>
 			</svg>
 			<div class="bsr-chart-legend">
-				<span class="bsr-legend-bars"><?php printf( esc_html__( 'distinct addresses per minute (max %d)', 'bot-storm-radar' ), (int) $max_ip ); ?></span>
+				<span class="bsr-legend-bars"><?php /* translators: %d: highest number of distinct addresses in one minute */ printf( esc_html__( 'distinct addresses per minute (max %d)', 'bot-storm-radar' ), (int) $max_ip ); ?></span>
 				<span class="bsr-legend-score"><?php esc_html_e( 'storm score (0 to 100)', 'bot-storm-radar' ); ?></span>
 				<span class="bsr-legend-lines"><?php esc_html_e( 'warning and storm thresholds', 'bot-storm-radar' ); ?></span>
-				<span><?php printf( esc_html__( '%1$s to %2$s', 'bot-storm-radar' ), esc_html( wp_date( 'D H:i', $start * 60 ) ), esc_html( wp_date( 'D H:i', $end * 60 ) ) ); ?></span>
+				<span><?php /* translators: 1: start of the charted period, 2: end of the charted period, both as weekday and time */ printf( esc_html__( '%1$s to %2$s', 'bot-storm-radar' ), esc_html( wp_date( 'D H:i', $start * 60 ) ), esc_html( wp_date( 'D H:i', $end * 60 ) ) ); ?></span>
 			</div>
 		</div>
 		<?php
@@ -727,6 +739,7 @@ class BSR_Admin {
 		}
 		$pending = BSR_Good_Bots::pending_count();
 		if ( $pending > 0 ) {
+			/* translators: %d: number of addresses */
 			echo '<p class="description">' . esc_html( sprintf( __( '%d addresses queued for DNS verification (up to 20 per minute).', 'bot-storm-radar' ), $pending ) ) . '</p>';
 		}
 		$recent = BSR_Good_Bots::recent();
@@ -782,6 +795,7 @@ class BSR_Admin {
 		$labels = self::state_labels();
 		if ( is_array( $state['last_storm'] ) ) {
 			$ls = $state['last_storm'];
+			/* translators: 1: start date and time, 2: end date and time, 3: peak storm score, 4: number of distinct addresses, 5: number of requests, 6: number of the highest rung */
 			printf( '<p><strong>%s</strong> %s</p>', esc_html__( 'Last storm:', 'bot-storm-radar' ), esc_html( sprintf( __( 'from %1$s to %2$s, peak score %3$d with %4$d addresses and %5$d requests in one minute, highest rung %6$d.', 'bot-storm-radar' ), wp_date( 'Y-m-d H:i', (int) $ls['started'] ), wp_date( 'Y-m-d H:i', (int) ( $ls['ended'] ?? time() ) ), (int) $ls['peak_score'], (int) $ls['peak_ips'], (int) $ls['peak_total'], (int) ( $ls['max_rung'] ?? 0 ) ) ) );
 		}
 		$log = BSR_Storage::transitions( 50, $source );
@@ -826,12 +840,15 @@ class BSR_Admin {
 		$labels = self::state_labels();
 		$rows   = BSR_Storage::minutes_last( 1 );
 		$last   = $rows ? end( $rows ) : null;
+		/* translators: %s: relative time, such as "5 mins ago" */
 		printf( '<p class="bsr-widget-state bsr-state-%1$s"><strong>%2$s</strong> <span>%3$s</span></p>', esc_attr( $state['state'] ), esc_html( $labels[ $state['state'] ] ?? $state['state'] ), esc_html( sprintf( __( 'since %s', 'bot-storm-radar' ), self::ago( (int) $state['since'] ) ) ) );
 		if ( $last ) {
+			/* translators: 1: storm score, 2: number of requests, 3: number of distinct addresses */
 			printf( '<p>%s</p>', esc_html( sprintf( __( 'Last minute: score %1$d, %2$d requests from %3$d addresses.', 'bot-storm-radar' ), (int) $last['score'], (int) $last['total'], (int) $last['ips'] ) ) );
 		}
 		if ( is_array( $state['last_storm'] ) ) {
 			$ls = $state['last_storm'];
+			/* translators: 1: date and time the storm started, 2: peak storm score, 3: number of distinct addresses */
 			printf( '<p>%s</p>', esc_html( sprintf( __( 'Last storm: %1$s, peak score %2$d, %3$d addresses in one minute.', 'bot-storm-radar' ), wp_date( 'Y-m-d H:i', (int) $ls['started'] ), (int) $ls['peak_score'], (int) $ls['peak_ips'] ) ) );
 		} else {
 			echo '<p>' . esc_html__( 'No storm recorded yet.', 'bot-storm-radar' ) . '</p>';
@@ -849,7 +866,9 @@ class BSR_Admin {
 				esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&source=' . rawurlencode( $id ) ) ),
 				esc_html( BSR_Sources::label( $id ) ),
 				esc_html( $labels[ $st['state'] ] ?? $st['state'] ),
+				/* translators: %s: relative time, such as "5 mins ago" */
 				esc_html( sprintf( __( 'since %s', 'bot-storm-radar' ), self::ago( (int) $st['since'] ) ) ),
+				/* translators: %s: time span, such as "5 mins" */
 				$late ? ' <span class="bsr-danger">' . esc_html( sprintf( __( 'log not read for %s', 'bot-storm-radar' ), human_time_diff( (int) $lr['last_run'], time() ) ) ) . '</span>' : ''
 			);
 		}
@@ -877,8 +896,10 @@ class BSR_Admin {
 			<div class="bsr-card-sub <?php echo $late ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Ingest:', 'bot-storm-radar' ); ?></strong>
 				<?php
 				if ( (int) $lr['last_run'] > 0 ) {
+					/* translators: %s: relative time, such as "5 mins ago" */
 					printf( esc_html__( 'last ran %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $lr['last_run'] ) ) );
 					if ( isset( $stats['lines'] ) ) {
+						/* translators: 1: log lines read, 2: minutes stored, 3: late lines, 4: unparsed lines, 5: refused requests */
 						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed, %5$d refused', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ), (int) ( $stats['refused'] ?? 0 ) );
 					}
 					if ( ! empty( $stats['events'] ) ) {
@@ -943,6 +964,7 @@ class BSR_Admin {
 				? esc_html__( 'Address bans are enforced: an address that trips is refused by the gate until its ban ends or you unban it.', 'bot-storm-radar' )
 				: esc_html__( 'Address bans only observe: nobody is refused. The would-be bans below show what enforce mode would have done; switch it on in Settings, Address bans, once they look right for this site.', 'bot-storm-radar' );
 			echo ' ';
+			/* translators: 1: bans in force, 2: would-be bans, 3: addresses waiting for a search-bot check, 4: bans lifted by hand */
 			printf( esc_html__( '%1$d in force, %2$d would-be, %3$d waiting for a search-bot check, %4$d unbanned by hand so far.', 'bot-storm-radar' ), count( $active ), count( $would ), count( $pending ), (int) $hand );
 			?>
 		</p>
@@ -973,10 +995,12 @@ class BSR_Admin {
 							<?php
 							if ( (int) $r['unbanned_at'] > 0 ) {
 								$who = get_userdata( (int) $r['unbanned_by'] );
+								/* translators: 1: relative time, such as "5 mins ago", 2: display name of the user */
 								echo esc_html( sprintf( __( 'unbanned %1$s by %2$s', 'bot-storm-radar' ), self::ago( (int) $r['unbanned_at'] ), $who ? $who->display_name : __( 'the system', 'bot-storm-radar' ) ) );
 							} elseif ( $r['active'] ) {
 								echo esc_html( self::ago( (int) $r['expires_at'] ) );
 							} else {
+								/* translators: %s: relative time, such as "5 mins ago" */
 								echo esc_html( sprintf( __( 'ended %s', 'bot-storm-radar' ), self::ago( (int) $r['expires_at'] ) ) );
 							}
 							?>
@@ -1101,6 +1125,7 @@ class BSR_Admin {
 					if ( '' === $e['method'] ) {
 						esc_html_e( 'Not available on this server (it runs neither PHP-FPM with per-directory ini files nor Apache mod_php). The line for wp-config.php in the README does the same job.', 'bot-storm-radar' );
 					} elseif ( '' !== $e['conflict'] ) {
+						/* translators: %s: path of the file that is loaded first */
 						echo '<span class="bsr-danger">' . esc_html( sprintf( __( 'Not possible: another file is already loaded first (%s), probably a firewall plugin. Bot Storm Radar never replaces or chains it; the gate stays on the must-use plugin.', 'bot-storm-radar' ), $e['conflict'] ) ) . '</span>';
 					} elseif ( $e['enabled'] ) {
 						$labels = [
@@ -1112,6 +1137,7 @@ class BSR_Admin {
 						$res = (string) $e['result'];
 						echo esc_html( $labels[ $res ] ?? $res );
 						if ( $e['checked'] ) {
+							/* translators: %s: relative time, such as "5 mins ago" */
 							echo ' ' . esc_html( sprintf( __( '(checked %s)', 'bot-storm-radar' ), self::ago( $e['checked'] ) ) );
 						}
 					} else {
@@ -1123,8 +1149,10 @@ class BSR_Admin {
 					<tr><th><?php esc_html_e( 'How', 'bot-storm-radar' ); ?></th><td>
 						<?php
 						if ( 'user_ini' === $e['method'] ) {
+							/* translators: 1: path of the file that holds the line, 2: number of seconds */
 							echo esc_html( sprintf( __( 'An auto_prepend_file line in %1$s. PHP re-reads that file every %2$d seconds on this server, so switching on or off can take that long to apply.', 'bot-storm-radar' ), $e['target'], $e['cache_ttl'] ) );
 						} else {
+							/* translators: %s: path of the file that holds the line */
 							echo esc_html( sprintf( __( 'A php_value auto_prepend_file line in %s. Apache applies it on the next request.', 'bot-storm-radar' ), $e['target'] ) );
 						}
 						?>
@@ -1207,10 +1235,13 @@ class BSR_Admin {
 		if ( empty( $b['days'] ) ) {
 			return __( 'Learning: no full day recorded yet. Until then the minimum-addresses setting is the reference volume.', 'bot-storm-radar' );
 		}
+		/* translators: %s: asset ratio */
 		$asset = null === ( $b['asset_median'] ?? null ) ? __( 'asset ratio not yet measurable', 'bot-storm-radar' ) : sprintf( __( 'normal asset ratio %s', 'bot-storm-radar' ), BSR_Metrics::fmt( $b['asset_median'] ) );
 		if ( 'learned' === ( $b['status'] ?? '' ) ) {
+			/* translators: 1: number of days, 2: median, 3: 90th percentile, 4: asset ratio part of the sentence */
 			return sprintf( __( 'Learned over %1$d days: median %2$s distinct addresses per minute (90th percentile %3$s), %4$s.', 'bot-storm-radar' ), (int) $b['days'], BSR_Metrics::fmt( $b['ips_median'], 0 ), BSR_Metrics::fmt( $b['ips_p90'], 0 ), $asset );
 		}
+		/* translators: 1: number of days, 2: median, 3: 90th percentile, 4: asset ratio part of the sentence */
 		return sprintf( __( 'Learning, %1$d of 7 days: so far median %2$s distinct addresses per minute (90th percentile %3$s), %4$s.', 'bot-storm-radar' ), (int) $b['days'], BSR_Metrics::fmt( $b['ips_median'], 0 ), BSR_Metrics::fmt( $b['ips_p90'], 0 ), $asset );
 	}
 
@@ -1234,8 +1265,10 @@ class BSR_Admin {
 		}
 		$now = time();
 		if ( $ts > $now ) {
+			/* translators: %s: time span, such as "5 mins" */
 			return sprintf( __( 'in %s', 'bot-storm-radar' ), human_time_diff( $now, $ts ) );
 		}
+		/* translators: %s: time span, such as "5 mins" */
 		return sprintf( __( '%s ago', 'bot-storm-radar' ), human_time_diff( $ts, $now ) );
 	}
 

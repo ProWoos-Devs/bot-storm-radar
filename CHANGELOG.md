@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Every translatable string with placeholders now carries a `translators:` comment, and the one string with unnumbered placeholders (`Storm score %d: no signal fired. %s`) uses numbered ones. Plugin Check reported 68 errors for these.
+
 ## [0.2.0] - 2026-10-01
 
 The gate: Bot Storm Radar now protects as well as reports. Probe refusal is on from the start; address bans start in observe mode.

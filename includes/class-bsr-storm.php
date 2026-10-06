@@ -183,6 +183,7 @@ class BSR_Storm {
 					} elseif ( $state['rung'] > 0 && $state['rung'] < self::MAX_RUNG && $state['s_storm'] >= 1 && ( $minute - (int) $state['rung_minute'] ) >= self::RUNG_PERSIST_MINUTES ) {
 						$state['rung']++;
 						$state['rung_minute'] = $minute;
+						/* translators: 1: number of the rung that is engaged, 2: number of the rung that was requested */
 						$ctx = self::context( 'storm', 'storm', $row, $minute, sprintf( __( 'storm persisted with rung %1$d engaged, rung %2$d requested', 'bot-storm-radar' ), $state['rung'] - 1, $state['rung'] ), $source );
 						foreach ( self::actions() as $a ) {
 							$a->escalate( $state['rung'], $ctx );

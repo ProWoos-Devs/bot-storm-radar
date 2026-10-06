@@ -227,37 +227,48 @@ class BSR_Metrics {
 			}
 			switch ( $name ) {
 				case 'single_hit':
+					/* translators: 1: single-hit ratio, 2: number of addresses with exactly one request, 3: number of distinct addresses */
 					$parts[] = sprintf( __( 'single-hit ratio %1$s (%2$d of %3$d addresses made exactly one request)', 'bot-storm-radar' ), self::fmt( $row['shr'] ?? 0 ), (int) ( $row['single'] ?? 0 ), (int) ( $row['ips'] ?? 0 ) );
 					break;
 				case 'asset_gap':
+					/* translators: 1: asset ratio, 2: number of addresses that fetched the beacon, 3: number of addresses served HTML */
 					$parts[] = sprintf( __( 'asset ratio %1$s (%2$d addresses fetched the beacon for %3$d served HTML)', 'bot-storm-radar' ), self::fmt( $row['asset_ratio'] ?? 0 ), (int) ( $row['beacon_ips'] ?? 0 ), (int) ( $row['html_ips'] ?? 0 ) );
 					break;
 				case 'ua_evenness':
+					/* translators: 1: evenness value, 2: number of distinct user-agent strings */
 					$parts[] = sprintf( __( 'user-agent evenness %1$s over %2$d strings', 'bot-storm-radar' ), self::fmt( $row['ua_even'] ?? 0 ), (int) ( $row['uas'] ?? 0 ) );
 					break;
 				case 'error':
+					/* translators: 1: error pressure, 2: number of 5xx responses, 3: number of slow responses, 4: number of requests */
 					$parts[] = sprintf( __( 'error pressure %1$s (%2$d 5xx, %3$d slow of %4$d)', 'bot-storm-radar' ), self::fmt( $row['ep'] ?? 0 ), (int) ( $row['err5'] ?? 0 ), (int) ( $row['slow'] ?? 0 ), (int) ( $row['total'] ?? 0 ) );
 					break;
 				case 'concentration':
+					/* translators: 1: concentration ratio, 2: name of the request class */
 					$parts[] = sprintf( __( 'concentration %1$s on %2$s', 'bot-storm-radar' ), self::fmt( $row['conc'] ?? 0 ), (string) ( $row['top_class'] ?? '' ) );
 					break;
 			}
 		}
 		$ref = ! empty( $baseline['ips_median'] )
+			/* translators: %s: baseline median of distinct addresses per minute */
 			? sprintf( __( 'baseline %s', 'bot-storm-radar' ), self::fmt( $baseline['ips_median'], 0 ) )
 			: __( 'no baseline yet, using the minimum-addresses setting', 'bot-storm-radar' );
+		/* translators: 1: number of distinct addresses, 2: reference volume ("baseline N" or the no-baseline note), 3: multiple of the reference, 4: gate value */
 		$volume = sprintf( __( 'Volume: %1$d distinct addresses in the minute, %2$s (%3$s×), gate %4$s.', 'bot-storm-radar' ), (int) ( $row['ips'] ?? 0 ), $ref, self::fmt( $row['vol'] ?? 0, 1 ), self::fmt( $row['gate'] ?? 0 ) );
 		if ( (int) ( $row['refused'] ?? 0 ) > 0 ) {
+			/* translators: %d: number of requests */
 			$volume .= ' ' . sprintf( __( '%d requests refused by the web server (403, 429, 444) are not counted.', 'bot-storm-radar' ), (int) $row['refused'] );
 		}
 		$gate = (int) ( $row['gate_probe'] ?? 0 ) + (int) ( $row['gate_ban'] ?? 0 );
 		if ( $gate > 0 ) {
+			/* translators: 1: number of requests refused by the gate, 2: probes among them, 3: requests from banned addresses among them */
 			$volume .= ' ' . sprintf( __( '%1$d requests refused by the gate (%2$d probes, %3$d from banned addresses) are not counted.', 'bot-storm-radar' ), $gate, (int) ( $row['gate_probe'] ?? 0 ), (int) ( $row['gate_ban'] ?? 0 ) );
 		}
 
 		if ( empty( $parts ) ) {
-			return sprintf( __( 'Storm score %d: no signal fired. %s', 'bot-storm-radar' ), (int) ( $row['score'] ?? 0 ), $volume );
+			/* translators: 1: storm score, 2: the volume sentence */
+			return sprintf( __( 'Storm score %1$d: no signal fired. %2$s', 'bot-storm-radar' ), (int) ( $row['score'] ?? 0 ), $volume );
 		}
+		/* translators: 1: storm score, 2: list of the signals that fired, 3: the volume sentence */
 		return sprintf( __( 'Storm score %1$d: %2$s. %3$s', 'bot-storm-radar' ), (int) ( $row['score'] ?? 0 ), implode( ', ', $parts ), $volume );
 	}
 
