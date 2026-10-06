@@ -55,9 +55,9 @@ DATE=$(date +%Y-%m-%d)
 MONTH_YEAR=$(date +"%B %-d, %Y")
 echo "New version: $NEW_VERSION"
 
-# 1. Update main plugin file: header Version + BSR_VERSION constant
+# 1. Update main plugin file: header Version + BOTSTORMRADAR_VERSION constant
 sed -i "s/Version: *$CURRENT_VERSION/Version:     $NEW_VERSION/" bot-storm-radar.php
-sed -i "s/BSR_VERSION', '$CURRENT_VERSION'/BSR_VERSION', '$NEW_VERSION'/" bot-storm-radar.php
+sed -i "s/BOTSTORMRADAR_VERSION', '$CURRENT_VERSION'/BOTSTORMRADAR_VERSION', '$NEW_VERSION'/" bot-storm-radar.php
 
 # 2. Update README.md: version badge + "Current Version" line
 sed -i "s/Version-$CURRENT_VERSION-red/Version-$NEW_VERSION-red/" README.md
@@ -85,7 +85,7 @@ DESC="$DESCRIPTION" awk -v ver="$NEW_VERSION" -v date="$DATE" '
 echo ""
 echo "Version bumped to $NEW_VERSION"
 echo "Updated files:"
-echo "  - bot-storm-radar.php (header + BSR_VERSION)"
+echo "  - bot-storm-radar.php (header + BOTSTORMRADAR_VERSION)"
 echo "  - README.md (badge + Current Version)"
 echo "  - readme.txt (Stable tag)"
 echo "  - CHANGELOG.md (new version entry)"

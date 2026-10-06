@@ -31,55 +31,55 @@ class Bot_Storm_Radar {
 
 	private function __construct() {
 		$this->load_dependencies();
-		// The beacon answers before anything else loads (see BSR_Beacon).
-		BSR_Beacon::maybe_serve();
+		// The beacon answers before anything else loads (see BotStormRadar_Beacon).
+		BotStormRadar_Beacon::maybe_serve();
 		$this->init_hooks();
 	}
 
 	private function load_dependencies() {
-		$dir = BSR_PLUGIN_DIR . 'includes/';
-		require_once $dir . 'class-bsr-ip-resolver.php';
-		require_once $dir . 'class-bsr-helpers.php';
-		require_once $dir . 'class-bsr-sources.php';
-		require_once $dir . 'class-bsr-client-ip.php';
-		require_once $dir . 'class-bsr-bans.php';
-		require_once $dir . 'class-bsr-guard.php';
-		require_once $dir . 'class-bsr-state-reader.php';
-		require_once $dir . 'class-bsr-probe.php';
-		require_once $dir . 'class-bsr-channel.php';
-		require_once $dir . 'class-bsr-channel-drain.php';
-		require_once $dir . 'class-bsr-trips.php';
-		require_once $dir . 'class-bsr-state.php';
-		require_once $dir . 'class-bsr-gate-install.php';
-		require_once $dir . 'class-bsr-gate-early.php';
-		require_once $dir . 'class-bsr-classifier.php';
-		require_once $dir . 'class-bsr-woocommerce.php';
-		require_once $dir . 'class-bsr-counters.php';
-		require_once $dir . 'class-bsr-recorder.php';
-		require_once $dir . 'class-bsr-beacon.php';
-		require_once $dir . 'class-bsr-good-bots.php';
-		require_once $dir . 'class-bsr-metrics.php';
-		require_once $dir . 'class-bsr-storage.php';
-		require_once $dir . 'class-bsr-baseline.php';
-		require_once $dir . 'interface-bsr-actions.php';
-		require_once $dir . 'class-bsr-actions-log.php';
-		require_once $dir . 'class-bsr-storm.php';
-		require_once $dir . 'class-bsr-error-burst.php';
-		require_once $dir . 'class-bsr-tick.php';
-		require_once $dir . 'class-bsr-email-alerts.php';
-		require_once $dir . 'class-bsr-admin.php';
+		$dir = BOTSTORMRADAR_PLUGIN_DIR . 'includes/';
+		require_once $dir . 'class-botstormradar-ip-resolver.php';
+		require_once $dir . 'class-botstormradar-helpers.php';
+		require_once $dir . 'class-botstormradar-sources.php';
+		require_once $dir . 'class-botstormradar-client-ip.php';
+		require_once $dir . 'class-botstormradar-bans.php';
+		require_once $dir . 'class-botstormradar-guard.php';
+		require_once $dir . 'class-botstormradar-state-reader.php';
+		require_once $dir . 'class-botstormradar-probe.php';
+		require_once $dir . 'class-botstormradar-channel.php';
+		require_once $dir . 'class-botstormradar-channel-drain.php';
+		require_once $dir . 'class-botstormradar-trips.php';
+		require_once $dir . 'class-botstormradar-state.php';
+		require_once $dir . 'class-botstormradar-gate-install.php';
+		require_once $dir . 'class-botstormradar-gate-early.php';
+		require_once $dir . 'class-botstormradar-classifier.php';
+		require_once $dir . 'class-botstormradar-woocommerce.php';
+		require_once $dir . 'class-botstormradar-counters.php';
+		require_once $dir . 'class-botstormradar-recorder.php';
+		require_once $dir . 'class-botstormradar-beacon.php';
+		require_once $dir . 'class-botstormradar-good-bots.php';
+		require_once $dir . 'class-botstormradar-metrics.php';
+		require_once $dir . 'class-botstormradar-storage.php';
+		require_once $dir . 'class-botstormradar-baseline.php';
+		require_once $dir . 'interface-botstormradar-actions.php';
+		require_once $dir . 'class-botstormradar-actions-log.php';
+		require_once $dir . 'class-botstormradar-storm.php';
+		require_once $dir . 'class-botstormradar-error-burst.php';
+		require_once $dir . 'class-botstormradar-tick.php';
+		require_once $dir . 'class-botstormradar-email-alerts.php';
+		require_once $dir . 'class-botstormradar-admin.php';
 		// github-build-only:start (build-zip.sh --wporg removes this block and the file it loads)
-		require_once $dir . 'class-bsr-github-updater.php';
+		require_once $dir . 'class-botstormradar-github-updater.php';
 		// github-build-only:end
 
 		// Log-fed sources are read from the command line only.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			require_once $dir . 'class-bsr-log-line.php';
-			require_once $dir . 'class-bsr-log-source.php';
-			require_once $dir . 'class-bsr-gate-replay.php';
-			require_once $dir . 'class-bsr-cli.php';
-			WP_CLI::add_command( 'bot-storm-radar', 'BSR_CLI' );
-			WP_CLI::add_command( 'bot-storm-radar source', 'BSR_CLI_Source' );
+			require_once $dir . 'class-botstormradar-log-line.php';
+			require_once $dir . 'class-botstormradar-log-source.php';
+			require_once $dir . 'class-botstormradar-gate-replay.php';
+			require_once $dir . 'class-botstormradar-cli.php';
+			WP_CLI::add_command( 'bot-storm-radar', 'BotStormRadar_CLI' );
+			WP_CLI::add_command( 'bot-storm-radar source', 'BotStormRadar_CLI_Source' );
 		}
 	}
 
@@ -87,36 +87,36 @@ class Bot_Storm_Radar {
 		add_action( 'plugins_loaded', [ $this, 'on_plugins_loaded' ] );
 		add_action( 'init', [ $this, 'init' ] );
 		add_filter( 'cron_schedules', [ $this, 'cron_schedules' ] );
-		register_activation_hook( BSR_PLUGIN_FILE, [ $this, 'activate' ] );
-		register_deactivation_hook( BSR_PLUGIN_FILE, [ $this, 'deactivate' ] );
+		register_activation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'activate' ] );
+		register_deactivation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'deactivate' ] );
 	}
 
 	/**
 	 * Everything that must be in place before the request is classified.
 	 */
 	public function on_plugins_loaded() {
-		BSR_Bans::maybe_install();
+		BotStormRadar_Bans::maybe_install();
 		$this->maybe_upgrade();
-		BSR_WooCommerce::init();
-		BSR_Beacon::init();
-		BSR_Recorder::init();
-		BSR_Client_IP::init();
-		BSR_Bans::init();
-		BSR_Guard::init();
-		BSR_State::init();
-		BSR_Gate_Install::init();
-		BSR_Good_Bots::init();
-		BSR_Tick::init();
+		BotStormRadar_WooCommerce::init();
+		BotStormRadar_Beacon::init();
+		BotStormRadar_Recorder::init();
+		BotStormRadar_Client_IP::init();
+		BotStormRadar_Bans::init();
+		BotStormRadar_Guard::init();
+		BotStormRadar_State::init();
+		BotStormRadar_Gate_Install::init();
+		BotStormRadar_Good_Bots::init();
+		BotStormRadar_Tick::init();
 	}
 
 	public function init() {
 		// phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- builds installed from GitHub get no language packs from wordpress.org.
-		load_plugin_textdomain( 'bot-storm-radar', false, dirname( BSR_PLUGIN_BASENAME ) . '/languages' );
+		load_plugin_textdomain( 'bot-storm-radar', false, dirname( BOTSTORMRADAR_PLUGIN_BASENAME ) . '/languages' );
 
 		if ( is_admin() ) {
-			BSR_Admin::init();
+			BotStormRadar_Admin::init();
 			// github-build-only:start
-			new BSR_GitHub_Updater();
+			new BotStormRadar_GitHub_Updater();
 			// github-build-only:end
 		}
 	}
@@ -142,28 +142,28 @@ class Bot_Storm_Radar {
 		$existing = get_option( self::OPTION_KEY, [] );
 		update_option( self::OPTION_KEY, wp_parse_args( is_array( $existing ) ? $existing : [], $defaults ) );
 
-		if ( ! get_option( BSR_Storm::STATE_OPTION ) ) {
-			update_option( BSR_Storm::STATE_OPTION, BSR_Storm::initial_state(), true );
+		if ( ! get_option( BotStormRadar_Storm::STATE_OPTION ) ) {
+			update_option( BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Storm::initial_state(), true );
 		}
-		BSR_Baseline::ensure_started();
-		BSR_Bans::install();
-		BSR_State::rebuild();
-		BSR_Gate_Install::install();
-		BSR_Tick::schedule();
-		BSR_Client_IP::ensure_cron();
-		update_option( self::VERSION_OPTION, BSR_VERSION, false );
+		BotStormRadar_Baseline::ensure_started();
+		BotStormRadar_Bans::install();
+		BotStormRadar_State::rebuild();
+		BotStormRadar_Gate_Install::install();
+		BotStormRadar_Tick::schedule();
+		BotStormRadar_Client_IP::ensure_cron();
+		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 		// Last: the gate runs again only once its copy, manifest and state exist.
-		BSR_Gate_Install::enable();
+		BotStormRadar_Gate_Install::enable();
 	}
 
 	public function deactivate() {
 		// First: the marker stops the gate on the very next request, whatever
 		// loader (mu-plugin, or a cached auto_prepend_file line) still runs.
-		BSR_Gate_Install::disable();
-		BSR_Gate_Early::disable();
-		BSR_Gate_Install::remove_loader();
-		BSR_Tick::unschedule();
-		BSR_Client_IP::unschedule();
+		BotStormRadar_Gate_Install::disable();
+		BotStormRadar_Gate_Early::disable();
+		BotStormRadar_Gate_Install::remove_loader();
+		BotStormRadar_Tick::unschedule();
+		BotStormRadar_Client_IP::unschedule();
 	}
 
 	/**
@@ -172,13 +172,13 @@ class Bot_Storm_Radar {
 	 */
 	private function maybe_upgrade() {
 		$stored = get_option( self::VERSION_OPTION, '' );
-		if ( BSR_VERSION === $stored ) {
+		if ( BOTSTORMRADAR_VERSION === $stored ) {
 			return;
 		}
-		if ( ! wp_next_scheduled( BSR_Tick::HOOK ) ) {
-			BSR_Tick::schedule();
+		if ( ! wp_next_scheduled( BotStormRadar_Tick::HOOK ) ) {
+			BotStormRadar_Tick::schedule();
 		}
-		BSR_Client_IP::ensure_cron();
+		BotStormRadar_Client_IP::ensure_cron();
 		// 0.1.0 and 0.1.1 named these differently (replaced by the shared
 		// WC Antifraud client-IP class in 0.1.2).
 		$old = wp_next_scheduled( 'bsr_refresh_ip_lists' );
@@ -189,9 +189,9 @@ class Bot_Storm_Radar {
 		delete_option( 'bsr_cloudflare_ranges' );
 		delete_option( 'bsr_proxy_detect' );
 		// A new version brings a new gate: rebuild the state and the bundle.
-		BSR_State::rebuild();
-		BSR_Gate_Install::install();
-		update_option( self::VERSION_OPTION, BSR_VERSION, false );
+		BotStormRadar_State::rebuild();
+		BotStormRadar_Gate_Install::install();
+		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 	}
 
 	/**

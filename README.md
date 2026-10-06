@@ -123,9 +123,9 @@ Behind a page cache PHP sees mostly cache misses, so the site's "slow request" m
 
 ## Hooks
 
-- `bsr_request_class( array $result, string $path, array $query, array $server )` adds or overrides the request class.
-- `bsr_known_classes( array $classes )` extends the fixed set of classes the metrics enumerate.
-- `bsr_actions( BSR_Actions[] $actions )` attaches implementations of the `BSR_Actions` interface, which later releases use for enforcement and export.
+- `botstormradar_request_class( array $result, string $path, array $query, array $server )` adds or overrides the request class.
+- `botstormradar_known_classes( array $classes )` extends the fixed set of classes the metrics enumerate.
+- `botstormradar_actions( BotStormRadar_Actions[] $actions )` attaches implementations of the `BotStormRadar_Actions` interface, which later releases use for enforcement and export.
 
 ## Development
 
@@ -135,7 +135,7 @@ Behind a page cache PHP sees mostly cache misses, so the site's "slow request" m
 ./dev-tools/version-bump.sh [major|minor|patch] "description"
 ```
 
-Updates the version in the plugin header, the `BSR_VERSION` constant, the README.md badge, the `readme.txt` stable tag, and CHANGELOG.md.
+Updates the version in the plugin header, the `BOTSTORMRADAR_VERSION` constant, the README.md badge, the `readme.txt` stable tag, and CHANGELOG.md.
 
 ### Build
 

@@ -33,10 +33,10 @@ if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
 	return;
 }
 
-define( 'BSR_VERSION', '0.2.0' );
-define( 'BSR_PLUGIN_FILE', __FILE__ );
-define( 'BSR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'BSR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+define( 'BOTSTORMRADAR_VERSION', '0.2.0' );
+define( 'BOTSTORMRADAR_PLUGIN_FILE', __FILE__ );
+define( 'BOTSTORMRADAR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'BOTSTORMRADAR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 // WooCommerce is optional. The WooCommerce module only adds request classes,
 // so no feature compatibility needs declaring, but declaring it costs nothing
@@ -51,6 +51,6 @@ add_action(
 	}
 );
 
-require_once BSR_PLUGIN_DIR . 'includes/class-bot-storm-radar.php';
+require_once BOTSTORMRADAR_PLUGIN_DIR . 'includes/class-bot-storm-radar.php';
 
 bot_storm_radar();

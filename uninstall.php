@@ -16,13 +16,13 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-require_once __DIR__ . '/includes/class-bsr-ip-resolver.php';
-require_once __DIR__ . '/includes/class-bsr-bans.php';
-require_once __DIR__ . '/includes/class-bsr-state.php';
-require_once __DIR__ . '/includes/class-bsr-gate-install.php';
-require_once __DIR__ . '/includes/class-bsr-gate-early.php';
+require_once __DIR__ . '/includes/class-botstormradar-ip-resolver.php';
+require_once __DIR__ . '/includes/class-botstormradar-bans.php';
+require_once __DIR__ . '/includes/class-botstormradar-state.php';
+require_once __DIR__ . '/includes/class-botstormradar-gate-install.php';
+require_once __DIR__ . '/includes/class-botstormradar-gate-early.php';
 
-BSR_Gate_Early::disable();
-BSR_Gate_Install::remove_loader();
-BSR_Bans::uninstall();
-BSR_State::uninstall();
+BotStormRadar_Gate_Early::disable();
+BotStormRadar_Gate_Install::remove_loader();
+BotStormRadar_Bans::uninstall();
+BotStormRadar_State::uninstall();

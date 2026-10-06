@@ -26,7 +26,7 @@ case "${1:-}" in
 esac
 
 # Read version from plugin file.
-VERSION=$(grep -oP "define\( 'BSR_VERSION', '\K[0-9]+\.[0-9]+\.[0-9]+" "$PLUGIN_DIR/$PLUGIN_SLUG.php")
+VERSION=$(grep -oP "define\( 'BOTSTORMRADAR_VERSION', '\K[0-9]+\.[0-9]+\.[0-9]+" "$PLUGIN_DIR/$PLUGIN_SLUG.php")
 
 if [[ -z "$VERSION" ]]; then
     echo "Error: Could not read version from $PLUGIN_SLUG.php"
@@ -69,7 +69,7 @@ if [[ "$FLAVOR" == "wporg" ]]; then
         echo "Error: expected 2 github-build-only blocks in class-bot-storm-radar.php, found $STARTS start and $ENDS end markers"
         exit 1
     fi
-    rm "$STAGED/includes/class-bsr-github-updater.php"
+    rm "$STAGED/includes/class-botstormradar-github-updater.php"
     sed -i '/github-build-only:start/,/github-build-only:end/d' "$ORCHESTRATOR"
     if grep -rniE 'github[-_]updater|github-build-only|update_plugins' "$STAGED" --include='*.php'; then
         echo "Error: updater code is still present in the wordpress.org build (lines above)"
