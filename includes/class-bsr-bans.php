@@ -223,8 +223,8 @@ class BSR_Bans {
 	 */
 	public static function uninstall() {
 		global $wpdb;
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::exports_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange -- table name from $wpdb->prefix.
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange -- table name from $wpdb->prefix.
+		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::exports_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
+		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		delete_option( self::DB_VERSION_OPTION );
 		delete_option( self::GENERATION_OPTION );
 		delete_option( self::WOULD_OPTION );
@@ -300,6 +300,7 @@ class BSR_Bans {
 		// A re-trip after an unban bans again: unbanned_at is cleared, and the
 		// later-expiry rule holds because the unban set the expiry to its time.
 		$sql = $wpdb->prepare(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 			"INSERT INTO {$table} (address, prefix_len, ip_text, reason, evidence, origin, trips, created_at, updated_at, expires_at, unbanned_at, unbanned_by)
 			VALUES (UNHEX(%s), %d, %s, %s, %s, %s, 1, %d, %d, %d, 0, 0)
 			ON DUPLICATE KEY UPDATE
@@ -311,7 +312,7 @@ class BSR_Bans {
 				expires_at = GREATEST(expires_at, VALUES(expires_at)),
 				unbanned_at = 0,
 				unbanned_by = 0,
-				id = LAST_INSERT_ID(id)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+				id = LAST_INSERT_ID(id)",
 			bin2hex( $key['address'] ),
 			$key['prefix_len'],
 			$key['ip_text'],
@@ -322,7 +323,7 @@ class BSR_Bans {
 			$now,
 			$expires
 		);
-		if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery -- prepared above.
+		if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared above.
 			return 0;
 		}
 		$id = (int) $wpdb->insert_id;
@@ -349,10 +350,11 @@ class BSR_Bans {
 		}
 		$now   = null === $now ? time() : (int) $now;
 		$table = self::table();
-		$rows  = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$rows  = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 				"UPDATE {$table} SET expires_at = %d, unbanned_at = %d, unbanned_by = %d, updated_at = %d
-				WHERE address = UNHEX(%s) AND prefix_len = %d AND expires_at > %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+				WHERE address = UNHEX(%s) AND prefix_len = %d AND expires_at > %d",
 				$now,
 				$now,
 				(int) $by,
@@ -417,16 +419,18 @@ class BSR_Bans {
 		$bans    = self::table();
 		$exports = self::exports_table();
 		$open    = "'" . implode( "','", self::OPEN_EXPORT_STATUSES ) . "'";
-		$deleted = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from $wpdb->prefix, statuses are constants.
+		$deleted = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
 				"DELETE b FROM {$bans} b
 				LEFT JOIN {$exports} e ON e.ban_id = b.id AND e.status IN ({$open})
-				WHERE b.expires_at < %d AND e.id IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from $wpdb->prefix, statuses are constants.
+				WHERE b.expires_at < %d AND e.id IS NULL",
 				$now - self::RETENTION
 			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		// Export rows whose ban is gone.
-		$wpdb->query( "DELETE e FROM {$exports} e LEFT JOIN {$bans} b ON b.id = e.ban_id WHERE b.id IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery -- table names from $wpdb->prefix.
+		$wpdb->query( "DELETE e FROM {$exports} e LEFT JOIN {$bans} b ON b.id = e.ban_id WHERE b.id IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table names from $wpdb->prefix.
 		return (int) $deleted;
 	}
 
@@ -442,7 +446,7 @@ class BSR_Bans {
 		global $wpdb;
 		$now   = null === $now ? time() : (int) $now;
 		$table = self::table();
-		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
 				"SELECT id, ip_text, prefix_len, reason, origin, trips, created_at, expires_at FROM {$table} WHERE expires_at > %d AND unbanned_at = 0 ORDER BY expires_at DESC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 				$now
@@ -465,7 +469,7 @@ class BSR_Bans {
 		global $wpdb;
 		$now   = null === $now ? time() : (int) $now;
 		$table = self::table();
-		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
 				"SELECT id, ip_text, prefix_len, reason, evidence, origin, trips, created_at, updated_at, expires_at, unbanned_at, unbanned_by FROM {$table} WHERE expires_at > %d ORDER BY (expires_at > %d) DESC, updated_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 				$now - (int) $days * DAY_IN_SECONDS,
@@ -502,7 +506,7 @@ class BSR_Bans {
 	public static function recent_unbans( $since ) {
 		global $wpdb;
 		$table = self::table();
-		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
 				"SELECT ip_text, prefix_len, unbanned_at FROM {$table} WHERE unbanned_at >= %d AND unbanned_at > 0", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 				(int) $since
@@ -526,7 +530,7 @@ class BSR_Bans {
 			return null;
 		}
 		$table = self::table();
-		$row   = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$row   = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 			$wpdb->prepare(
 				"SELECT id, ip_text, prefix_len, reason, evidence, origin, trips, created_at, updated_at, expires_at, unbanned_at, unbanned_by FROM {$table} WHERE address = UNHEX(%s) AND prefix_len = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 				bin2hex( $key['address'] ),

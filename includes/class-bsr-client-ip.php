@@ -56,7 +56,9 @@ class BSR_Client_IP {
 	/**
 	 * Published sources (verified 2026-09-02: plain text, one CIDR per line).
 	 */
+	// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- a plain-text list of address ranges, read as data.
 	const CF_URL_V4 = 'https://www.cloudflare.com/ips-v4';
+	// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- a plain-text list of address ranges, read as data.
 	const CF_URL_V6 = 'https://www.cloudflare.com/ips-v6';
 
 	/**

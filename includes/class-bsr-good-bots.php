@@ -61,6 +61,7 @@ class BSR_Good_Bots {
 			'googlebot'   => [
 				'label'   => 'Googlebot',
 				'pattern' => '~Googlebot|Google-InspectionTool|AdsBot-Google|Storebot-Google|GoogleOther|Google-Read-Aloud~i',
+				// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- reverse-DNS suffixes, nothing is loaded from them.
 				'rdns'    => [ 'googlebot.com', 'google.com', 'googleusercontent.com' ],
 			],
 			'bingbot'     => [

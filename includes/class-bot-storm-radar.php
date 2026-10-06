@@ -110,6 +110,7 @@ class Bot_Storm_Radar {
 	}
 
 	public function init() {
+		// phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- builds installed from GitHub get no language packs from wordpress.org.
 		load_plugin_textdomain( 'bot-storm-radar', false, dirname( BSR_PLUGIN_BASENAME ) . '/languages' );
 
 		if ( is_admin() ) {

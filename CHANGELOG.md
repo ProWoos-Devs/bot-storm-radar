@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The five files the gate bundles (`class-bsr-ip-resolver.php`, `-state-reader.php`, `-probe.php`, `-channel.php`, `-gate.php`) carry their direct-access guard as `defined( 'BSR_GATE' ) || defined( 'ABSPATH' ) || exit;`. Same rule as before, in a form Plugin Check recognizes. The bundler removes the new form.
+- Plugin Check annotations with their reasons: the Cloudflare range lists and a reverse-DNS suffix are not offloaded assets, the ban queries take their table names from `$wpdb->prefix`, and `load_plugin_textdomain()` stays for builds installed from GitHub. In three multi-line queries the existing annotation sat on the wrong line.
 
 ### Fixed
 - Every translatable string with placeholders now carries a `translators:` comment, and the one string with unnumbered placeholders (`Storm score %d: no signal fired. %s`) uses numbered ones. Plugin Check reported 68 errors for these.
