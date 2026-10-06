@@ -55,16 +55,19 @@ DATE=$(date +%Y-%m-%d)
 MONTH_YEAR=$(date +"%B %-d, %Y")
 echo "New version: $NEW_VERSION"
 
-# 1. Update main plugin file: header Version + BSR_VERSION constant
+# 1. Update main plugin file: header Version + BOTSTORMRADAR_VERSION constant
 sed -i "s/Version: *$CURRENT_VERSION/Version:     $NEW_VERSION/" bot-storm-radar.php
-sed -i "s/BSR_VERSION', '$CURRENT_VERSION'/BSR_VERSION', '$NEW_VERSION'/" bot-storm-radar.php
+sed -i "s/BOTSTORMRADAR_VERSION', '$CURRENT_VERSION'/BOTSTORMRADAR_VERSION', '$NEW_VERSION'/" bot-storm-radar.php
 
 # 2. Update README.md: version badge + "Current Version" line
 sed -i "s/Version-$CURRENT_VERSION-red/Version-$NEW_VERSION-red/" README.md
 sed -i "s/Current Version: $CURRENT_VERSION/Current Version: $NEW_VERSION/" README.md
 sed -i "s/Released: [^*]*/Released: $MONTH_YEAR/" README.md
 
-# 3. Update CHANGELOG.md: add new version entry
+# 3. Update readme.txt: stable tag (its changelog section is written by hand)
+sed -i "s/^Stable tag: $CURRENT_VERSION/Stable tag: $NEW_VERSION/" readme.txt
+
+# 4. Update CHANGELOG.md: add new version entry
 # awk + ENVIRON so the description can contain any character (a sed s/// here
 # broke when the description held the delimiter '/', and would also mangle '&').
 DESC="$DESCRIPTION" awk -v ver="$NEW_VERSION" -v date="$DATE" '
@@ -82,12 +85,14 @@ DESC="$DESCRIPTION" awk -v ver="$NEW_VERSION" -v date="$DATE" '
 echo ""
 echo "Version bumped to $NEW_VERSION"
 echo "Updated files:"
-echo "  - bot-storm-radar.php (header + BSR_VERSION)"
+echo "  - bot-storm-radar.php (header + BOTSTORMRADAR_VERSION)"
 echo "  - README.md (badge + Current Version)"
+echo "  - readme.txt (Stable tag)"
 echo "  - CHANGELOG.md (new version entry)"
 echo ""
 echo "Next steps:"
-echo "1. Review the changes: git diff"
-echo "2. Commit: git add . && git commit -m 'Release v$NEW_VERSION: $DESCRIPTION'"
-echo "3. Tag: git tag v$NEW_VERSION"
-echo "4. Push: git push && git push --tags"
+echo "1. Add the release to the Changelog and Upgrade Notice sections of readme.txt"
+echo "2. Review the changes: git diff"
+echo "3. Commit: git add . && git commit -m 'Release v$NEW_VERSION: $DESCRIPTION'"
+echo "4. Tag: git tag v$NEW_VERSION"
+echo "5. Push: git push && git push --tags"

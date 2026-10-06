@@ -1,4 +1,4 @@
-# DuckDuckBot address prefixes, bundled fallback for BSR_Good_Bots.
+# DuckDuckBot address prefixes, bundled fallback for BotStormRadar_Good_Bots.
 # Fetched: 2026-09-02 from https://duckduckgo.com/duckduckbot.json
 104.43.54.127/32
 104.43.55.116/32
