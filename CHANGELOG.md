@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `build-zip.sh` builds the release zip. `./build-zip.sh` gives the GitHub build as before, without the development files; `./build-zip.sh --wporg` gives the wordpress.org build, which leaves out the GitHub updater (the class and the two marked blocks that load it) and stops if any updater code is left.
+
 ### Fixed
 - Every translatable string with placeholders now carries a `translators:` comment, and the one string with unnumbered placeholders (`Storm score %d: no signal fired. %s`) uses numbered ones. Plugin Check reported 68 errors for these.
 

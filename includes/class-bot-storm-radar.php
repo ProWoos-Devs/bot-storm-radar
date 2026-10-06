@@ -68,7 +68,9 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-bsr-tick.php';
 		require_once $dir . 'class-bsr-email-alerts.php';
 		require_once $dir . 'class-bsr-admin.php';
+		// github-build-only:start (build-zip.sh --wporg removes this block and the file it loads)
 		require_once $dir . 'class-bsr-github-updater.php';
+		// github-build-only:end
 
 		// Log-fed sources are read from the command line only.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
@@ -112,7 +114,9 @@ class Bot_Storm_Radar {
 
 		if ( is_admin() ) {
 			BSR_Admin::init();
+			// github-build-only:start
 			new BSR_GitHub_Updater();
+			// github-build-only:end
 		}
 	}
 
