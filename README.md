@@ -1,6 +1,6 @@
 # Bot Storm Radar
 
-[![Version](https://img.shields.io/badge/Version-0.3.0-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
+[![Version](https://img.shields.io/badge/Version-0.3.1-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -9,7 +9,7 @@
 
 Since 0.2 it also protects. A gate that runs before WordPress refuses requests for files only scanners ask for (`.env`, `.git`, backups, other applications' admin pages), and a single address that keeps probing or asking for missing pages can be banned for a while. Address bans start in observe mode: they are listed, nobody is refused, until you switch them on.
 
-> **Current Version: 0.3.0** | **Released: October 7, 2026**
+> **Current Version: 0.3.1** | **Released: October 7, 2026**
 
 ## Why
 

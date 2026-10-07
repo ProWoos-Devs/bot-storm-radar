@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,9 @@ The data directory keeps a few-line `loader.php` and the `disabled` marker, beca
 
 == Changelog ==
 
+= 0.3.1 =
+* Fixes the 0.3.0 update, which deleted the current hour's minute rows on every tick. Updating repairs a site already on 0.3.0.
+
 = 0.3.0 =
 * The data directory moves into the uploads folder, `wp-content/uploads/bot-storm-radar-<random>/`. An update moves it by itself.
 * The plugin prefix is now `botstormradar`. Settings, bans and history are moved to the new names by themselves on the first load after the update.
@@ -128,6 +131,9 @@ The data directory keeps a few-line `loader.php` and the `disabled` marker, beca
 The full history is in [CHANGELOG.md](https://github.com/ProWoos-Devs/bot-storm-radar/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 0.3.1 =
+Fixes a bug in the 0.3.0 update that deleted recent minute rows. Update from 0.2.x straight to 0.3.1.
 
 = 0.3.0 =
 Moves the data directory into the uploads folder and the stored settings to the new prefix, by itself. If you added the nginx rule or the wp-config.php line for the data directory, change the path in it to wp-content/uploads/.

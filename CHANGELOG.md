@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-07
+
 ### Fixed
 - The 0.3.0 migration renamed the minute-history chunks but left their old `bsr_min_...` names inside the chunk index. The new names sort before the old ones, so on every tick the pruning took the newest chunk for the oldest and deleted it: a site lost the minute rows of the current hour, every minute, while storm state, settings, bans and the learned baseline were unaffected. The migration now rewrites the indexes, and the update repairs a site already on 0.3.0 by rebuilding each index from the chunks that exist.
 
