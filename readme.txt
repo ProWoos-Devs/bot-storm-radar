@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,12 @@ The data directory keeps a few-line `loader.php` and the `disabled` marker, beca
 
 == Changelog ==
 
+= 0.3.0 =
+* The data directory moves into the uploads folder, `wp-content/uploads/bot-storm-radar-<random>/`. An update moves it by itself.
+* The plugin prefix is now `botstormradar`. Settings, bans and history are moved to the new names by themselves on the first load after the update.
+* Hooks for developers are renamed to `botstormradar_*`.
+* Translator comments on every string with placeholders.
+
 = 0.2.0 =
 * The gate. Bot Storm Radar now protects as well as reports.
 * Scanner probes are refused before WordPress loads, on by default.
@@ -122,6 +128,9 @@ The data directory keeps a few-line `loader.php` and the `disabled` marker, beca
 The full history is in [CHANGELOG.md](https://github.com/ProWoos-Devs/bot-storm-radar/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 0.3.0 =
+Moves the data directory into the uploads folder and the stored settings to the new prefix, by itself. If you added the nginx rule or the wp-config.php line for the data directory, change the path in it to wp-content/uploads/.
 
 = 0.2.0 =
 Adds the gate. Scanner probes are refused from the start, address bans only observe until you switch them on.

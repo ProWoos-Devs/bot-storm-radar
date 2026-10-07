@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+Getting ready for wordpress.org. An update moves the data directory into the uploads folder and the stored names to the new prefix by itself, on the first load; nothing to do by hand except for a site with the nginx rule or the `wp-config.php` line for the data directory, whose path changes.
+
 ### Added
 - `build-zip.sh` builds the release zip. `./build-zip.sh` gives the GitHub build as before, without the development files; `./build-zip.sh --wporg` gives the wordpress.org build, which leaves out the GitHub updater (the class and the two marked blocks that load it) and stops if any updater code is left.
 - `readme.txt` in the wordpress.org format, with an External services section for the two address lists the plugin downloads once a day (Cloudflare ranges, DuckDuckBot). `version-bump.sh` updates its stable tag.
