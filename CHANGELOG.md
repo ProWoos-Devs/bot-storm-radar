@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The 0.3.0 migration renamed the minute-history chunks but left their old `bsr_min_...` names inside the chunk index. The new names sort before the old ones, so on every tick the pruning took the newest chunk for the oldest and deleted it: a site lost the minute rows of the current hour, every minute, while storm state, settings, bans and the learned baseline were unaffected. The migration now rewrites the indexes, and the update repairs a site already on 0.3.0 by rebuilding each index from the chunks that exist.
+
 ## [0.3.0] - 2026-10-07
 
 Getting ready for wordpress.org. An update moves the data directory into the uploads folder and the stored names to the new prefix by itself, on the first load; nothing to do by hand except for a site with the nginx rule or the `wp-config.php` line for the data directory, whose path changes.

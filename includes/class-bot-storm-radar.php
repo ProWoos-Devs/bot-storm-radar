@@ -198,6 +198,8 @@ class Bot_Storm_Radar {
 		}
 		delete_option( 'bsr_cloudflare_ranges' );
 		delete_option( 'bsr_proxy_detect' );
+		// 0.3.0 left old chunk names inside the minute-chunk indexes.
+		BotStormRadar_Migration::repair_chunk_indexes();
 		// A new version brings a new gate: rebuild the state and the bundle.
 		BotStormRadar_State::rebuild();
 		BotStormRadar_Gate_Install::install();

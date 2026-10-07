@@ -107,6 +107,8 @@ class BotStormRadar_Migration {
 			$moved = true;
 		}
 		$wpdb->suppress_errors( $suppressed );
+		// The minute-chunk indexes hold option names as values; those move too.
+		self::repair_chunk_indexes();
 		if ( $moved ) {
 			wp_cache_delete( 'alloptions', 'options' );
 			wp_cache_delete( 'notoptions', 'options' );
@@ -128,5 +130,56 @@ class BotStormRadar_Migration {
 		delete_option( self::LOCK );
 		self::$moved = $moved;
 		return true;
+	}
+
+	/**
+	 * Rewrite the minute-chunk indexes (`botstormradar_min_chunks` and the
+	 * per-source `botstormradar_<source>_min_chunks`) so that every entry
+	 * names a chunk under the new prefix. Their values are option names; 0.3.0
+	 * renamed the chunks but left `bsr_min_...` inside the index, and since the
+	 * new names sort before the old ones, the pruning in add_minute() then took
+	 * the newest chunk for the oldest and deleted it on every tick. The index
+	 * is rebuilt from the chunks that exist, so a repaired site also adopts the
+	 * chunks the broken index had lost track of. Safe to run any number of
+	 * times. Returns the number of indexes rewritten.
+	 *
+	 * @return int
+	 */
+	public static function repair_chunk_indexes() {
+		global $wpdb;
+		$fixed = 0;
+		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::NEW_PREFIX ) . '%' . $wpdb->esc_like( 'min_chunks' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		foreach ( $names as $index_name ) {
+			$index = get_option( $index_name, [] );
+			$index = is_array( $index ) ? array_map( 'strval', $index ) : [];
+			$old   = array_filter(
+				$index,
+				function ( $n ) {
+					return 0 === strpos( $n, self::OLD_PREFIX );
+				}
+			);
+			if ( empty( $old ) ) {
+				continue;
+			}
+			$chunk_prefix = substr( $index_name, 0, -strlen( 'chunks' ) );
+			$chunks       = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name <> %s", $wpdb->esc_like( $chunk_prefix ) . '%', $index_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$chunks       = array_values(
+				array_filter(
+					$chunks,
+					function ( $n ) use ( $chunk_prefix ) {
+						return (bool) preg_match( '/^\d{10}$/', substr( $n, strlen( $chunk_prefix ) ) );
+					}
+				)
+			);
+			sort( $chunks );
+			// Beyond the retention window, as add_minute() would have pruned them.
+			foreach ( array_slice( $chunks, 0, max( 0, count( $chunks ) - BotStormRadar_Storage::CHUNK_HOURS ) ) as $expired ) {
+				delete_option( $expired );
+			}
+			$chunks = array_slice( $chunks, -BotStormRadar_Storage::CHUNK_HOURS );
+			update_option( $index_name, $chunks, false );
+			++$fixed;
+		}
+		return $fixed;
 	}
 }
