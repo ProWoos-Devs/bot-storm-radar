@@ -62,6 +62,14 @@ class BotStormRadar_Recorder {
 	}
 
 	/**
+	 * Record nothing for this request: it was refused before WordPress built
+	 * anything, and the refusal is counted apart (BotStormRadar_Inline_Gate).
+	 */
+	public static function skip() {
+		self::$recorded = true;
+	}
+
+	/**
 	 * Whether this request should be recorded at all.
 	 *
 	 * @return bool

@@ -44,16 +44,20 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-client-ip.php';
 		require_once $dir . 'class-botstormradar-bans.php';
 		require_once $dir . 'class-botstormradar-guard.php';
-		require_once $dir . 'class-botstormradar-state-reader.php';
 		require_once $dir . 'class-botstormradar-probe.php';
 		require_once $dir . 'class-botstormradar-decision.php';
-		require_once $dir . 'class-botstormradar-channel.php';
-		require_once $dir . 'class-botstormradar-channel-drain.php';
 		require_once $dir . 'class-botstormradar-trips.php';
 		require_once $dir . 'class-botstormradar-projection.php';
+		require_once $dir . 'class-botstormradar-inline-gate.php';
+		// github-build-only:start (the early gate: build-zip.sh --wporg removes these blocks and the files they load)
+		require_once $dir . 'class-botstormradar-state-reader.php';
+		require_once $dir . 'class-botstormradar-channel.php';
+		require_once $dir . 'class-botstormradar-channel-drain.php';
 		require_once $dir . 'class-botstormradar-state.php';
 		require_once $dir . 'class-botstormradar-gate-install.php';
 		require_once $dir . 'class-botstormradar-gate-early.php';
+		define( 'BOTSTORMRADAR_EARLY_GATE', true );
+		// github-build-only:end
 		require_once $dir . 'class-botstormradar-classifier.php';
 		require_once $dir . 'class-botstormradar-woocommerce.php';
 		require_once $dir . 'class-botstormradar-counters.php';
@@ -112,10 +116,14 @@ class Bot_Storm_Radar {
 		BotStormRadar_Client_IP::init();
 		BotStormRadar_Bans::init();
 		BotStormRadar_Guard::init();
+		// github-build-only:start
 		BotStormRadar_State::init();
 		BotStormRadar_Gate_Install::init();
+		// github-build-only:end
 		BotStormRadar_Good_Bots::init();
 		BotStormRadar_Tick::init();
+		// Last: a refused request stops here (builds without the early gate).
+		BotStormRadar_Inline_Gate::init();
 	}
 
 	public function init() {
@@ -159,21 +167,28 @@ class Bot_Storm_Radar {
 		}
 		BotStormRadar_Baseline::ensure_started();
 		BotStormRadar_Bans::install();
+		BotStormRadar_Inline_Gate::store();
+		// github-build-only:start
 		BotStormRadar_State::rebuild();
 		BotStormRadar_Gate_Install::install();
+		// github-build-only:end
 		BotStormRadar_Tick::schedule();
 		BotStormRadar_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
+		// github-build-only:start
 		// Last: the gate runs again only once its copy, manifest and state exist.
 		BotStormRadar_Gate_Install::enable();
+		// github-build-only:end
 	}
 
 	public function deactivate() {
+		// github-build-only:start
 		// First: the marker stops the gate on the very next request, whatever
 		// loader (mu-plugin, or a cached auto_prepend_file line) still runs.
 		BotStormRadar_Gate_Install::disable();
 		BotStormRadar_Gate_Early::disable();
 		BotStormRadar_Gate_Install::remove_loader();
+		// github-build-only:end
 		BotStormRadar_Tick::unschedule();
 		BotStormRadar_Client_IP::unschedule();
 	}
@@ -203,8 +218,11 @@ class Bot_Storm_Radar {
 		// 0.3.0 left old chunk names inside the minute-chunk indexes.
 		BotStormRadar_Migration::repair_chunk_indexes();
 		// A new version brings a new gate: rebuild the state and the bundle.
+		BotStormRadar_Inline_Gate::store();
+		// github-build-only:start
 		BotStormRadar_State::rebuild();
 		BotStormRadar_Gate_Install::install();
+		// github-build-only:end
 		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 	}
 

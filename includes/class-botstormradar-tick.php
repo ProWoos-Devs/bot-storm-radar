@@ -73,7 +73,8 @@ class BotStormRadar_Tick {
 		$current = BotStormRadar_Helpers::minute( $now );
 		$target  = $current - 1;
 		$last    = (int) $status['last_minute'];
-		// What the gate refused comes in through its channel. A minute is
+		// github-build-only:start
+		// What the early gate refused comes in through its channel. A minute is
 		// drained once it ended at least BotStormRadar_Channel::GRACE seconds ago; a tick
 		// inside that grace leaves the last minute for the next tick, so its
 		// row includes the gate's count.
@@ -81,6 +82,7 @@ class BotStormRadar_Tick {
 			$target--;
 		}
 		BotStormRadar_Channel_Drain::run( $now, $last > 0 ? $last : null );
+		// github-build-only:end
 		$from    = $last > 0 ? max( $last + 1, $target - self::MAX_BACK + 1 ) : $target;
 		$rows    = [];
 

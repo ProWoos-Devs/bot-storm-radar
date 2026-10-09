@@ -4,7 +4,7 @@
 #
 #   ./build-zip.sh           GitHub build, with the GitHub release updater
 #                            → /tmp/bot-storm-radar-X.Y.Z.zip
-#   ./build-zip.sh --wporg   wordpress.org build, without any updater
+#   ./build-zip.sh --wporg   wordpress.org build, without the updater and the early gate
 #                            → /tmp/bot-storm-radar-X.Y.Z-wporg.zip
 #
 # Both have bot-storm-radar/ as root folder and no development files.
@@ -60,19 +60,38 @@ rsync -a --exclude='.git' \
          "$PLUGIN_DIR/" "$STAGED/"
 
 if [[ "$FLAVOR" == "wporg" ]]; then
-    # wordpress.org does not allow a plugin to update itself from elsewhere:
-    # drop the updater class and every block marked github-build-only.
-    ORCHESTRATOR="$STAGED/includes/class-bot-storm-radar.php"
-    STARTS=$(grep -c 'github-build-only:start' "$ORCHESTRATOR" || true)
-    ENDS=$(grep -c 'github-build-only:end' "$ORCHESTRATOR" || true)
-    if [[ "$STARTS" != "2" || "$ENDS" != "2" ]]; then
-        echo "Error: expected 2 github-build-only blocks in class-bot-storm-radar.php, found $STARTS start and $ENDS end markers"
+    # wordpress.org allows neither a plugin that updates itself from elsewhere
+    # nor one that writes PHP files, a must-use plugin or an auto_prepend_file
+    # line: drop the updater and the early gate (its installer, early loading,
+    # the state file and the channel), and every block marked
+    # github-build-only. The plugin then refuses inside WordPress
+    # (BotStormRadar_Inline_Gate).
+    for f in github-updater gate gate-install gate-early state state-reader channel channel-drain; do
+        rm "$STAGED/includes/class-botstormradar-$f.php"
+    done
+    # readme.txt is the wordpress.org readme; these two describe the GitHub build.
+    rm "$STAGED/README.md" "$STAGED/CHANGELOG.md"
+    while IFS= read -r -d '' f; do
+        STARTS=$(grep -c 'github-build-only:start' "$f" || true)
+        ENDS=$(grep -c 'github-build-only:end' "$f" || true)
+        if [[ "$STARTS" != "$ENDS" ]]; then
+            echo "Error: $f has $STARTS github-build-only start and $ENDS end markers"
+            exit 1
+        fi
+        if [[ "$STARTS" != "0" ]]; then
+            sed -i '/github-build-only:start/,/github-build-only:end/d' "$f"
+        fi
+    done < <(find "$STAGED" -name '*.php' -print0)
+    if [[ "$(grep -c 'github-build-only' "$STAGED/includes/class-bot-storm-radar.php" || true)" != "0" ]]; then
+        echo "Error: markers left in class-bot-storm-radar.php"
         exit 1
     fi
-    rm "$STAGED/includes/class-botstormradar-github-updater.php"
-    sed -i '/github-build-only:start/,/github-build-only:end/d' "$ORCHESTRATOR"
     if grep -rniE 'github[-_]updater|github-build-only|update_plugins' "$STAGED" --include='*.php'; then
         echo "Error: updater code is still present in the wordpress.org build (lines above)"
+        exit 1
+    fi
+    if grep -rnE 'BotStormRadar_(Gate|Gate_Install|Gate_Early|State|State_Reader|Channel|Channel_Drain)\b' "$STAGED" --include='*.php'; then
+        echo "Error: early gate code is still referenced in the wordpress.org build (lines above)"
         exit 1
     fi
 fi

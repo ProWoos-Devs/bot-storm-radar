@@ -18,9 +18,7 @@
  * nothing reads the file to change it, so two concurrent rebuilds cannot drop
  * each other's bans. Evidence never goes into the file.
  *
- * Rebuilt on: a ban or unban (`botstormradar_bans_changed`), a new protected address
- * (`botstormradar_protected_changed`: an administrator first seen, a bot newly
- * verified), a settings save, a Cloudflare range refresh, and daily. Every
+ * Rebuilt on every change BotStormRadar_Projection::on_change() lists. Every
  * projected ban is checked with BotStormRadar_Guard::may_ban() again.
  *
  * @package Bot_Storm_Radar
@@ -53,13 +51,7 @@ class BotStormRadar_State {
 	private static $error = '';
 
 	public static function init() {
-		add_action( 'botstormradar_bans_changed', [ __CLASS__, 'rebuild' ], 10, 0 );
-		add_action( 'botstormradar_protected_changed', [ __CLASS__, 'rebuild' ], 10, 0 );
-		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'rebuild' ], 10, 0 );
-		add_action( 'update_option_' . BotStormRadar_Client_IP::CF_OPTION, [ __CLASS__, 'rebuild' ], 10, 0 );
-		add_action( 'add_option_' . BotStormRadar_Client_IP::CF_OPTION, [ __CLASS__, 'rebuild' ], 10, 0 );
-		// Daily, after the ban cleanup on the shared list-refresh hook.
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'rebuild' ], 40, 0 );
+		BotStormRadar_Projection::on_change( [ __CLASS__, 'rebuild' ] );
 	}
 
 	// ── Data directory ────────────────────────────────────────────────

@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class BotStormRadar_Projection {
 
 	/**
-	 * Format of the projection. BotStormRadar_State_Reader::FORMAT must match.
+	 * Format of the projection. The early gate's state reader checks the same number.
 	 */
 	const FORMAT = 1;
 
@@ -69,6 +69,24 @@ class BotStormRadar_Projection {
 			'trips'      => BotStormRadar_Trips::state_config(),
 			'mail'       => [ 'recipients' => BotStormRadar_Sources::alert_recipients( BotStormRadar_Sources::SITE ) ],
 		];
+	}
+
+	/**
+	 * Run $callback whenever the projection may have changed: a ban or unban,
+	 * a new protected address (an administrator first seen, a bot newly
+	 * verified), a settings save, a Cloudflare range refresh, and daily after
+	 * the ban cleanup.
+	 *
+	 * @param callable $callback Called without arguments.
+	 */
+	public static function on_change( $callback ) {
+		add_action( 'botstormradar_bans_changed', $callback, 10, 0 );
+		add_action( 'botstormradar_protected_changed', $callback, 10, 0 );
+		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, $callback, 10, 0 );
+		add_action( 'update_option_' . BotStormRadar_Client_IP::CF_OPTION, $callback, 10, 0 );
+		add_action( 'add_option_' . BotStormRadar_Client_IP::CF_OPTION, $callback, 10, 0 );
+		// Daily, after the ban cleanup on the shared list-refresh hook.
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, $callback, 40, 0 );
 	}
 
 	/**
