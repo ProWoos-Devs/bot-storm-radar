@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.3.1
+Stable tag: 0.4.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -107,4 +107,15 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 
 == Changelog ==
 
+= 0.4.0 =
+* Probes and banned addresses are refused inside the plugin, before a page is built. The plugin writes no files.
+* The Cloudflare and DuckDuckBot address lists are downloaded only when you switch on Address lists on the Settings tab. Off by default.
+* Every request value the plugin reads is sanitized where it is read.
+* The beacon script and the admin styles are enqueued.
+
 The full history is in [CHANGELOG.md](https://github.com/ProWoos-Devs/bot-storm-radar/blob/main/CHANGELOG.md).
+
+== Upgrade Notice ==
+
+= 0.4.0 =
+The address lists are no longer downloaded unless you switch on Address lists on the Settings tab.
