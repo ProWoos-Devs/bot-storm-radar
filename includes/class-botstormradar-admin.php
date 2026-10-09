@@ -137,6 +137,15 @@ class BotStormRadar_Admin {
 		add_settings_field( 'allowlist', __( 'Never ban', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_proxies' );
+		add_settings_field( 'list_updates', __( 'Address lists', 'bot-storm-radar' ), function () {
+			printf(
+				'<label><input type="checkbox" name="%1$s[list_updates]" value="1" %2$s /> %3$s</label><p class="description">%4$s</p>',
+				esc_attr( Bot_Storm_Radar::OPTION_KEY ),
+				checked( 1, (int) BotStormRadar_Helpers::opt( 'list_updates', 0 ), false ),
+				esc_html__( 'Download the Cloudflare address ranges and the DuckDuckBot address list once a day', 'bot-storm-radar' ),
+				esc_html__( 'Off by default. Off, the plugin uses the lists it ships with, updated with each release. On, it downloads them from www.cloudflare.com and duckduckgo.com once a day, so a range added between releases is known within a day. Nothing about your visitors is sent.', 'bot-storm-radar' )
+			);
+		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: it is answered 403 before a page is built. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
@@ -228,7 +237,7 @@ class BotStormRadar_Admin {
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
-		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal' ] as $k ) {
+		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates' ] as $k ) {
 			$out[ $k ] = empty( $input[ $k ] ) ? 0 : 1;
 		}
 		if ( array_key_exists( 'trusted_proxies', $input ) ) {
@@ -400,7 +409,7 @@ class BotStormRadar_Admin {
 				'proxy_dismissed' => [ 'success', __( 'Noted: that address is not a proxy. It will not be reported again for 30 days.', 'bot-storm-radar' ) ],
 				'alert_sent'      => [ 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ],
 				'alert_failed'    => [ 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ],
-				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were refreshed.', 'bot-storm-radar' ) ],
+				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were downloaded.', 'bot-storm-radar' ) ],
 				'unbanned'        => [ 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ],
 				'unban_none'      => [ 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ],
 				'would_cleared'   => [ 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ],
@@ -463,7 +472,7 @@ class BotStormRadar_Admin {
 				<p>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'test_alert' ) ); ?>"><?php esc_html_e( 'Send a test alert', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'run_tick' ) ); ?>"><?php esc_html_e( 'Run the minute tick now', 'bot-storm-radar' ); ?></a>
-					<a class="button" href="<?php echo esc_url( self::action_url( 'refresh_lists' ) ); ?>"><?php esc_html_e( 'Refresh address lists', 'bot-storm-radar' ); ?></a>
+					<a class="button" href="<?php echo esc_url( self::action_url( 'refresh_lists' ) ); ?>"><?php esc_html_e( 'Download address lists now', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_state' ) ); ?>"><?php esc_html_e( 'Reset state to calm', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
