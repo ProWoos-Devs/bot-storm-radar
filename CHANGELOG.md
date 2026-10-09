@@ -9,12 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-10-09
 
+### Fixed
+- The one-time move from the `bsr_` names ran on every new install, so it renamed and deleted any other plugin's `bsr_` options and transients. It now runs only on a site whose `bsr_options` holds this plugin's own settings, or whose earlier move was interrupted. The 0.1.x clean-up and the drop of the 0.2.x tables at uninstall follow the same rule.
+- Alert mails no longer say that nothing was blocked, and the Radar tab names everything that is refused.
+
 ### Added
 - **Address lists** switch on the Settings tab, off by default. The plugin no longer downloads the Cloudflare ranges and the DuckDuckBot list by itself: it uses the lists it ships with (or the last ones downloaded) until the switch is on, which brings back the daily download. **Download address lists now** downloads them once. A site that relied on the daily download has to switch it on after updating.
 - The wordpress.org build refuses inside the plugin. It has no early gate (the plugin directory does not accept a plugin that writes PHP files, a must-use plugin or an `auto_prepend_file` line), so `BotStormRadar_Inline_Gate` makes the gate's decision on `plugins_loaded` from the same rules, stored in an autoloaded option: 403 to probes for every address, and to banned addresses in enforce mode, counted on the Radar like the early gate's refusals, with probe trips through the usual trip path. Builds from GitHub releases keep the early gate and are unchanged. (#69)
 - `build-zip.sh --wporg` leaves out the early gate, its installer, early loading, the state file and the channel, removes every block marked `github-build-only` in any PHP file, and fails when a reference to one of those classes is left. README.md and CHANGELOG.md stay out of that zip; its readme.txt describes that build.
 
 ### Changed
+- Uninstalling deletes everything the plugin stored: every `botstormradar_` option and transient, the ban tables and the cron hooks.
+- The beacon parameter is `botstormradar-beacon`; `bsr-beacon` is still answered for pages cached before the update, and log sources recognize both.
+- The suspected-proxy notice shows on the Dashboard and the plugin's page only.
+- The two "Reset the baseline" confirmations run from the enqueued admin script instead of inline `onclick` handlers.
 - The object-cache group and the APCu key prefix are `botstormradar` instead of `bsr`. The counters of the minutes running at update time start again from zero, once.
 - The JavaScript beacon ping is an enqueued script handle (`botstormradar-beacon`) with its line added through `wp_add_inline_script()`, and the admin styles have their own handle (`botstormradar-admin`).
 - Every server variable, query variable and cookie the plugin reads is sanitized where it is read: the request URI through `esc_url_raw()` (it keeps its percent-encoding), headers and the user agent through `sanitize_text_field()`, the method through `sanitize_key()`. The address resolver gets only the five variables it reads (`BotStormRadar_IP_Resolver::SERVER_KEYS`), and the request-class filter gets sanitized arrays.

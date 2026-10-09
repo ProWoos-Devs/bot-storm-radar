@@ -224,15 +224,6 @@ class Bot_Storm_Radar {
 			BotStormRadar_Tick::schedule();
 		}
 		BotStormRadar_Client_IP::ensure_cron();
-		// 0.1.0 and 0.1.1 named these differently (replaced by the shared
-		// WC Antifraud client-IP class in 0.1.2).
-		$old = wp_next_scheduled( 'bsr_refresh_ip_lists' );
-		while ( $old ) {
-			wp_unschedule_event( $old, 'bsr_refresh_ip_lists' );
-			$old = wp_next_scheduled( 'bsr_refresh_ip_lists' );
-		}
-		delete_option( 'bsr_cloudflare_ranges' );
-		delete_option( 'bsr_proxy_detect' );
 		// 0.3.0 left old chunk names inside the minute-chunk indexes.
 		BotStormRadar_Migration::repair_chunk_indexes();
 		// A new version brings a new gate: rebuild the state and the bundle.

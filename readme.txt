@@ -34,7 +34,7 @@ The radar observes and reports. It never blocks a swarm. On a quiet site the num
 
 * **Refused early.** The refusal runs as soon as WordPress has loaded its plugins, before the theme, the query or any page is built, and reads its rules from one stored option without an extra database query.
 * **Probe refusal**, on by default. A 403 for `.env` and other dot-files, copies of PHP files, configuration and log files, backups and dumps, other applications' admin paths and `.php` files that do not exist. Files your web server serves itself never reach it.
-* **Address bans**, observe mode first. An address that sends 3 probes in 10 minutes or asks for 20 missing pages in a minute is banned for an hour, and for a day on a repeat. Administrators, verified search bots, Cloudflare and declared proxies and a never-ban list are never banned.
+* **Address bans**, observe mode first. An address that sends 3 probes in 10 minutes or asks for 20 missing pages in a minute is banned for an hour, and for a day on a repeat. Administrators (for a day after they last used wp-admin), verified search bots, Cloudflare and declared proxies and a never-ban list are never banned.
 * **Bans tab** with every ban, its evidence and an Unban button, the bans that would have happened in observe mode, and search-bot claims waiting for verification.
 * **A dry run over your own logs.** `wp bot-storm-radar replay --gate` shows what would have been refused in your access logs before you switch bans on.
 
@@ -72,7 +72,7 @@ Address bans start in observe mode. An address that would have been banned is li
 
 = Can it lock me or a search engine out? =
 
-Administrators, verified search bots, Cloudflare and declared proxies, and the addresses on your never-ban list are never banned. An address that claims to be a search bot is verified by DNS before anything happens to it.
+Administrators, for a day after they last used wp-admin, verified search bots, Cloudflare and declared proxies, and the addresses on your never-ban list are never banned. Put your own address on the never-ban list if you may stay away from wp-admin longer. An address that claims to be a search bot is verified by DNS before anything happens to it.
 
 = How do I switch the refusals off without wp-admin? =
 
@@ -94,7 +94,7 @@ No. Settings, bans, minute history and the refusal rules are stored in the datab
 
 No. It sets no cookies and sends nothing about visitors anywhere. To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
 
-Visitor addresses are kept only as long as the detection needs them: per-minute counters expire after 25 minutes, and the minute history of the last 25 hours keeps totals plus the busiest addresses of each minute (at most 20, each with 10 or more requests in that minute). An address that tripped a ban is stored with the requests that caused it (paths and user agent) until 30 days after its ban ended, and the list of would-be bans keeps the latest 200 addresses. Administrator addresses are remembered for a day so they are never banned, and search-bot checks for a day.
+Visitor addresses are kept only as long as the detection needs them: per-minute counters expire after 25 minutes, and the minute history of the last 25 hours keeps totals plus the busiest addresses of each minute (at most 20, each with 10 or more requests in that minute). An address that tripped a ban is stored with the requests that caused it (paths and user agent) until 30 days after its ban ended, the list of would-be bans keeps the latest 200 addresses, an address claiming to be a search bot waits at most a day for its check, and the addresses banned in the last hour are kept for the digest mail until the next ban replaces them. Administrator addresses are remembered for a day so they are never banned, search-bot checks for a day, and a suspected proxy address until you trust or dismiss it. Uninstalling the plugin deletes all of it.
 
 == Screenshots ==
 

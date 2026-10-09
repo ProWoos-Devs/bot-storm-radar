@@ -1,10 +1,9 @@
 <?php
 /**
- * Uninstall: removes the ban tables and the gate's stored rules, and in builds
- * with the early gate its files too.
- *
- * Everything else the plugin stores (settings, minute rows, baselines,
- * storm state) is left in place for now; removing it is a separate change.
+ * Uninstall: removes everything the plugin stored. The ban tables, every
+ * option and transient named botstormradar_*, and the cron hooks; in builds
+ * with the early gate its files too. Counters in the object cache or APCu
+ * expire by themselves within a day.
  *
  * @package Bot_Storm_Radar
  */
@@ -30,4 +29,16 @@ BotStormRadar_Gate_Install::remove_loader();
 BotStormRadar_State::uninstall();
 // github-build-only:end
 BotStormRadar_Bans::uninstall();
-delete_option( 'botstormradar_gate_rules' ); // BotStormRadar_Inline_Gate::OPTION
+
+global $wpdb;
+$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+		$wpdb->esc_like( 'botstormradar_' ) . '%',
+		$wpdb->esc_like( '_transient_botstormradar_' ) . '%',
+		$wpdb->esc_like( '_transient_timeout_botstormradar_' ) . '%'
+	)
+);
+wp_cache_delete( 'alloptions', 'options' );
+wp_clear_scheduled_hook( 'botstormradar_tick' );
+wp_clear_scheduled_hook( 'botstormradar_refresh_cloudflare_ips' );

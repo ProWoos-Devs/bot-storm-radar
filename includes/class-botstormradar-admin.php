@@ -50,6 +50,10 @@ class BotStormRadar_Admin {
 		wp_register_style( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION );
 		wp_enqueue_style( 'botstormradar-admin' );
 		wp_add_inline_style( 'botstormradar-admin', self::css() );
+		// Links that ask before they act carry their question in data-botstormradar-confirm.
+		wp_register_script( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION, true );
+		wp_enqueue_script( 'botstormradar-admin' );
+		wp_add_inline_script( 'botstormradar-admin', 'document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-botstormradar-confirm]");if(a&&!window.confirm(a.getAttribute("data-botstormradar-confirm"))){e.preventDefault();}});' );
 	}
 
 	// ── Tabs ────────────────────────────────────────────────────────
@@ -128,8 +132,8 @@ class BotStormRadar_Admin {
 			$cf_count   = count( BotStormRadar_Client_IP::cloudflare_ranges() );
 			$cf_fetched = BotStormRadar_Client_IP::cloudflare_ranges_fetched_at();
 			echo '<p>' . esc_html__( 'A forwarding header is believed only when the request arrived through a known proxy: Cloudflare, a local proxy (private peer address), or one declared here. Anything else is the client itself.', 'bot-storm-radar' ) . '</p>';
-			/* translators: 1: number of Cloudflare address ranges, 2: "fetched <date>" or "bundled copy, fetch pending". In "fetched %s", %s: date */
-			echo '<p class="description">' . esc_html( sprintf( __( 'Cloudflare ranges: %1$d entries, %2$s.', 'bot-storm-radar' ), $cf_count, $cf_fetched > 0 ? sprintf( __( 'fetched %s', 'bot-storm-radar' ), wp_date( get_option( 'date_format' ), $cf_fetched ) ) : __( 'bundled copy, fetch pending', 'bot-storm-radar' ) ) ) . '</p>';
+			/* translators: 1: number of Cloudflare address ranges, 2: "fetched <date>", "bundled copy" or "bundled copy, first download pending". In "fetched %s", %s: date */
+			echo '<p class="description">' . esc_html( sprintf( __( 'Cloudflare ranges: %1$d entries, %2$s.', 'bot-storm-radar' ), $cf_count, $cf_fetched > 0 ? sprintf( __( 'fetched %s', 'bot-storm-radar' ), wp_date( get_option( 'date_format' ), $cf_fetched ) ) : ( BotStormRadar_Helpers::opt( 'list_updates', 0 ) ? __( 'bundled copy, first download pending', 'bot-storm-radar' ) : __( 'bundled copy', 'bot-storm-radar' ) ) ) ) . '</p>';
 		}, self::PAGE );
 		add_settings_field( 'trusted_proxies', __( 'Trusted proxy addresses', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[trusted_proxies]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'trusted_proxies', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. Only for a proxy with a public address (external load balancer, a CDN other than Cloudflare).', 'bot-storm-radar' ) );
@@ -143,7 +147,7 @@ class BotStormRadar_Admin {
 				esc_attr( Bot_Storm_Radar::OPTION_KEY ),
 				checked( 1, (int) BotStormRadar_Helpers::opt( 'list_updates', 0 ), false ),
 				esc_html__( 'Download the Cloudflare address ranges and the DuckDuckBot address list once a day', 'bot-storm-radar' ),
-				esc_html__( 'Off by default. Off, the plugin uses the lists it ships with, updated with each release. On, it downloads them from www.cloudflare.com and duckduckgo.com once a day, so a range added between releases is known within a day. Nothing about your visitors is sent.', 'bot-storm-radar' )
+				esc_html__( 'Off by default. Off, the plugin uses the lists it ships with, updated with each release. On, it downloads them from Cloudflare and DuckDuckGo once a day, so a range added between releases is known within a day. Nothing about your visitors is sent.', 'bot-storm-radar' )
 			);
 		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
@@ -425,7 +429,10 @@ class BotStormRadar_Admin {
 			}
 		}
 
-		$suspect = BotStormRadar_Client_IP::suspect();
+		// The suspected-proxy notice shows on the Dashboard and the plugin's
+		// own page only. It resolves itself through its two buttons.
+		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$suspect = ( $screen && in_array( $screen->id, [ 'dashboard', 'toplevel_page_' . self::PAGE ], true ) ) ? BotStormRadar_Client_IP::suspect() : null;
 		if ( $suspect && BotStormRadar_Client_IP::ip_rules_suspended() ) {
 			printf(
 				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s <a class="button button-small" href="%3$s">%4$s</a> <a class="button button-small" href="%5$s">%6$s</a></p></div>',
@@ -474,7 +481,7 @@ class BotStormRadar_Admin {
 					<a class="button" href="<?php echo esc_url( self::action_url( 'run_tick' ) ); ?>"><?php esc_html_e( 'Run the minute tick now', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'refresh_lists' ) ); ?>"><?php esc_html_e( 'Download address lists now', 'bot-storm-radar' ); ?></a>
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_state' ) ); ?>"><?php esc_html_e( 'Reset state to calm', 'bot-storm-radar' ); ?></a>
-					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
+					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" data-botstormradar-confirm="<?php echo esc_attr__( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ); ?>"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
 				<?php self::render_log_sources_table(); ?>
 				<?php // github-build-only:start ?>
@@ -536,7 +543,7 @@ class BotStormRadar_Admin {
 		$opts     = BotStormRadar_Helpers::get_options();
 		$labels   = self::state_labels();
 		?>
-		<p class="bsr-intro"><?php esc_html_e( 'Bot Storm Radar watches your traffic as a crowd, not one visitor at a time. Every minute it counts the addresses that visited, how many made a single request, how many loaded a stylesheet or a script like a real browser, and how the browser names are spread, and turns that into a storm score from 0 to 100. A quiet site scores 0 and stays calm. Scores never block anyone; the only requests refused are scanner probes for files such as .env or backups (Settings, Probes).', 'bot-storm-radar' ); ?></p>
+		<p class="bsr-intro"><?php esc_html_e( 'Bot Storm Radar watches your traffic as a crowd, not one visitor at a time. Every minute it counts the addresses that visited, how many made a single request, how many loaded a stylesheet or a script like a real browser, and how the browser names are spread, and turns that into a storm score from 0 to 100. A quiet site scores 0 and stays calm. Scores never block anyone. What is refused: scanner probes for files such as .env or backups (Settings, Probes), and, once you switch address bans to enforce, single addresses that tripped a ban (Bans tab).', 'bot-storm-radar' ); ?></p>
 		<div class="bsr-cards">
 			<div class="bsr-card bsr-state bsr-state-<?php echo esc_attr( $state['state'] ); ?>">
 				<div class="bsr-card-label"><?php esc_html_e( 'Current state', 'bot-storm-radar' ); ?></div>
@@ -583,29 +590,31 @@ class BotStormRadar_Admin {
 					$gate_probe += (int) ( $r['gate_probe'] ?? 0 );
 					$gate_ban   += (int) ( $r['gate_ban'] ?? 0 );
 				}
-				$ch      = null;
-				$waiting = 0;
+				$channel = '';
+				$late    = false;
 				// github-build-only:start
 				$ch      = BotStormRadar_Channel_Drain::status();
 				$waiting = BotStormRadar_Channel_Drain::oldest_waiting_age();
+				$late    = $waiting > 600;
+				if ( $ch['last_drain'] ) {
+					/* translators: 1: name of the gate channel, 2: relative time, such as "5 mins ago" */
+					$channel .= ' ' . sprintf( __( 'Channel %1$s, last emptied %2$s.', 'bot-storm-radar' ), $ch['channel'], self::ago( (int) $ch['last_drain'] ) );
+				}
+				if ( $waiting > 0 ) {
+					/* translators: %d: number of minutes */
+					$channel .= ' ' . sprintf( __( 'The oldest refusals have waited %d minutes to be counted; they are counted on the next tick that runs.', 'bot-storm-radar' ), (int) ceil( $waiting / 60 ) );
+				}
+				if ( $ch['lost'] || $ch['full'] || $ch['late'] ) {
+					/* translators: 1: number of minutes lost, 2: number of minutes that hit the size cap, 3: number of late refusals */
+					$channel .= ' ' . sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] );
+				}
 				// github-build-only:end
 				?>
-				<div class="bsr-card-sub <?php echo $waiting > 600 ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
+				<div class="bsr-card-sub <?php echo $late ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
 					<?php
 					/* translators: 1: number of probe requests, 2: number of requests from banned addresses */
 					printf( esc_html__( '%1$d probes and %2$d requests from banned addresses refused in the last 24 hours.', 'bot-storm-radar' ), (int) $gate_probe, (int) $gate_ban );
-					if ( $ch && $ch['last_drain'] ) {
-						/* translators: 1: name of the gate channel, 2: relative time, such as "5 mins ago" */
-						echo ' ' . esc_html( sprintf( __( 'Channel %1$s, last emptied %2$s.', 'bot-storm-radar' ), $ch['channel'], self::ago( (int) $ch['last_drain'] ) ) );
-					}
-					if ( $waiting > 0 ) {
-						/* translators: %d: number of minutes */
-						echo ' ' . esc_html( sprintf( __( 'The oldest refusals have waited %d minutes to be counted; they are counted on the next tick that runs.', 'bot-storm-radar' ), (int) ceil( $waiting / 60 ) ) );
-					}
-					if ( $ch && ( $ch['lost'] || $ch['full'] || $ch['late'] ) ) {
-						/* translators: 1: number of minutes lost, 2: number of minutes that hit the size cap, 3: number of late refusals */
-						echo ' ' . esc_html( sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] ) );
-					}
+					echo esc_html( $channel );
 					?>
 				</div>
 				<div class="bsr-card-sub <?php echo BotStormRadar_Tick::is_late() ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Tick:', 'bot-storm-radar' ); ?></strong>
@@ -961,7 +970,7 @@ class BotStormRadar_Admin {
 			</div>
 			<div class="bsr-card-sub">
 				<a href="<?php echo esc_url( self::action_url( 'reset_state', $extra ) ); ?>"><?php esc_html_e( 'Reset state to calm', 'bot-storm-radar' ); ?></a> |
-				<a href="<?php echo esc_url( self::action_url( 'reset_baseline', $extra ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget this source\'s learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
+				<a href="<?php echo esc_url( self::action_url( 'reset_baseline', $extra ) ); ?>" data-botstormradar-confirm="<?php echo esc_attr__( 'Forget this source\'s learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ); ?>"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 			</div>
 		</div>
 		<?php
