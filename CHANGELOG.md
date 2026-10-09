@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Address lists** switch on the Settings tab, off by default. The plugin no longer downloads the Cloudflare ranges and the DuckDuckBot list by itself: it uses the lists it ships with (or the last ones downloaded) until the switch is on, which brings back the daily download. **Download address lists now** downloads them once. A site that relied on the daily download has to switch it on after updating.
 - The wordpress.org build refuses inside the plugin. It has no early gate (the plugin directory does not accept a plugin that writes PHP files, a must-use plugin or an `auto_prepend_file` line), so `BotStormRadar_Inline_Gate` makes the gate's decision on `plugins_loaded` from the same rules, stored in an autoloaded option: 403 to probes for every address, and to banned addresses in enforce mode, counted on the Radar like the early gate's refusals, with probe trips through the usual trip path. Builds from GitHub releases keep the early gate and are unchanged. (#69)
 - `build-zip.sh --wporg` leaves out the early gate, its installer, early loading, the state file and the channel, removes every block marked `github-build-only` in any PHP file, and fails when a reference to one of those classes is left. README.md and CHANGELOG.md stay out of that zip; its readme.txt describes that build.
 

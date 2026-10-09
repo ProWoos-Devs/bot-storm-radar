@@ -121,9 +121,25 @@ class Bot_Storm_Radar {
 		BotStormRadar_Gate_Install::init();
 		// github-build-only:end
 		BotStormRadar_Good_Bots::init();
+		self::gate_list_downloads();
 		BotStormRadar_Tick::init();
 		// Last: a refused request stops here (builds without the early gate).
 		BotStormRadar_Inline_Gate::init();
+	}
+
+	/**
+	 * The daily downloads of the Cloudflare ranges and the DuckDuckBot list
+	 * run only when the owner switched them on (`list_updates`, off by
+	 * default). Off, the plugin uses the lists it ships with, or the last
+	 * ones downloaded. The daily hook itself stays: it also runs the ban
+	 * cleanup and other housekeeping.
+	 */
+	public static function gate_list_downloads() {
+		if ( ! empty( BotStormRadar_Helpers::opt( 'list_updates', 0 ) ) ) {
+			return;
+		}
+		remove_action( BotStormRadar_Client_IP::CRON_HOOK, [ 'BotStormRadar_Client_IP', 'refresh_cloudflare_ranges' ] );
+		remove_action( BotStormRadar_Client_IP::CRON_HOOK, [ 'BotStormRadar_Good_Bots', 'refresh_ip_lists' ], 20 );
 	}
 
 	public function init() {
@@ -255,6 +271,7 @@ class Bot_Storm_Radar {
 			'error_burst_clear_minutes' => 15,
 			'trusted_proxies'       => '',
 			'trust_all_forwarding'  => 0,
+			'list_updates'          => 0,
 			'allowlist'             => '',
 			'probe_refusal'         => 1,
 			'probe_extra'           => '',
