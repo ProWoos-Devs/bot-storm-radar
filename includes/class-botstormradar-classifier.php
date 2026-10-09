@@ -94,7 +94,7 @@ class BotStormRadar_Classifier {
 		$ext = strtolower( (string) pathinfo( $lower, PATHINFO_EXTENSION ) );
 
 		// A probe that reached WordPress (gate off, or not loaded early enough).
-		$probe = BotStormRadar_Probe::classify( $path, BotStormRadar_State::probe_config(), (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
+		$probe = BotStormRadar_Probe::classify( $path, BotStormRadar_Projection::probe_config(), (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
 		if ( '' !== $probe ) {
 			$class  = 'probe';
 			$detail = $probe;

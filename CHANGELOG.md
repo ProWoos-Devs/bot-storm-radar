@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The gate's decision is its own class, `BotStormRadar_Decision`, and the view of the ban tables and settings it decides with is `BotStormRadar_Projection`. The early gate bundles the decision as before; nothing changes in what it refuses. (#69)
+
 ## [0.3.1] - 2026-10-07
 
 ### Fixed

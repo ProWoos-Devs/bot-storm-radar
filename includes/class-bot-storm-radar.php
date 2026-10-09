@@ -46,9 +46,11 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-guard.php';
 		require_once $dir . 'class-botstormradar-state-reader.php';
 		require_once $dir . 'class-botstormradar-probe.php';
+		require_once $dir . 'class-botstormradar-decision.php';
 		require_once $dir . 'class-botstormradar-channel.php';
 		require_once $dir . 'class-botstormradar-channel-drain.php';
 		require_once $dir . 'class-botstormradar-trips.php';
+		require_once $dir . 'class-botstormradar-projection.php';
 		require_once $dir . 'class-botstormradar-state.php';
 		require_once $dir . 'class-botstormradar-gate-install.php';
 		require_once $dir . 'class-botstormradar-gate-early.php';
