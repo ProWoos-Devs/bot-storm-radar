@@ -5,8 +5,8 @@
  * naming the current one, a stable loader that reads the manifest, and a
  * small mu-plugin that includes the loader before any regular plugin.
  *
- * Gate copies (`gate-<version>-<hash>.php`) are generated from three source
- * files (BotStormRadar_IP_Resolver, BotStormRadar_State_Reader, BotStormRadar_Gate) with every class
+ * Gate copies (`gate-<version>-<hash>.php`) are generated from the source
+ * files in SOURCES with every class
  * renamed to a BotStormRadar_Gate_ prefix, so they never collide with the plugin's own
  * classes when WordPress loads them later in the same request. A bundle is
  * checked with PHP's parser before it is used, and every file is written
@@ -58,7 +58,7 @@ class BotStormRadar_Gate_Install {
 	/**
 	 * The source files bundled into a gate copy, in order.
 	 */
-	const SOURCES = [ 'class-botstormradar-ip-resolver.php', 'class-botstormradar-state-reader.php', 'class-botstormradar-probe.php', 'class-botstormradar-channel.php', 'class-botstormradar-gate.php' ];
+	const SOURCES = [ 'class-botstormradar-ip-resolver.php', 'class-botstormradar-state-reader.php', 'class-botstormradar-probe.php', 'class-botstormradar-decision.php', 'class-botstormradar-channel.php', 'class-botstormradar-gate.php' ];
 
 	/**
 	 * Source class => class name inside the bundle. BotStormRadar_Gate first: the
@@ -70,6 +70,7 @@ class BotStormRadar_Gate_Install {
 		'BotStormRadar_IP_Resolver'  => 'BotStormRadar_Gate_IP_Resolver',
 		'BotStormRadar_State_Reader' => 'BotStormRadar_Gate_State_Reader',
 		'BotStormRadar_Probe'        => 'BotStormRadar_Gate_Probe',
+		'BotStormRadar_Decision'     => 'BotStormRadar_Gate_Decision',
 		'BotStormRadar_Channel'      => 'BotStormRadar_Gate_Channel',
 	];
 
@@ -327,7 +328,7 @@ LOADER;
 	 * Build the self-contained gate. Returns '' when a source is missing or
 	 * the result does not parse.
 	 *
-	 * @param string $includes Directory holding the three source files.
+	 * @param string $includes Directory holding the SOURCES files.
 	 * @param string $version
 	 * @return string
 	 */

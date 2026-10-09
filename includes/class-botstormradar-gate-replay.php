@@ -37,7 +37,7 @@ class BotStormRadar_Gate_Replay {
 	 * @return array Summary.
 	 */
 	public static function run( array $files, array $opts = [] ) {
-		$cfg = BotStormRadar_State::probe_config();
+		$cfg = BotStormRadar_Projection::probe_config();
 		$cfg['root'] = isset( $opts['root'] ) ? (string) $opts['root'] : '';
 		$cfg['home'] = isset( $opts['home'] ) ? rtrim( (string) $opts['home'], '/' ) : '';
 		if ( isset( $opts['home'] ) ) {

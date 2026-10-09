@@ -12,8 +12,8 @@
  * PHP and returns nothing even where the `.htaccess` is not honored (nginx;
  * the README gives the matching `location` rule).
  *
- * State file: `state.php`, a projection rebuilt whole from the ban tables and
- * the options by rebuild(), which holds an exclusive flock() on `state.lock`,
+ * State file: `state.php`, the projection (BotStormRadar_Projection) of the
+ * ban tables and the options, rebuilt whole by rebuild(), which holds an exclusive flock() on `state.lock`,
  * writes a temporary and renames it into place. The database is the truth,
  * nothing reads the file to change it, so two concurrent rebuilds cannot drop
  * each other's bans. Evidence never goes into the file.
@@ -44,11 +44,6 @@ class BotStormRadar_State {
 	 * running anything, and the two files that keep the directory closed.
 	 */
 	const LEFT_BEHIND = [ 'loader.php', 'disabled', 'index.php', '.htaccess' ];
-
-	/**
-	 * How long an unban keeps the address on the gate's recent-unban list.
-	 */
-	const RECENT_UNBAN = DAY_IN_SECONDS;
 
 	/**
 	 * Last rebuild error, for the Status tab and tests.
@@ -130,80 +125,6 @@ class BotStormRadar_State {
 		}
 	}
 
-	// ── Contents ──────────────────────────────────────────────────────
-
-	/**
-	 * The state the gate needs, built from the tables and the options.
-	 * Keys filled by later changes are present with empty values so the
-	 * format stays the same.
-	 *
-	 * @param int|null $now Tests.
-	 * @return array
-	 */
-	public static function contents( $now = null ) {
-		$now = null === $now ? time() : (int) $now;
-		// A settings save fires the rebuild while this request's options
-		// cache still holds the values it started with; read them fresh.
-		BotStormRadar_Helpers::flush_options();
-		$opts = BotStormRadar_Helpers::get_options();
-
-		$bans = [];
-		foreach ( BotStormRadar_Bans::active( $now ) as $b ) {
-			// Asked again: a ban that became protected after it was written
-			// (an allowlist entry, an administrator seen since) is left out.
-			if ( BotStormRadar_Guard::may_ban( $b['ip_text'], (int) $b['prefix_len'] ) ) {
-				$bans[] = [ $b['ip_text'], (int) $b['prefix_len'], (int) $b['expires_at'] ];
-			}
-		}
-		$unbans = [];
-		foreach ( BotStormRadar_Bans::recent_unbans( $now - self::RECENT_UNBAN ) as $u ) {
-			$unbans[] = [ $u['ip_text'], (int) $u['prefix_len'], (int) $u['unbanned_at'] ];
-		}
-
-		return [
-			'format'     => BotStormRadar_State_Reader::FORMAT,
-			'written_at' => $now,
-			'generation' => BotStormRadar_Bans::generation(),
-			'mode'       => 'enforce' === ( $opts['ban_mode'] ?? 'observe' ) ? 'enforce' : 'observe',
-			'trust'      => BotStormRadar_Client_IP::trust_config(),
-			'protected'  => [
-				'allowlist' => BotStormRadar_Helpers::parse_list( $opts['allowlist'] ?? '' ),
-				'admins'    => BotStormRadar_Guard::admin_addresses( $now ),
-				'bots'      => BotStormRadar_Guard::verified_bots( $now ),
-			],
-			'bans'       => $bans,
-			'unbans'     => $unbans,
-			'probe'      => self::probe_config(),
-			'trips'      => BotStormRadar_Trips::state_config(),
-			'mail'       => [ 'recipients' => BotStormRadar_Sources::alert_recipients( BotStormRadar_Sources::SITE ) ],
-		];
-	}
-
-	/**
-	 * The probe rules for BotStormRadar_Probe::classify(), from the options: switch,
-	 * WordPress address path, uploads path, WordPress folder, the bundled
-	 * scanner list, and the owner's patterns and exceptions compiled.
-	 *
-	 * @return array
-	 */
-	public static function probe_config() {
-		static $scanner = null;
-		if ( null === $scanner ) {
-			$scanner = array_map( 'strtolower', BotStormRadar_Helpers::bundled_list( 'scanner-paths.txt' ) );
-		}
-		$opts    = BotStormRadar_Helpers::get_options();
-		$uploads = wp_upload_dir( null, false );
-		return [
-			'on'      => ! empty( $opts['probe_refusal'] ),
-			'home'    => untrailingslashit( (string) wp_parse_url( (string) get_option( 'home' ), PHP_URL_PATH ) ),
-			'uploads' => trailingslashit( (string) wp_parse_url( (string) ( $uploads['baseurl'] ?? '' ), PHP_URL_PATH ) ),
-			'root'    => ABSPATH,
-			'scanner' => $scanner,
-			'extra'   => BotStormRadar_Probe::compile( (string) ( $opts['probe_extra'] ?? '' ) ),
-			'allow'   => BotStormRadar_Probe::compile( (string) ( $opts['probe_allow'] ?? '' ) ),
-		];
-	}
-
 	// ── Rebuild ───────────────────────────────────────────────────────
 
 	/**
@@ -225,7 +146,7 @@ class BotStormRadar_State {
 		}
 		flock( $lock, LOCK_EX );
 		try {
-			$body = BotStormRadar_State_Reader::encode( self::contents() );
+			$body = BotStormRadar_State_Reader::encode( BotStormRadar_Projection::build() );
 			if ( false === $body ) {
 				self::$error = 'cannot encode state';
 				return false;
