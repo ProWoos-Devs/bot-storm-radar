@@ -31,6 +31,11 @@ defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 class BotStormRadar_IP_Resolver {
 
 	/**
+	 * The server variables resolve() reads.
+	 */
+	const SERVER_KEYS = [ 'REMOTE_ADDR', 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP' ];
+
+	/**
 	 * Resolve the client address.
 	 *
 	 * @param array $server Server variables ($_SERVER or a synthetic array).

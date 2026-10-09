@@ -189,15 +189,27 @@ class BotStormRadar_Helpers {
 	 * @return string
 	 */
 	public static function request_path() {
-		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$uri = self::request_uri();
 		$q   = strpos( $uri, '?' );
 		return false === $q ? $uri : substr( $uri, 0, $q );
+	}
+
+	/**
+	 * The request URI, sanitized as a URL. It keeps its percent-encoding, so
+	 * an encoded probe is still recognized. At most 2048 bytes; '/' when
+	 * there is none.
+	 *
+	 * @return string
+	 */
+	public static function request_uri() {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? substr( esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ), 0, 2048 ) : '';
+		return '' === $uri ? '/' : $uri;
 	}
 
 	/**
 	 * @return string
 	 */
 	public static function user_agent() {
-		return isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( (string) wp_unslash( $_SERVER['HTTP_USER_AGENT'] ), 0, 512 ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		return isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 512 ) : '';
 	}
 }

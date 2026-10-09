@@ -55,9 +55,36 @@ class BotStormRadar_Classifier {
 	 */
 	public static function get() {
 		if ( null === self::$result ) {
-			self::$result = self::classify( BotStormRadar_Helpers::request_path(), $_GET, $_SERVER ); // phpcs:ignore WordPress.Security
+			self::$result = self::classify( BotStormRadar_Helpers::request_path(), self::query_vars(), self::server_vars() );
 		}
 		return self::$result;
+	}
+
+	/**
+	 * The query variables, sanitized as text. Only read to name the request
+	 * class (never stored, never acted on), so no nonce applies.
+	 *
+	 * @return array
+	 */
+	public static function query_vars() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- classification only, see above.
+		return map_deep( wp_unslash( $_GET ), 'sanitize_text_field' );
+	}
+
+	/**
+	 * The server variables the classifier and its filter read, sanitized.
+	 *
+	 * @return array
+	 */
+	public static function server_vars() {
+		$out = [];
+		foreach ( [ 'REQUEST_METHOD', 'SCRIPT_FILENAME' ] as $k ) {
+			if ( isset( $_SERVER[ $k ] ) && is_string( $_SERVER[ $k ] ) ) {
+				$out[ $k ] = substr( sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) ), 0, 2048 );
+			}
+		}
+		$out['REQUEST_URI'] = BotStormRadar_Helpers::request_uri();
+		return $out;
 	}
 
 	/**
@@ -116,8 +143,9 @@ class BotStormRadar_Classifier {
 		} elseif ( '/wp-admin/admin-ajax.php' === substr( $lower, -24 ) ) {
 			$class  = 'admin-ajax';
 			$detail = isset( $query['action'] ) ? substr( sanitize_key( (string) $query['action'] ), 0, 40 ) : '';
-			if ( '' === $detail && isset( $server['REQUEST_METHOD'] ) && 'POST' === $server['REQUEST_METHOD'] && isset( $_POST['action'] ) ) { // phpcs:ignore WordPress.Security
-				$detail = substr( sanitize_key( (string) wp_unslash( $_POST['action'] ) ), 0, 40 ); // phpcs:ignore WordPress.Security
+			// Classification only: the action name of an admin-ajax POST is counted, never acted on, so no nonce applies.
+			if ( '' === $detail && isset( $server['REQUEST_METHOD'] ) && 'POST' === $server['REQUEST_METHOD'] && isset( $_POST['action'] ) && is_string( $_POST['action'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				$detail = substr( sanitize_key( wp_unslash( $_POST['action'] ) ), 0, 40 ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			}
 		} elseif ( '/wp-cron.php' === substr( $lower, -12 ) ) {
 			$class = 'cron';

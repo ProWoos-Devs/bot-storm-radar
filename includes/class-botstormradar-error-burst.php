@@ -106,9 +106,11 @@ class BotStormRadar_Error_Burst {
 			return null;
 		}
 		BotStormRadar_Storage::add_transition( $ctx, $source );
+		// github-build-only:start
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( '[Bot Storm Radar] ' . $source . ': ' . $ctx['explanation'] ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
+		// github-build-only:end
 		// Same gate as the state transitions: a log source mails once its
 		// baseline holds a day, the replay scratch source never.
 		if ( BotStormRadar_Sources::alerts_ready( $source ) && BotStormRadar_Helpers::opt( 'alert_on_storm', 1 ) ) {

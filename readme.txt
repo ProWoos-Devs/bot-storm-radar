@@ -88,7 +88,13 @@ No, but a persistent object cache (Redis, Memcached) or APCu is strongly recomme
 
 = Does it write files? =
 
-No. Settings, bans, minute history and the refusal rules are stored in the database. The only file it writes is a CSV export you ask for from WP-CLI.
+No. Settings, bans, minute history and the refusal rules are stored in the database.
+
+= Does it track visitors? =
+
+No. It sets no cookies and sends nothing about visitors anywhere. To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
+
+Visitor addresses are kept only as long as the detection needs them: per-minute counters expire after 25 minutes, and the minute history of the last 25 hours keeps totals plus the busiest addresses of each minute (at most 20, each with 10 or more requests in that minute). An address that tripped a ban is stored with the requests that caused it (paths and user agent) until 30 days after its ban ended, and the list of would-be bans keeps the latest 200 addresses. Administrator addresses are remembered for a day so they are never banned, and search-bot checks for a day.
 
 == Screenshots ==
 

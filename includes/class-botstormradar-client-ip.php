@@ -103,9 +103,25 @@ class BotStormRadar_Client_IP {
 	 * @return string|false
 	 */
 	public static function resolve() {
-		$r            = BotStormRadar_IP_Resolver::resolve( $_SERVER, self::trust_config() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- every value is validated as an IP address by the resolver.
+		$r            = BotStormRadar_IP_Resolver::resolve( self::server_vars(), self::trust_config() );
 		self::$source = $r['source'];
 		return $r['ip'];
+	}
+
+	/**
+	 * The server variables the resolver reads, sanitized. The resolver
+	 * validates every address again.
+	 *
+	 * @return array
+	 */
+	public static function server_vars() {
+		$out = [];
+		foreach ( BotStormRadar_IP_Resolver::SERVER_KEYS as $k ) {
+			if ( isset( $_SERVER[ $k ] ) && is_string( $_SERVER[ $k ] ) ) {
+				$out[ $k ] = substr( sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) ), 0, 2048 );
+			}
+		}
+		return $out;
 	}
 
 	/**

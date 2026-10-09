@@ -23,15 +23,41 @@ class BotStormRadar_Beacon {
 
 	const PARAM = 'bsr-beacon';
 
+	const HANDLE = 'botstormradar-beacon';
+
 	public static function init() {
+		add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
 		add_action( 'wp_footer', [ __CLASS__, 'emit' ], 1 );
+	}
+
+	/**
+	 * Whether this front-end request gets the pixel and the ping.
+	 *
+	 * @return bool
+	 */
+	private static function wanted() {
+		return ! ( is_admin() || is_feed() || is_embed() || ( function_exists( 'wp_is_json_request' ) && wp_is_json_request() ) );
+	}
+
+	/**
+	 * The JS ping: a script handle without a file, carrying one inline line
+	 * in the footer.
+	 */
+	public static function enqueue() {
+		if ( ! self::wanted() ) {
+			return;
+		}
+		wp_register_script( self::HANDLE, false, [], BOTSTORMRADAR_VERSION, true );
+		wp_enqueue_script( self::HANDLE );
+		wp_add_inline_script( self::HANDLE, '(function(){try{var i=new Image();i.src=' . wp_json_encode( self::url_base() ) . '+"j"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}catch(e){}})();' );
 	}
 
 	/**
 	 * @return bool
 	 */
 	public static function is_beacon_request() {
-		return isset( $_GET[ self::PARAM ] ); // phpcs:ignore WordPress.Security.NonceVerification
+		// A public, anonymous pixel: only its presence is checked, nothing is read from it.
+		return isset( $_GET[ self::PARAM ] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**
@@ -71,15 +97,13 @@ class BotStormRadar_Beacon {
 	}
 
 	/**
-	 * The pixel and the JS ping, on every front-end HTML page.
+	 * The pixel, on every front-end HTML page (the JS ping is enqueued).
 	 */
 	public static function emit() {
-		if ( is_admin() || is_feed() || is_embed() || ( function_exists( 'wp_is_json_request' ) && wp_is_json_request() ) ) {
+		if ( ! self::wanted() ) {
 			return;
 		}
-		$base = self::url_base();
-		$img  = $base . 'i' . BotStormRadar_Helpers::short_hash( uniqid( '', true ) );
+		$img = self::url_base() . 'i' . BotStormRadar_Helpers::short_hash( uniqid( '', true ) );
 		echo '<img src="' . esc_url( $img ) . '" width="1" height="1" alt="" decoding="async" fetchpriority="low" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">' . "\n";
-		echo '<script>(function(){try{var i=new Image();i.src=' . wp_json_encode( $base ) . '+"j"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}catch(e){}})();</script>' . "\n";
 	}
 }
