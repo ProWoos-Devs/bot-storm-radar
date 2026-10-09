@@ -71,6 +71,8 @@ On a server that honors neither file, the same can be done by hand with one line
 include_once '/path/to/wp-content/uploads/bot-storm-radar-<random>/loader.php';
 ```
 
+**The wordpress.org build** has no early gate, because the plugin directory does not accept a plugin that writes PHP files, a must-use plugin or an `auto_prepend_file` line. It makes the same decision inside the plugin, on `plugins_loaded`, from the same rules stored in an autoloaded option, and answers 403 to probes and to banned addresses in enforce mode. WordPress has then connected to the database and loaded the plugins, so a refusal costs more than in the early gate, and still far less than a page. Builds from GitHub releases keep the early gate.
+
 **Switching the gate off without wp-admin.** Create an empty file named `disabled` in the data directory (`wp-content/uploads/bot-storm-radar-<random>/`), by SFTP or in the host's file manager. The gate stops on the next request. Delete the file to switch it back on. Uninstalling the plugin leaves that directory with a few-line `loader.php` and the `disabled` marker, which do nothing and can be deleted by hand once no `auto_prepend_file` setting points at them.
 
 ## Trying the gate on your own logs

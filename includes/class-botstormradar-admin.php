@@ -136,7 +136,7 @@ class BotStormRadar_Admin {
 			printf( '<textarea class="large-text code" rows="4" name="%1$s[allowlist]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'allowlist', '' ) ), esc_html__( 'One per line, IPv4 or IPv6, address or CIDR. These addresses are never banned or refused. Administrators are protected automatically for 24 hours after they last used wp-admin, and so are verified search bots, Cloudflare and the proxies above.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
-			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: the gate answers it 403 before the site loads. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
+			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: it is answered 403 before a page is built. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
 		}, self::PAGE );
 		add_settings_field( 'ban_mode', __( 'Mode', 'bot-storm-radar' ), function () {
@@ -151,12 +151,12 @@ class BotStormRadar_Admin {
 		self::number_field( 'trip_ban_minutes', __( 'Ban length (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 10080, 1, '' );
 		self::number_field( 'trip_ban_repeat_hours', __( 'Ban length on a repeat (hours)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 720, 1, __( 'For an address that trips again within a day of its last ban.', 'bot-storm-radar' ) );
 		add_settings_section( 'botstormradar_probes', __( 'Probes', 'bot-storm-radar' ), function () {
-			echo '<p>' . esc_html__( 'Scanners ask every site for files that only exist by mistake: .env and .git files, backups, database dumps, other applications\' admin pages. On many servers each of those requests builds a whole WordPress page just to say "not found". The gate answers them with 403 before WordPress loads, for every visitor, whether address bans are enforced or not. Files the web server serves itself (an existing .zip, for example) never reach it.', 'bot-storm-radar' ) . '</p>';
+			echo '<p>' . esc_html__( 'Scanners ask every site for files that only exist by mistake: .env and .git files, backups, database dumps, other applications\' admin pages. On many servers each of those requests builds a whole WordPress page just to say "not found". Bot Storm Radar answers them with 403 before a page is built, for every visitor, whether address bans are enforced or not. Files the web server serves itself (an existing .zip, for example) never reach it.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Always refused: any path with a part that starts with a dot (except /.well-known/); copies of PHP files such as config.php.txt or wp-config.php.bak; configuration and log files (.yml .yaml .toml .ini .log .lock .cfg .conf, package.json, composer.json, web.config and similar); .zip .tar .tgz .gz .bz2 .tbz2 .xz .zst .rar .7z .sql .bak .old .orig .save .swp outside the uploads folder (compressed sitemaps excepted); .php files that do not exist; and these paths of other applications:', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description"><code>' . esc_html( implode( '  ', BotStormRadar_Helpers::bundled_list( 'scanner-paths.txt' ) ) ) . '</code></p>';
 		}, self::PAGE );
 		add_settings_field( 'probe_refusal', __( 'Probe refusal', 'bot-storm-radar' ), function () {
-			printf( '<label><input type="checkbox" name="%1$s[probe_refusal]" value="1" %2$s /> %3$s</label>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'probe_refusal', 1 ), false ), esc_html__( 'Refuse probes with 403 before WordPress loads', 'bot-storm-radar' ) );
+			printf( '<label><input type="checkbox" name="%1$s[probe_refusal]" value="1" %2$s /> %3$s</label>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'probe_refusal', 1 ), false ), esc_html__( 'Refuse probes with 403', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_probes' );
 		add_settings_field( 'probe_allow', __( 'Never treat as a probe', 'bot-storm-radar' ), function () {
 			printf( '<textarea class="large-text code" rows="3" name="%1$s[probe_allow]">%2$s</textarea><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_textarea( BotStormRadar_Helpers::opt( 'probe_allow', '' ) ), esc_html__( 'One path per line below the site address, * matches anything. For example /downloads/*.zip if a plugin serves zip files through WordPress.', 'bot-storm-radar' ) );
@@ -330,6 +330,7 @@ class BotStormRadar_Admin {
 				BotStormRadar_Good_Bots::refresh_ip_lists();
 				$notice = 'lists_refreshed';
 				break;
+			// github-build-only:start
 			case 'early_on':
 				if ( BotStormRadar_Gate_Early::enable() ) {
 					$notice = 'early_' . ( 'early' === BotStormRadar_Gate_Early::verify() ? 'verified' : 'pending' );
@@ -344,6 +345,10 @@ class BotStormRadar_Admin {
 					set_transient( 'botstormradar_gate_early_error', BotStormRadar_Gate_Early::last_error(), 300 );
 				}
 				break;
+			case 'early_check':
+				$notice = 'early' === BotStormRadar_Gate_Early::verify() ? 'early_verified' : 'early_pending';
+				break;
+			// github-build-only:end
 			case 'unban':
 				$ip  = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
 				$len = isset( $_GET['prefix'] ) ? (int) $_GET['prefix'] : null;
@@ -357,9 +362,6 @@ class BotStormRadar_Admin {
 			case 'clear_would':
 				delete_option( BotStormRadar_Bans::WOULD_OPTION );
 				$notice = 'would_cleared';
-				break;
-			case 'early_check':
-				$notice = 'early' === BotStormRadar_Gate_Early::verify() ? 'early_verified' : 'early_pending';
 				break;
 		}
 		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
@@ -400,10 +402,12 @@ class BotStormRadar_Admin {
 				'unbanned'        => [ 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ],
 				'unban_none'      => [ 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ],
 				'would_cleared'   => [ 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ],
+				// github-build-only:start
 				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
 				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
 				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
 				'early_failed'    => [ 'error', __( 'Early protection could not be changed; the reason is shown in the Gate section below.', 'bot-storm-radar' ) ],
+				// github-build-only:end
 			];
 			if ( isset( $messages[ $key ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $messages[ $key ][0] ), esc_html( $messages[ $key ][1] ) );
@@ -462,7 +466,9 @@ class BotStormRadar_Admin {
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" onclick="return confirm('<?php echo esc_js( __( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ) ); ?>');"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
 				<?php self::render_log_sources_table(); ?>
+				<?php // github-build-only:start ?>
 				<?php self::render_gate_section(); ?>
+				<?php // github-build-only:end ?>
 			<?php elseif ( 'bans' === $tab ) : ?>
 				<?php self::render_bans(); ?>
 			<?php else : ?>
@@ -557,14 +563,18 @@ class BotStormRadar_Admin {
 					$gate_probe += (int) ( $r['gate_probe'] ?? 0 );
 					$gate_ban   += (int) ( $r['gate_ban'] ?? 0 );
 				}
+				$ch      = null;
+				$waiting = 0;
+				// github-build-only:start
 				$ch      = BotStormRadar_Channel_Drain::status();
 				$waiting = BotStormRadar_Channel_Drain::oldest_waiting_age();
+				// github-build-only:end
 				?>
 				<div class="bsr-card-sub <?php echo $waiting > 600 ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
 					<?php
 					/* translators: 1: number of probe requests, 2: number of requests from banned addresses */
 					printf( esc_html__( '%1$d probes and %2$d requests from banned addresses refused in the last 24 hours.', 'bot-storm-radar' ), (int) $gate_probe, (int) $gate_ban );
-					if ( $ch['last_drain'] ) {
+					if ( $ch && $ch['last_drain'] ) {
 						/* translators: 1: name of the gate channel, 2: relative time, such as "5 mins ago" */
 						echo ' ' . esc_html( sprintf( __( 'Channel %1$s, last emptied %2$s.', 'bot-storm-radar' ), $ch['channel'], self::ago( (int) $ch['last_drain'] ) ) );
 					}
@@ -572,7 +582,7 @@ class BotStormRadar_Admin {
 						/* translators: %d: number of minutes */
 						echo ' ' . esc_html( sprintf( __( 'The oldest refusals have waited %d minutes to be counted; they are counted on the next tick that runs.', 'bot-storm-radar' ), (int) ceil( $waiting / 60 ) ) );
 					}
-					if ( $ch['lost'] || $ch['full'] || $ch['late'] ) {
+					if ( $ch && ( $ch['lost'] || $ch['full'] || $ch['late'] ) ) {
 						/* translators: 1: number of minutes lost, 2: number of minutes that hit the size cap, 3: number of late refusals */
 						echo ' ' . esc_html( sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] ) );
 					}
@@ -1101,6 +1111,7 @@ class BotStormRadar_Admin {
 		echo '<small class="bsr-evidence">' . wp_kses( implode( '<br />', $parts ), [ 'strong' => [], 'br' => [] ] ) . '</small>';
 	}
 
+	// github-build-only:start
 	/**
 	 * Settings tab: how the gate is loaded, and early protection on or off.
 	 */
@@ -1191,6 +1202,7 @@ class BotStormRadar_Admin {
 		</p>
 		<?php
 	}
+	// github-build-only:end
 
 	private static function render_log_sources_table() {
 		$all = BotStormRadar_Sources::log_sources();
