@@ -129,8 +129,8 @@ class BotStormRadar_CLI {
 	 * default: 15
 	 * ---
 	 *
-	 * [--csv=<file>]
-	 * : Also write every minute (UTC time, score, addresses, requests) to a CSV file.
+	 * [--csv]
+	 * : Print every minute as CSV (UTC time, score, addresses, requests) instead of the summary. Redirect it to keep it, for example `> replay.csv`.
 	 *
 	 * @subcommand replay
 	 *
@@ -155,6 +155,15 @@ class BotStormRadar_CLI {
 		$sum      = BotStormRadar_Log_Source::replay( BotStormRadar_Sources::REPLAY, $assoc['profile'], $args, $baseline );
 		$ms       = (int) round( ( microtime( true ) - $t0 ) * 1000 );
 
+		if ( ! empty( $assoc['csv'] ) ) {
+			WP_CLI::line( 'minute_utc,score,ips,requests' );
+			foreach ( $sum['scores'] as $m => $s ) {
+				WP_CLI::line( gmdate( 'Y-m-d H:i', $m * 60 ) . ',' . implode( ',', array_map( 'intval', $s ) ) );
+			}
+			BotStormRadar_Log_Source::purge( BotStormRadar_Sources::REPLAY );
+			return;
+		}
+
 		WP_CLI::log( sprintf( '%d minutes, %d lines, %s, %d unparsed, %d late, %d refused by the web server (403, 429, 444; not counted), %d ms.', $sum['minutes'], $sum['lines'], size_format( $sum['bytes'] ), $sum['bad'], $sum['late'], (int) ( $sum['refused'] ?? 0 ), $ms ) );
 		WP_CLI::log( '' );
 		WP_CLI::log( 'Transitions:' );
@@ -178,19 +187,6 @@ class BotStormRadar_CLI {
 			$ips = array_column( $sum['scores'], 1 );
 			WP_CLI::log( '' );
 			WP_CLI::log( sprintf( 'Distinct addresses per minute: median %s, p90 %s, max %d.', BotStormRadar_Metrics::fmt( BotStormRadar_Baseline::median( $ips ), 0 ), BotStormRadar_Metrics::fmt( BotStormRadar_Baseline::percentile( $ips, 0.9 ), 0 ), max( $ips ) ) );
-		}
-
-		if ( ! empty( $assoc['csv'] ) ) {
-			$fh = fopen( $assoc['csv'], 'wb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			if ( false === $fh ) {
-				WP_CLI::warning( sprintf( 'Cannot write %s.', $assoc['csv'] ) );
-			} else {
-				fwrite( $fh, "minute_utc,score,ips,requests\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-				foreach ( $sum['scores'] as $m => $s ) {
-					fwrite( $fh, gmdate( 'Y-m-d H:i', $m * 60 ) . ',' . implode( ',', $s ) . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-				}
-				fclose( $fh ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			}
 		}
 		BotStormRadar_Log_Source::purge( BotStormRadar_Sources::REPLAY );
 	}

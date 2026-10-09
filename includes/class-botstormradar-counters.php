@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Counters {
 
-	const GROUP = 'bsr';
+	const GROUP = 'botstormradar';
 
 	/**
 	 * Default lifetimes: a minute bucket must survive long enough for the
@@ -100,7 +100,7 @@ class BotStormRadar_Counters {
 			self::$backend = 'transient';
 		}
 		if ( 'apcu' === self::$backend ) {
-			self::$apcu_prefix = 'bsr:' . substr( md5( defined( 'ABSPATH' ) ? ABSPATH : __DIR__ ), 0, 8 ) . ':';
+			self::$apcu_prefix = 'botstormradar:' . substr( md5( defined( 'ABSPATH' ) ? ABSPATH : __DIR__ ), 0, 8 ) . ':';
 		}
 		return self::$backend;
 	}

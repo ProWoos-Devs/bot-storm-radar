@@ -10,7 +10,7 @@
  * an autoloaded option, rebuilt on the same changes that rebuild the early
  * gate's state file, so a request costs no extra query.
  *
- * A refusal is counted like the early gate's channel counts it, so the Radar
+ * A refusal answers 403 with `X-Bot-Storm-Radar: probe` or `refused`. It is counted like the early gate's channel counts it, so the Radar
  * tab reads both the same way (never toward the addresses or the score):
  *   m:<minute>:gate_probe          probes refused
  *   m:<minute>:gate_ban            requests from banned addresses refused
@@ -33,9 +33,10 @@ class BotStormRadar_Inline_Gate {
 	const REGISTRY_CAP = 200;
 
 	/**
-	 * The server variables the decision reads.
+	 * The server variables the decision reads besides the address headers
+	 * (BotStormRadar_IP_Resolver::SERVER_KEYS).
 	 */
-	const SERVER_KEYS = [ 'REMOTE_ADDR', 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'REQUEST_URI', 'SCRIPT_FILENAME' ];
+	const SERVER_KEYS = [ 'REQUEST_URI', 'SCRIPT_FILENAME' ];
 
 	/**
 	 * Whether this build refuses inside the plugin: only when it has no early
@@ -180,16 +181,12 @@ class BotStormRadar_Inline_Gate {
 	 * @return array
 	 */
 	public static function server() {
-		$out = [];
-		foreach ( self::SERVER_KEYS as $k ) {
-			if ( ! isset( $_SERVER[ $k ] ) || ! is_string( $_SERVER[ $k ] ) ) {
-				continue;
-			}
-			if ( 'REQUEST_URI' === $k ) {
-				$out[ $k ] = substr( esc_url_raw( wp_unslash( $_SERVER[ $k ] ) ), 0, 2048 );
-			} else {
-				$out[ $k ] = substr( sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) ), 0, 2048 );
-			}
+		$out = BotStormRadar_Client_IP::server_vars();
+		if ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) {
+			$out['REQUEST_URI'] = BotStormRadar_Helpers::request_uri();
+		}
+		if ( isset( $_SERVER['SCRIPT_FILENAME'] ) && is_string( $_SERVER['SCRIPT_FILENAME'] ) ) {
+			$out['SCRIPT_FILENAME'] = substr( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_FILENAME'] ) ), 0, 2048 );
 		}
 		return $out;
 	}
@@ -204,7 +201,7 @@ class BotStormRadar_Inline_Gate {
 			status_header( 403 );
 			nocache_headers();
 			header( 'Content-Type: text/plain; charset=utf-8' );
-			header( 'X-BSR-Gate: ' . ( 'probe' === $kind ? 'probe' : 'refused' ) );
+			header( 'X-Bot-Storm-Radar: ' . ( 'probe' === $kind ? 'probe' : 'refused' ) );
 		}
 		echo "Forbidden\n";
 		exit;

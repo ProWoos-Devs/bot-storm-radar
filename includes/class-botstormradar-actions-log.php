@@ -62,8 +62,10 @@ class BotStormRadar_Actions_Log implements BotStormRadar_Actions {
 	 * @param array $ctx
 	 */
 	private function log( array $ctx ) {
+		// github-build-only:start
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( sprintf( '[Bot Storm Radar] %s -> %s at minute %d, score %s: %s%s', $ctx['from'], $ctx['to'], $ctx['minute'], $ctx['score'], $ctx['explanation'], isset( $ctx['note'] ) ? ' [' . $ctx['note'] . ']' : '' ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
+		// github-build-only:end
 	}
 }

@@ -71,6 +71,15 @@ if [[ "$FLAVOR" == "wporg" ]]; then
     done
     # readme.txt is the wordpress.org readme; these two describe the GitHub build.
     rm "$STAGED/README.md" "$STAGED/CHANGELOG.md"
+    # Directory icons and banners go to SVN assets/, not into the plugin. The
+    # GitHub updater loads its copies from the repository, not from here.
+    rm -f "$STAGED"/assets/icon-*.png "$STAGED"/assets/icon.svg "$STAGED"/assets/banner-*.png
+    # Without the early gate nothing loads these files outside WordPress:
+    # the gate-aware guard becomes the standard one.
+    while IFS= read -r -d '' f; do
+        sed -i -e '/^\/\/ Loadable inside WordPress.*BOTSTORMRADAR_GATE first\.$/d' \
+               -e "s/^defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;$/if ( ! defined( 'ABSPATH' ) ) {\n\texit;\n}/" "$f"
+    done < <(find "$STAGED" -name '*.php' -print0)
     while IFS= read -r -d '' f; do
         STARTS=$(grep -c 'github-build-only:start' "$f" || true)
         ENDS=$(grep -c 'github-build-only:end' "$f" || true)
@@ -88,6 +97,14 @@ if [[ "$FLAVOR" == "wporg" ]]; then
     fi
     if grep -rniE 'github[-_]updater|github-build-only|update_plugins' "$STAGED" --include='*.php'; then
         echo "Error: updater code is still present in the wordpress.org build (lines above)"
+        exit 1
+    fi
+    if grep -rn "defined( 'BOTSTORMRADAR_GATE' )" "$STAGED" --include='*.php'; then
+        echo "Error: a gate-aware guard is left in the wordpress.org build (lines above)"
+        exit 1
+    fi
+    if ls "$STAGED"/assets/*.png "$STAGED"/assets/*.svg >/dev/null 2>&1; then
+        echo "Error: directory assets are left in assets/"
         exit 1
     fi
     if grep -rnE 'BotStormRadar_(Gate|Gate_Install|Gate_Early|State|State_Reader|Channel|Channel_Drain)\b' "$STAGED" --include='*.php'; then

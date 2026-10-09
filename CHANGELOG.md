@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `build-zip.sh --wporg` leaves out the early gate, its installer, early loading, the state file and the channel, removes every block marked `github-build-only` in any PHP file, and fails when a reference to one of those classes is left. README.md and CHANGELOG.md stay out of that zip; its readme.txt describes that build.
 
 ### Changed
+- The object-cache group and the APCu key prefix are `botstormradar` instead of `bsr`. The counters of the minutes running at update time start again from zero, once.
+- The JavaScript beacon ping is an enqueued script handle (`botstormradar-beacon`) with its line added through `wp_add_inline_script()`, and the admin styles have their own handle (`botstormradar-admin`).
+- Every server variable, query variable and cookie the plugin reads is sanitized where it is read: the request URI through `esc_url_raw()` (it keeps its percent-encoding), headers and the user agent through `sanitize_text_field()`, the method through `sanitize_key()`. The address resolver gets only the five variables it reads (`BotStormRadar_IP_Resolver::SERVER_KEYS`), and the request-class filter gets sanitized arrays.
+- `wp bot-storm-radar replay --csv` prints the CSV instead of writing a file; redirect it to keep it.
+- The wordpress.org build leaves out the directory icons and banners, `load_plugin_textdomain()` and the debug logging, and uses the standard direct-access guard.
+- readme.txt answers whether the plugin tracks visitors and what it keeps for how long.
 - Settings texts say "before a page is built" instead of "before WordPress loads", which is true for both builds.
 - The gate's decision is its own class, `BotStormRadar_Decision`, and the view of the ban tables and settings it decides with is `BotStormRadar_Projection`. The early gate bundles the decision as before; nothing changes in what it refuses. (#69)
 

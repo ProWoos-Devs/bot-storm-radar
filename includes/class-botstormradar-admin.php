@@ -39,7 +39,7 @@ class BotStormRadar_Admin {
 	}
 
 	public static function add_action_links( $links ) {
-		array_unshift( $links, sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ), __( 'Radar', 'bot-storm-radar' ) ) );
+		array_unshift( $links, sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ), esc_html__( 'Radar', 'bot-storm-radar' ) ) );
 		return $links;
 	}
 
@@ -47,7 +47,9 @@ class BotStormRadar_Admin {
 		if ( 'toplevel_page_' . self::PAGE !== $hook && 'index.php' !== $hook ) {
 			return;
 		}
-		wp_add_inline_style( 'wp-admin', self::css() );
+		wp_register_style( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION );
+		wp_enqueue_style( 'botstormradar-admin' );
+		wp_add_inline_style( 'botstormradar-admin', self::css() );
 	}
 
 	// ── Tabs ────────────────────────────────────────────────────────
@@ -501,7 +503,16 @@ class BotStormRadar_Admin {
 				esc_html( $labels[ $state['state'] ] ?? $state['state'] )
 			);
 		}
-		echo '<ul class="subsubsub bsr-sources">' . implode( ' | ', $links ) . '</ul><br class="clear" />'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
+		echo wp_kses(
+			'<ul class="subsubsub bsr-sources">' . implode( ' | ', $links ) . '</ul><br class="clear" />',
+			[
+				'ul'   => [ 'class' => true ],
+				'li'   => [],
+				'a'    => [ 'href' => true, 'class' => true ],
+				'span' => [ 'class' => true ],
+				'br'   => [ 'class' => true ],
+			]
+		);
 	}
 
 	private static function render_radar() {
@@ -684,7 +695,7 @@ class BotStormRadar_Admin {
 		?>
 		<div class="bsr-chart-wrap">
 			<svg class="bsr-chart" viewBox="0 0 <?php echo (int) $w; ?> <?php echo (int) $h; ?>" preserveAspectRatio="none" role="img" aria-label="<?php esc_attr_e( 'Distinct addresses per minute (bars) and storm score (line) over the last 24 hours', 'bot-storm-radar' ); ?>">
-				<g class="bsr-bars"><?php echo $bars; // phpcs:ignore WordPress.Security.EscapeOutput ?></g>
+				<g class="bsr-bars"><?php echo wp_kses( $bars, [ 'rect' => [ 'x' => true, 'y' => true, 'width' => true, 'height' => true ], 'title' => [] ] ); ?></g>
 				<line class="bsr-warn" x1="0" x2="<?php echo (int) $w; ?>" y1="<?php echo (int) $warn_y; ?>" y2="<?php echo (int) $warn_y; ?>" />
 				<line class="bsr-storm" x1="0" x2="<?php echo (int) $w; ?>" y1="<?php echo (int) $storm_y; ?>" y2="<?php echo (int) $storm_y; ?>" />
 				<?php if ( count( $points ) > 1 ) : ?>

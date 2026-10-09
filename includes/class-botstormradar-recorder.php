@@ -110,10 +110,12 @@ class BotStormRadar_Recorder {
 			self::trip_404( $event );
 		}
 
+		// github-build-only:start
 		// Opt-in overhead log for calibration: define( 'BOTSTORMRADAR_DEBUG_TIMING', true ).
 		if ( defined( 'BOTSTORMRADAR_DEBUG_TIMING' ) && BOTSTORMRADAR_DEBUG_TIMING ) {
 			error_log( sprintf( '[Bot Storm Radar] timing: record %.3f ms on %s, class %s, request %d ms', self::$spent * 1000, BotStormRadar_Counters::backend(), $event['class'], $event['ms'] ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
+		// github-build-only:end
 
 		if ( 'beacon' !== $event['class'] ) {
 			BotStormRadar_Tick::maybe_run_inline();
@@ -134,7 +136,7 @@ class BotStormRadar_Recorder {
 			'session' => self::session_key(),
 			'status'  => is_int( $code ) ? $code : 200,
 			'ms'      => (int) round( ( microtime( true ) - $start ) * 1000 ),
-			'method'  => isset( $_SERVER['REQUEST_METHOD'] ) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET', // phpcs:ignore WordPress.Security
+			'method'  => isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET',
 		];
 	}
 
@@ -178,8 +180,12 @@ class BotStormRadar_Recorder {
 		if ( function_exists( 'is_user_logged_in' ) && is_user_logged_in() ) {
 			return 'u:' . get_current_user_id();
 		}
-		foreach ( $_COOKIE as $name => $value ) { // phpcs:ignore WordPress.Security
-			if ( 0 === strpos( (string) $name, 'wp_woocommerce_session_' ) && is_string( $value ) && '' !== $value ) {
+		foreach ( array_keys( $_COOKIE ) as $name ) {
+			if ( 0 !== strpos( (string) $name, 'wp_woocommerce_session_' ) || ! isset( $_COOKIE[ $name ] ) || ! is_string( $_COOKIE[ $name ] ) ) {
+				continue;
+			}
+			$value = sanitize_text_field( wp_unslash( $_COOKIE[ $name ] ) );
+			if ( '' !== $value ) {
 				return 's:' . BotStormRadar_Helpers::short_hash( explode( '||', $value )[0] );
 			}
 		}
