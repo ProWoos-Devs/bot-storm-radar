@@ -15,6 +15,12 @@
  * toward the addresses, the volume or the score: a refused request cost the
  * site almost nothing and must not define "normal".
  *
+ * Probe evidence (paths, user agents) is added to every trip and would-be
+ * ban the drain writes: from the gate's APCu record of the address, and from
+ * the spool's `pev` lines, which the drain keeps for EVIDENCE_KEEP seconds in
+ * the option EVIDENCE_OPTION (at most EVIDENCE_CAP addresses) because a trip
+ * can come minutes after the probes that led to it.
+ *
  * An APCu channel is invisible to the command line, so a CLI tick drains only
  * the spool and leaves APCu to the next tick that runs inside PHP-FPM. A
  * minute whose row was already computed when its events arrive is counted as
@@ -31,6 +37,24 @@ class BotStormRadar_Channel_Drain {
 
 	const STATUS_OPTION = 'botstormradar_channel_status';
 	const REGISTRY_CAP  = 200;
+
+	const EVIDENCE_OPTION = 'botstormradar_probe_evidence';
+	const EVIDENCE_CAP    = 200;
+	const EVIDENCE_KEEP   = 7200;
+
+	/**
+	 * Spool evidence loaded for this run (null until needed), and whether it changed.
+	 *
+	 * @var array|null
+	 */
+	private static $store = null;
+
+	/**
+	 * Whether the kept evidence changed in this run.
+	 *
+	 * @var bool
+	 */
+	private static $store_dirty = false;
 
 	/**
 	 * Drain every closed minute. Returns the per-minute totals drained.
@@ -57,6 +81,7 @@ class BotStormRadar_Channel_Drain {
 			if ( empty( $events ) ) {
 				continue;
 			}
+			self::spool_evidence( $events, $m );
 			$tot = [ 'probe' => 0, 'ban' => 0 ];
 			foreach ( $events as $line => $n ) {
 				list( $kind, $detail, $ip ) = array_pad( explode( "\t", $line ), 3, '' );
@@ -96,6 +121,7 @@ class BotStormRadar_Channel_Drain {
 			$out[ $m ]     = $tot;
 		}
 		BotStormRadar_Counters::flush();
+		self::save_evidence( $now );
 		$st['lost']      += count( $lost );
 		$st['last_drain'] = $now;
 		$st['channel']    = BotStormRadar_Channel::apcu() ? 'apcu' : ( 'cli' === PHP_SAPI ? 'spool (APCu not visible from the command line)' : 'spool' );
@@ -128,6 +154,7 @@ class BotStormRadar_Channel_Drain {
 				$evidence[ 'probes_' . $class ] = (int) $n;
 			}
 		}
+		$evidence += self::probe_evidence( $ip );
 		if ( 'wouldban' === $kind ) {
 			if ( BotStormRadar_Bans::would_ban( $ip, $reason, $evidence, $minute * 60 ) ) {
 				$st['wouldban']++;
@@ -190,10 +217,106 @@ class BotStormRadar_Channel_Drain {
 				$before += BotStormRadar_Counters::get( 'm:' . $k . ':gprobe:' . $ip );
 			}
 			if ( $before < $s['count'] && $before + $p['n'] >= $s['count'] ) {
-				$ev = array_diff_key( $p, [ 'n' => 1 ] ) + [ 'by' => 'radar', 'window_probes' => $before + $p['n'], 'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC' ];
+				$ev = array_diff_key( $p, [ 'n' => 1 ] ) + [ 'by' => 'radar', 'window_probes' => $before + $p['n'], 'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC' ] + self::probe_evidence( $ip );
 				self::count_result( BotStormRadar_Trips::trip( $ip, 'probe', $ev, 'radar' ), $st );
 			}
 		}
+	}
+
+	/**
+	 * Fold one minute's spool evidence lines into the kept records.
+	 *
+	 * @param array $events The minute's events.
+	 * @param int   $minute
+	 */
+	private static function spool_evidence( array $events, $minute ) {
+		$per = [];
+		foreach ( $events as $line => $n ) {
+			if ( 0 !== strpos( (string) $line, "pev\t" ) ) {
+				continue;
+			}
+			$v = BotStormRadar_Channel::evidence_decode( (string) $line );
+			if ( null === $v ) {
+				continue;
+			}
+			$ip = $v['ip'];
+			$per[ $ip ]['p'][] = $v['p'];
+			$per[ $ip ]['u'][] = $v['u'];
+			$per[ $ip ]['n']   = ( $per[ $ip ]['n'] ?? 0 ) + (int) $n;
+		}
+		if ( empty( $per ) ) {
+			return;
+		}
+		self::load_evidence();
+		foreach ( $per as $ip => $e ) {
+			self::$store[ $ip ] = BotStormRadar_Channel::evidence_merge( self::$store[ $ip ] ?? [], $e['p'], $e['u'], $e['n'], $minute * 60 );
+		}
+		self::$store_dirty = true;
+	}
+
+	/**
+	 * Paths and user agents seen from an address, for a trip's evidence:
+	 * the gate's APCu record and the kept spool record, merged. Empty when
+	 * there is none.
+	 *
+	 * @param string $ip
+	 * @return array paths, user_agents
+	 */
+	public static function probe_evidence( $ip ) {
+		self::load_evidence();
+		$dir = BotStormRadar_State::dir();
+		$a   = '' === $dir ? null : BotStormRadar_Channel::evidence_get( $dir, $ip );
+		$b   = self::$store[ $ip ] ?? null;
+		if ( null === $a && null === $b ) {
+			return [];
+		}
+		$v = is_array( $b ) ? $b : [];
+		if ( is_array( $a ) ) {
+			$v = BotStormRadar_Channel::evidence_merge( $v, (array) ( $a['paths'] ?? [] ), (array) ( $a['user_agents'] ?? [] ), 0, (int) ( $a['last'] ?? time() ) );
+		}
+		return array_filter( [
+			'paths'       => array_values( (array) ( $v['paths'] ?? [] ) ),
+			'user_agents' => array_values( (array) ( $v['user_agents'] ?? [] ) ),
+		] );
+	}
+
+	/**
+	 * Load the kept spool evidence once per run.
+	 */
+	private static function load_evidence() {
+		if ( null === self::$store ) {
+			$s           = get_option( self::EVIDENCE_OPTION, [] );
+			self::$store = is_array( $s ) ? $s : [];
+		}
+	}
+
+	/**
+	 * Write the kept spool evidence back when it changed: records older than
+	 * EVIDENCE_KEEP dropped, newest EVIDENCE_CAP addresses kept.
+	 *
+	 * @param int $now
+	 */
+	private static function save_evidence( $now ) {
+		if ( ! self::$store_dirty || null === self::$store ) {
+			return;
+		}
+		$keep = array_filter( self::$store, function ( $v ) use ( $now ) {
+			return is_array( $v ) && (int) ( $v['last'] ?? 0 ) >= $now - self::EVIDENCE_KEEP;
+		} );
+		uasort( $keep, function ( $a, $b ) {
+			return (int) $b['last'] <=> (int) $a['last'];
+		} );
+		self::$store       = array_slice( $keep, 0, self::EVIDENCE_CAP, true );
+		self::$store_dirty = false;
+		update_option( self::EVIDENCE_OPTION, self::$store, false );
+	}
+
+	/**
+	 * Forget the per-run evidence cache (tests).
+	 */
+	public static function reset_evidence_cache() {
+		self::$store       = null;
+		self::$store_dirty = false;
 	}
 
 	/**

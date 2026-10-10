@@ -20,6 +20,13 @@
  *     one from SPOOL_KEEP minutes earlier, so at most SPOOL_KEEP files exist
  *     and no request ever lists the directory.
  *
+ * Probe evidence (what a report needs: paths and user agents) travels apart
+ * from the counts, bounded: with APCu one key per probing address,
+ * `bsrc:<site>:pev:<ip>`, holding its latest EVIDENCE_PATHS distinct paths
+ * (query strings cut) and EVIDENCE_UAS user agents; without APCu one
+ * `pev` line per probe in the minute's spool file, written only while the
+ * file is below half its cap so evidence never crowds out the counts.
+ *
  * Drain contract: at most once, never twice. A minute is taken only once it
  * has ended (plus a two-second grace for requests already past their
  * decision) and claimed by exactly one drainer: each APCu key by the drainer
@@ -43,6 +50,11 @@ class BotStormRadar_Channel {
 	const SPOOL_KEEP = 120;
 	const GRACE      = 2;
 	const HEADER     = "<?php exit; ?>\n";
+
+	const EVIDENCE_PATHS = 5;
+	const EVIDENCE_UAS   = 3;
+	const EVIDENCE_CHARS = 200;
+	const EVIDENCE_TTL   = 7200;
 
 	/**
 	 * A short id for a data directory, shared by the gate and the drain.
@@ -95,9 +107,10 @@ class BotStormRadar_Channel {
 	 * @param string $dir
 	 * @param int    $minute
 	 * @param string $line
+	 * @param int    $cap    Bytes the file may reach with this line.
 	 * @return bool
 	 */
-	private static function spool_append( $dir, $minute, $line ) {
+	private static function spool_append( $dir, $minute, $line, $cap = self::SPOOL_CAP ) {
 		$file = $dir . 'spool-' . $minute . '.php';
 		$new  = @fopen( $file, 'x' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions -- succeeds for exactly one request per minute.
 		if ( false !== $new ) {
@@ -112,13 +125,130 @@ class BotStormRadar_Channel {
 		$ok = false;
 		if ( flock( $h, LOCK_EX ) ) {
 			$st = fstat( $h );
-			if ( is_array( $st ) && $st['size'] + strlen( $line ) <= self::SPOOL_CAP ) {
+			if ( is_array( $st ) && $st['size'] + strlen( $line ) <= $cap ) {
 				$ok = strlen( $line ) === fwrite( $h, $line ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			}
 			flock( $h, LOCK_UN );
 		}
 		fclose( $h ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		return $ok;
+	}
+
+	// ── Probe evidence ────────────────────────────────────────────────
+
+	/**
+	 * One evidence value as stored: no query string or fragment, printable
+	 * ASCII only (anything else becomes "?", so the value is always valid
+	 * UTF-8 and safe to cut), at most EVIDENCE_CHARS characters. Request
+	 * paths arrive percent-encoded and user agents are ASCII in practice.
+	 *
+	 * @param string $s
+	 * @param bool   $is_path
+	 * @return string
+	 */
+	public static function evidence_clean( $s, $is_path = false ) {
+		$s = (string) $s;
+		if ( $is_path ) {
+			$s = (string) preg_split( '/[?#]/', $s, 2 )[0];
+		}
+		$s = (string) preg_replace( '/[^\x20-\x7e]/', '?', $s );
+		return substr( $s, 0, self::EVIDENCE_CHARS );
+	}
+
+	/**
+	 * Record what one refused probe looked like. Returns false when nothing
+	 * was written (no address, spool at half its cap).
+	 *
+	 * @param string   $dir
+	 * @param string   $ip
+	 * @param string   $method
+	 * @param string   $uri    REQUEST_URI; the query string is cut here.
+	 * @param string   $ua
+	 * @param int|null $now
+	 * @return bool
+	 */
+	public static function evidence_add( $dir, $ip, $method, $uri, $ua, $now = null ) {
+		$now = null === $now ? time() : (int) $now;
+		if ( '' === (string) $ip || false === @inet_pton( (string) $ip ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			return false;
+		}
+		$method = preg_match( '/^[A-Z]{1,10}$/', (string) $method ) ? (string) $method : 'GET';
+		$path   = self::evidence_clean( $method . ' ' . self::evidence_clean( $uri, true ) );
+		$ua     = self::evidence_clean( $ua );
+		if ( self::apcu() ) {
+			$key = self::PREFIX . self::site_id( $dir ) . ':pev:' . $ip;
+			$ok  = false;
+			$v   = apcu_fetch( $key, $ok );
+			$v   = $ok && is_array( $v ) ? $v : [];
+			return apcu_store( $key, self::evidence_merge( $v, [ $path ], '' === $ua ? [] : [ $ua ], 1, $now ), self::EVIDENCE_TTL );
+		}
+		// Both values are printable ASCII (evidence_clean), so no tab or newline can break the line.
+		$line = 'pev' . "\t" . $path . "\t" . $ip . "\t" . $ua . "\n";
+		return self::spool_append( $dir, intdiv( $now, 60 ), $line, intdiv( self::SPOOL_CAP, 2 ) );
+	}
+
+	/**
+	 * Merge paths and user agents into an evidence record: distinct values,
+	 * newest last, bounded.
+	 *
+	 * @param array    $v     paths, user_agents, n, first, last
+	 * @param string[] $paths
+	 * @param string[] $uas
+	 * @param int      $n     Probes these values stand for.
+	 * @param int      $now
+	 * @return array
+	 */
+	public static function evidence_merge( array $v, array $paths, array $uas, $n, $now ) {
+		foreach ( [ 'paths' => [ $paths, self::EVIDENCE_PATHS ], 'user_agents' => [ $uas, self::EVIDENCE_UAS ] ] as $k => $add ) {
+			$list = isset( $v[ $k ] ) && is_array( $v[ $k ] ) ? $v[ $k ] : [];
+			foreach ( $add[0] as $item ) {
+				$item = (string) $item;
+				if ( '' === $item ) {
+					continue;
+				}
+				$list   = array_values( array_diff( $list, [ $item ] ) );
+				$list[] = $item;
+			}
+			$v[ $k ] = array_slice( $list, -$add[1] );
+		}
+		$v['n']     = (int) ( $v['n'] ?? 0 ) + (int) $n;
+		$v['first'] = (int) ( $v['first'] ?? $now );
+		$v['last']  = (int) $now;
+		return $v;
+	}
+
+	/**
+	 * The APCu evidence record of an address, or null.
+	 *
+	 * @param string $dir
+	 * @param string $ip
+	 * @return array|null paths, user_agents, n, first, last
+	 */
+	public static function evidence_get( $dir, $ip ) {
+		if ( ! self::apcu() || '' === (string) $ip ) {
+			return null;
+		}
+		$ok = false;
+		$v  = apcu_fetch( self::PREFIX . self::site_id( $dir ) . ':pev:' . $ip, $ok );
+		return $ok && is_array( $v ) ? $v : null;
+	}
+
+	/**
+	 * The evidence of one spool `pev` line: "pev\t<method path>\t<ip>\t<user agent>".
+	 *
+	 * @param string $line
+	 * @return array|null ip, p (method and path), u (user agent)
+	 */
+	public static function evidence_decode( $line ) {
+		$f = explode( "\t", (string) $line );
+		if ( 4 !== count( $f ) || 'pev' !== $f[0] || '' === $f[1] || false === @inet_pton( $f[2] ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			return null;
+		}
+		return [
+			'ip' => $f[2],
+			'p'  => self::evidence_clean( $f[1] ),
+			'u'  => self::evidence_clean( $f[3] ),
+		];
 	}
 
 	// ── Gate-side trips and provisional bans (APCu only) ─────────────
@@ -212,7 +342,8 @@ class BotStormRadar_Channel {
 
 	/**
 	 * Claim and read one minute from both channels. Returns the events as
-	 * [ "kind\tdetail\tip" => count ] (empty when another drainer took them)
+	 * [ "kind\tdetail\tip" => count ] (empty when another drainer took them),
+	 * plus the spool's evidence lines as [ "pev\t<method path>\tip\t<user agent>" => count ],
 	 * and sets $full when the spool file had reached its cap.
 	 *
 	 * @param string $dir
@@ -254,7 +385,8 @@ class BotStormRadar_Channel {
 						$raw = substr( $raw, strlen( self::HEADER ) );
 					}
 					foreach ( explode( "\n", $raw ) as $line ) {
-						if ( 3 === substr_count( $line . "\t", "\t" ) ) {
+						$tabs = substr_count( $line, "\t" );
+						if ( 2 === $tabs || ( 3 === $tabs && 0 === strpos( $line, "pev\t" ) ) ) {
 							$events[ $line ] = ( $events[ $line ] ?? 0 ) + 1;
 						}
 					}
