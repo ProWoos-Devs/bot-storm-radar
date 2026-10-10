@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Probe bans and would-be bans now show what the address asked for: the early gate keeps the last five distinct probed paths (with the method, query strings cut) and up to three user agents per probing address, and the drain adds them to the ban's evidence in the Bans tab. With APCu that is one short-lived key per address; on the spool it is one line per probe, written only while the minute's file is below half its cap, and kept for two hours in the option `botstormradar_probe_evidence` (at most 200 addresses, not autoloaded) because a trip can come minutes after the probes. Values are cut to 200 printable ASCII characters. GitHub build only; groundwork for abuse reports (#76).
+
 ## [0.4.0] - 2026-10-10
 
 ### Fixed
