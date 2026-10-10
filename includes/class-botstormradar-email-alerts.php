@@ -51,7 +51,7 @@ class BotStormRadar_Email_Alerts {
 			/* translators: %s: label of the source */
 			$body[] = sprintf( __( 'Source %s, read from the web-server access log.', 'bot-storm-radar' ), $label );
 		}
-		$body[] = __( 'Radar-only release: nothing was blocked, challenged or rate-limited.', 'bot-storm-radar' );
+		$body[] = __( 'The radar only reports a storm: no visitor was blocked or challenged because of it.', 'bot-storm-radar' );
 		$body[] = '';
 		$body[] = __( 'WHY:', 'bot-storm-radar' );
 		$body[] = (string) ( $ctx['explanation'] ?? '' );

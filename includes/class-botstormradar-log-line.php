@@ -131,7 +131,7 @@ class BotStormRadar_Log_Line {
 			if ( 'html' === $c && 404 === $p['status'] ) {
 				$c = '404';
 			}
-			if ( false !== strpos( $p['target'], 'bsr-beacon=' ) ) {
+			if ( false !== strpos( $p['target'], BotStormRadar_Beacon::PARAM . '=' ) || false !== strpos( $p['target'], BotStormRadar_Beacon::OLD_PARAM . '=' ) ) {
 				$c = 'beacon';
 			}
 			return $c;

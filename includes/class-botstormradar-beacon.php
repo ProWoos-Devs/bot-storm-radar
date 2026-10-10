@@ -21,7 +21,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Beacon {
 
-	const PARAM = 'bsr-beacon';
+	const PARAM = 'botstormradar-beacon';
+
+	/**
+	 * The name before 0.4.0, still answered: pages cached before the update
+	 * keep asking for it for a while.
+	 */
+	const OLD_PARAM = 'bsr-beacon';
 
 	const HANDLE = 'botstormradar-beacon';
 
@@ -57,7 +63,7 @@ class BotStormRadar_Beacon {
 	 */
 	public static function is_beacon_request() {
 		// A public, anonymous pixel: only its presence is checked, nothing is read from it.
-		return isset( $_GET[ self::PARAM ] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		return isset( $_GET[ self::PARAM ] ) || isset( $_GET[ self::OLD_PARAM ] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**

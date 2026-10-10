@@ -225,8 +225,9 @@ class BotStormRadar_Bans {
 		global $wpdb;
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::exports_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
-		// The tables of 0.2.x, where the plugin was never loaded after the update.
-		foreach ( array_keys( BotStormRadar_Migration::TABLES ) as $old ) {
+		// The tables of 0.2.x, where the plugin was never loaded after the
+		// update (its settings are still under the old name, so they are ours).
+		foreach ( BotStormRadar_Migration::is_old_install() ? array_keys( BotStormRadar_Migration::TABLES ) : [] as $old ) {
 			$wpdb->query( 'DROP TABLE IF EXISTS `' . $wpdb->prefix . $old . '`' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix and a constant.
 		}
 		delete_option( self::DB_VERSION_OPTION );

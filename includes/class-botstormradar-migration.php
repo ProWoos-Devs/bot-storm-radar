@@ -43,6 +43,18 @@ class BotStormRadar_Migration {
 	public static $moved = false;
 
 	/**
+	 * Whether this site ran 0.1.x or 0.2.x: its settings are still under
+	 * the old name and hold this plugin's own keys. Another plugin's option
+	 * of the same name would not carry both.
+	 *
+	 * @return bool
+	 */
+	public static function is_old_install() {
+		$o = get_option( self::OLD_PREFIX . 'options' );
+		return is_array( $o ) && isset( $o['min_distinct_ips'], $o['storm_threshold'] );
+	}
+
+	/**
 	 * Move everything from the old prefix to the new one. Runs on every
 	 * load until the marker exists, so an interrupted run completes on the
 	 * next; every step leaves nothing to redo once done.
@@ -68,10 +80,23 @@ class BotStormRadar_Migration {
 		if ( $lock ) {
 			delete_option( self::LOCK );
 		}
+		// Only a site that ran 0.1.x or 0.2.x has anything to move, or one
+		// whose move died halfway (its stale lock was found above). Anywhere
+		// else the old prefix may belong to another plugin: touch nothing.
+		if ( ! $lock && ! self::is_old_install() ) {
+			update_option( self::MARKER, BOTSTORMRADAR_VERSION, true );
+			return true;
+		}
 		if ( ! add_option( self::LOCK, time(), '', false ) ) {
 			return false;
 		}
 		$moved = false;
+
+		// Names of 0.1.0 and 0.1.1, replaced by the shared client-IP class in
+		// 0.1.2: dropped, not renamed.
+		wp_clear_scheduled_hook( 'bsr_refresh_ip_lists' );
+		delete_option( 'bsr_cloudflare_ranges' );
+		delete_option( 'bsr_proxy_detect' );
 
 		// Tables first: while the old ones still carry the data, the schema
 		// install would create empty tables under the new names.
