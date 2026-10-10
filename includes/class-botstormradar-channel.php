@@ -199,6 +199,9 @@ class BotStormRadar_Channel {
 	 * @return array
 	 */
 	public static function evidence_merge( array $v, array $paths, array $uas, $n, $now ) {
+		if ( (int) ( $v['last'] ?? 0 ) < (int) $now - self::EVIDENCE_TTL ) {
+			$v = []; // Expired: nothing old is carried into the new record.
+		}
 		foreach ( [ 'paths' => [ $paths, self::EVIDENCE_PATHS ], 'user_agents' => [ $uas, self::EVIDENCE_UAS ] ] as $k => $add ) {
 			$list = isset( $v[ $k ] ) && is_array( $v[ $k ] ) ? $v[ $k ] : [];
 			foreach ( $add[0] as $item ) {
@@ -386,8 +389,14 @@ class BotStormRadar_Channel {
 					}
 					foreach ( explode( "\n", $raw ) as $line ) {
 						$tabs = substr_count( $line, "\t" );
-						if ( 2 === $tabs || ( 3 === $tabs && 0 === strpos( $line, "pev\t" ) ) ) {
+						if ( 2 === $tabs ) {
 							$events[ $line ] = ( $events[ $line ] ?? 0 ) + 1;
+						} elseif ( 3 === $tabs && 0 === strpos( $line, "pev\t" ) ) {
+							// Evidence keeps the order of each line's last occurrence,
+							// so a repeated path still counts as the newest.
+							$n = ( $events[ $line ] ?? 0 ) + 1;
+							unset( $events[ $line ] );
+							$events[ $line ] = $n;
 						}
 					}
 				}

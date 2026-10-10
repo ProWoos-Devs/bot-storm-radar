@@ -57,6 +57,13 @@ class BotStormRadar_Channel_Drain {
 	private static $store_dirty = false;
 
 	/**
+	 * The clock of the run in progress (null outside a run).
+	 *
+	 * @var int|null
+	 */
+	private static $now = null;
+
+	/**
 	 * Drain every closed minute. Returns the per-minute totals drained.
 	 *
 	 * @param int|null $now
@@ -69,6 +76,8 @@ class BotStormRadar_Channel_Drain {
 		if ( '' === $dir ) {
 			return [];
 		}
+		self::$now = $now;
+		self::load_evidence(); // Expires old records even on a tick without new evidence.
 		$st   = self::status();
 		$lost = BotStormRadar_Channel::sweep_interrupted( $dir, 600, $now );
 		$out  = [];
@@ -121,7 +130,8 @@ class BotStormRadar_Channel_Drain {
 			$out[ $m ]     = $tot;
 		}
 		BotStormRadar_Counters::flush();
-		self::save_evidence( $now );
+		self::save_evidence();
+		self::$now = null;
 		$st['lost']      += count( $lost );
 		$st['last_drain'] = $now;
 		$st['channel']    = BotStormRadar_Channel::apcu() ? 'apcu' : ( 'cli' === PHP_SAPI ? 'spool (APCu not visible from the command line)' : 'spool' );
@@ -281,32 +291,36 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
-	 * Load the kept spool evidence once per run.
+	 * Load the kept spool evidence once per run, and drop records older than
+	 * EVIDENCE_KEEP before anything reads or merges them.
 	 */
 	private static function load_evidence() {
 		if ( null === self::$store ) {
 			$s           = get_option( self::EVIDENCE_OPTION, [] );
 			self::$store = is_array( $s ) ? $s : [];
 		}
-	}
-
-	/**
-	 * Write the kept spool evidence back when it changed: records older than
-	 * EVIDENCE_KEEP dropped, newest EVIDENCE_CAP addresses kept.
-	 *
-	 * @param int $now
-	 */
-	private static function save_evidence( $now ) {
-		if ( ! self::$store_dirty || null === self::$store ) {
-			return;
-		}
+		$now  = null === self::$now ? time() : self::$now;
 		$keep = array_filter( self::$store, function ( $v ) use ( $now ) {
 			return is_array( $v ) && (int) ( $v['last'] ?? 0 ) >= $now - self::EVIDENCE_KEEP;
 		} );
-		uasort( $keep, function ( $a, $b ) {
+		if ( count( $keep ) !== count( self::$store ) ) {
+			self::$store       = $keep;
+			self::$store_dirty = true;
+		}
+	}
+
+	/**
+	 * Write the kept spool evidence back when it changed, newest
+	 * EVIDENCE_CAP addresses kept.
+	 */
+	private static function save_evidence() {
+		if ( ! self::$store_dirty || null === self::$store ) {
+			return;
+		}
+		uasort( self::$store, function ( $a, $b ) {
 			return (int) $b['last'] <=> (int) $a['last'];
 		} );
-		self::$store       = array_slice( $keep, 0, self::EVIDENCE_CAP, true );
+		self::$store       = array_slice( self::$store, 0, self::EVIDENCE_CAP, true );
 		self::$store_dirty = false;
 		update_option( self::EVIDENCE_OPTION, self::$store, false );
 	}
@@ -317,6 +331,7 @@ class BotStormRadar_Channel_Drain {
 	public static function reset_evidence_cache() {
 		self::$store       = null;
 		self::$store_dirty = false;
+		self::$now         = null;
 	}
 
 	/**
