@@ -46,12 +46,12 @@ The radar observes and reports. It never blocks a swarm. On a quiet site the num
 
 == External services ==
 
-The plugin ships with two public address lists and uses them as they are. It contacts no outside service unless you ask it to: switch on **Address lists** on the Settings tab to download both lists once a day from WordPress cron, or click **Download address lists now**. A download sends nothing about your visitors. Like any HTTP request, it shows the service your server's IP address and a user agent.
+The plugin ships with two public address lists and uses them as they are. It makes no HTTP request to an outside service unless you ask it to: switch on **Address lists** on the Settings tab to download both lists once a day from WordPress cron, or click **Download address lists now**. A download sends nothing about your visitors. Like any HTTP request, it shows the service your server's IP address and a user agent.
 
 * **Cloudflare address ranges**, from `https://www.cloudflare.com/ips-v4` and `https://www.cloudflare.com/ips-v6`. The plugin needs them to tell a request that really came through Cloudflare from one that only claims to. The request carries the WordPress default user agent, which names your site's address. The bundled copy is used until the first download and whenever a download fails. The service is provided by Cloudflare, see its [terms](https://www.cloudflare.com/website-terms/) and [privacy policy](https://www.cloudflare.com/privacypolicy/).
 * **DuckDuckBot address list**, from `https://duckduckgo.com/duckduckbot.json`. The plugin needs it to verify visitors that claim to be DuckDuckBot. The request carries the user agent `BotStormRadar/` followed by the plugin version. The bundled copy is used until the first download and whenever a download fails. The service is provided by DuckDuckGo, see its [terms](https://duckduckgo.com/terms) and [privacy policy](https://duckduckgo.com/privacy).
 
-To verify a visitor that claims to be Googlebot, Bingbot, Applebot or Yandex, the plugin asks your server's own DNS resolver for the host name of that address.
+To verify a visitor that claims to be Googlebot, Bingbot, Applebot or Yandex, the plugin asks your server's own DNS resolver for the host name of that address, then looks that host name up to confirm it points back to the same address. This check is not covered by the Address lists switch, because without it any bot could pass as a search engine. Whether your resolver answers from its cache or asks other DNS servers depends on your server's configuration. The plugin has no telemetry service.
 
 == Installation ==
 
@@ -92,7 +92,7 @@ No. Settings, bans, minute history and the refusal rules are stored in the datab
 
 = Does it track visitors? =
 
-No. It sets no cookies and sends nothing about visitors anywhere. To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
+No. It sets no cookies and has no telemetry, so nothing about your visitors is sent to the plugin's author or any other service. The only lookups that involve a visitor's address are the DNS checks of visitors that claim to be search bots, described under External services. To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
 
 Visitor addresses are kept only as long as the detection needs them: per-minute counters expire after 25 minutes, and the minute history of the last 25 hours keeps totals plus the busiest addresses of each minute (at most 20, each with 10 or more requests in that minute). An address that tripped a ban is stored with the requests that caused it (paths and user agent) until 30 days after its ban ended, the list of would-be bans keeps the latest 200 addresses, an address claiming to be a search bot waits at most a day for its check, and the addresses banned in the last hour are kept for the digest mail until the next ban replaces them. Administrator addresses are remembered for a day so they are never banned, search-bot checks for a day, and a suspected proxy address until you trust or dismiss it. Uninstalling the plugin deletes all of it.
 
