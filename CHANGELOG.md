@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-09
+## [0.4.0] - 2026-10-10
 
 ### Fixed
 - The one-time move from the `bsr_` names ran on every new install, so it renamed and deleted any other plugin's `bsr_` options and transients. It now runs only on a site whose `bsr_options` holds this plugin's own settings, or whose earlier move was interrupted. The 0.1.x clean-up and the drop of the 0.2.x tables at uninstall follow the same rule.
