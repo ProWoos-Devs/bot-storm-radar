@@ -50,6 +50,9 @@ class BotStormRadar_Admin {
 		wp_register_style( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION );
 		wp_enqueue_style( 'botstormradar-admin' );
 		wp_add_inline_style( 'botstormradar-admin', self::css() );
+		// github-build-only:start
+		wp_add_inline_style( 'botstormradar-admin', '.bsr-report-text{white-space:pre-wrap;word-break:break-word;max-width:420px;font-size:12px;margin:4px 0}' );
+		// github-build-only:end
 		// Links that ask before they act carry their question in data-botstormradar-confirm.
 		wp_register_script( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION, true );
 		wp_enqueue_script( 'botstormradar-admin' );
@@ -182,6 +185,9 @@ class BotStormRadar_Admin {
 		add_settings_field( 'trust_all_forwarding', __( 'Trust all forwarding headers', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[trust_all_forwarding]" value="1" %2$s /> %3$s</label><p class="description bsr-danger">%4$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'trust_all_forwarding', 0 ), false ), esc_html__( 'Insecure, previous behavior', 'bot-storm-radar' ), esc_html__( 'Any client can then choose the address it is counted under. Use it only while you find your proxy address, then declare the proxy above and turn this off.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_proxies' );
+		// github-build-only:start
+		BotStormRadar_AbuseIPDB::register_settings( self::PAGE );
+		// github-build-only:end
 	}
 
 	/**
@@ -281,6 +287,9 @@ class BotStormRadar_Admin {
 			}
 			$out['allowlist'] = implode( "\n", $kept );
 		}
+		// github-build-only:start
+		$out = BotStormRadar_AbuseIPDB::sanitize( $input, $out );
+		// github-build-only:end
 		BotStormRadar_Helpers::flush_options();
 		return $out;
 	}
@@ -374,12 +383,22 @@ class BotStormRadar_Admin {
 					$notice = 'unban_none';
 				}
 				break;
+			// github-build-only:start
+			case 'abuseipdb_report':
+				$ip     = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
+				$kind   = isset( $_GET['kind'] ) && 'would' === $_GET['kind'] ? 'would' : 'ban';
+				$notice = BotStormRadar_IP_Resolver::is_valid_ip( $ip ) ? BotStormRadar_AbuseIPDB::handle_action( $ip, $kind ) : 'abuseipdb_none';
+				break;
+			// github-build-only:end
 			case 'clear_would':
 				delete_option( BotStormRadar_Bans::WOULD_OPTION );
 				$notice = 'would_cleared';
 				break;
 		}
 		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
+		// github-build-only:start
+		$redirect = remove_query_arg( 'kind', $redirect );
+		// github-build-only:end
 		wp_safe_redirect( add_query_arg( 'botstormradar_notice', $notice, $redirect ) );
 		exit;
 	}
@@ -422,6 +441,9 @@ class BotStormRadar_Admin {
 				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
 				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
 				'early_failed'    => [ 'error', __( 'Early protection could not be changed; the reason is shown in the Gate section below.', 'bot-storm-radar' ) ],
+				'abuseipdb_sent'  => [ 'success', __( 'The address was reported to AbuseIPDB.', 'bot-storm-radar' ) ],
+				'abuseipdb_none'  => [ 'warning', __( 'That address has no ban or would-be ban to report.', 'bot-storm-radar' ) ],
+				'abuseipdb_failed' => [ 'error', sprintf( /* translators: %s: the reason */ __( 'The AbuseIPDB report was not sent: %s.', 'bot-storm-radar' ), (string) get_transient( 'botstormradar_abuseipdb_error' ) ) ],
 				// github-build-only:end
 			];
 			if ( isset( $messages[ $key ] ) ) {
@@ -1049,6 +1071,9 @@ class BotStormRadar_Admin {
 							<?php if ( $r['active'] ) : ?>
 								<a class="button button-small" href="<?php echo esc_url( self::action_url( 'unban', [ 'ip' => $r['ip_text'], 'prefix' => (int) $r['prefix_len'] ] ) ); ?>"><?php esc_html_e( 'Unban', 'bot-storm-radar' ); ?></a>
 							<?php endif; ?>
+							<?php // github-build-only:start ?>
+							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
+							<?php // github-build-only:end ?>
 						</td>
 					</tr>
 				<?php endforeach; ?>
@@ -1069,6 +1094,9 @@ class BotStormRadar_Admin {
 					<th><?php esc_html_e( 'First', 'bot-storm-radar' ); ?></th>
 					<th><?php esc_html_e( 'Last', 'bot-storm-radar' ); ?></th>
 					<th><?php esc_html_e( 'Evidence', 'bot-storm-radar' ); ?></th>
+					<?php // github-build-only:start ?>
+					<th></th>
+					<?php // github-build-only:end ?>
 				</tr></thead>
 				<tbody>
 				<?php foreach ( $would as $ip => $w ) : ?>
@@ -1079,6 +1107,9 @@ class BotStormRadar_Admin {
 						<td><?php echo esc_html( wp_date( $fmt, (int) $w['first'] ) ); ?></td>
 						<td><?php echo esc_html( wp_date( $fmt, (int) $w['last'] ) ); ?></td>
 						<td><?php self::render_evidence( (array) $w['evidence'] ); ?></td>
+						<?php // github-build-only:start ?>
+						<td><?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?></td>
+						<?php // github-build-only:end ?>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>

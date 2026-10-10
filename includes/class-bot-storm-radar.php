@@ -58,6 +58,9 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-gate-early.php';
 		define( 'BOTSTORMRADAR_EARLY_GATE', true );
 		// github-build-only:end
+		// github-build-only:start (AbuseIPDB reports, issue #76)
+		require_once $dir . 'class-botstormradar-abuseipdb.php';
+		// github-build-only:end
 		require_once $dir . 'class-botstormradar-classifier.php';
 		require_once $dir . 'class-botstormradar-woocommerce.php';
 		require_once $dir . 'class-botstormradar-counters.php';
@@ -119,6 +122,7 @@ class Bot_Storm_Radar {
 		// github-build-only:start
 		BotStormRadar_State::init();
 		BotStormRadar_Gate_Install::init();
+		BotStormRadar_AbuseIPDB::init();
 		// github-build-only:end
 		BotStormRadar_Good_Bots::init();
 		self::gate_list_downloads();
@@ -206,6 +210,7 @@ class Bot_Storm_Radar {
 		BotStormRadar_Gate_Install::disable();
 		BotStormRadar_Gate_Early::disable();
 		BotStormRadar_Gate_Install::remove_loader();
+		wp_clear_scheduled_hook( BotStormRadar_AbuseIPDB::HOOK );
 		// github-build-only:end
 		BotStormRadar_Tick::unschedule();
 		BotStormRadar_Client_IP::unschedule();
