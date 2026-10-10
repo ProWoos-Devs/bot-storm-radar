@@ -75,6 +75,8 @@ class BotStormRadar_Gate {
 			// The radar learns about it through the channel (drained by the tick).
 			BotStormRadar_Channel::write( $dir, $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
 			if ( 'probe' === $d['action'] ) {
+				// Paths and user agent for the Bans tab and abuse reports (bounded, query strings cut).
+				BotStormRadar_Channel::evidence_add( $dir, (string) $d['ip'], (string) ( $_SERVER['REQUEST_METHOD'] ?? '' ), (string) ( $_SERVER['REQUEST_URI'] ?? '' ), (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' ), $now ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- cut to printable ASCII and bounded by evidence_clean().
 				self::probe_trip( $dir, (string) $d['ip'], $state, $now, (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only matched against the bot patterns.
 			}
 			self::refuse( 'probe' === $d['action'] ? 'probe' : 'refused' );
