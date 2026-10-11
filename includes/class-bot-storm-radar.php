@@ -58,8 +58,9 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-gate-early.php';
 		define( 'BOTSTORMRADAR_EARLY_GATE', true );
 		// github-build-only:end
-		// github-build-only:start (AbuseIPDB reports, issue #76)
+		// github-build-only:start (AbuseIPDB and provider reports, issue #76)
 		require_once $dir . 'class-botstormradar-abuseipdb.php';
+		require_once $dir . 'class-botstormradar-provider-report.php';
 		// github-build-only:end
 		require_once $dir . 'class-botstormradar-classifier.php';
 		require_once $dir . 'class-botstormradar-woocommerce.php';
