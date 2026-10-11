@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-11
+
 ### Added
 - Provider reports for probe bans (GitHub build only, #76). On the Bans tab each probe ban and probe would-be ban gets "Provider report": it looks up the network's abuse contact with RIPEstat's abuse-contact-finder (answers for every regional registry; at most three contacts, kept a week in a `botstormradar_abuse_contact_` transient, a failed lookup ten minutes) and opens a panel with the contact, a subject and a plain-text message to copy or open in the owner's mail app. The plugin never mails a third party, and the lookup runs only from the button. Same rules and evidence as the AbuseIPDB report: probe trips of one public address the ban guard allows, with recorded paths; the message names the site's domain, the paths without query strings, the probe count, the UTC window, the user agents and a failed search-bot claim.
 
