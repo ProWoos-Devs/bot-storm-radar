@@ -228,6 +228,29 @@ class BotStormRadar_AbuseIPDB {
 	 */
 	public static function refusal( array $c, $now = null ) {
 		$now = null === $now ? time() : (int) $now;
+		$why = self::reportable( $c );
+		if ( '' !== $why ) {
+			return $why;
+		}
+		if ( $c['ban_id'] > 0 && 'sent' === self::export_status( $c['ban_id'] ) ) {
+			return 'sent';
+		}
+		$last = self::log()[ $c['ip'] ] ?? null;
+		if ( is_array( $last ) && ! empty( $last['ok'] ) && (int) $last['t'] > $now - self::REPORT_GAP ) {
+			return 'reported';
+		}
+		return '';
+	}
+
+	/**
+	 * Why a candidate is not reportable at all, or '' when it is: a probe
+	 * trip of one public address that may be banned, with probed paths.
+	 * Shared with the provider report.
+	 *
+	 * @param array $c
+	 * @return string not-probe | protected | no-paths
+	 */
+	public static function reportable( array $c ) {
 		if ( 'probe' !== $c['reason'] ) {
 			return 'not-probe';
 		}
@@ -236,13 +259,6 @@ class BotStormRadar_AbuseIPDB {
 		}
 		if ( empty( self::paths( $c['evidence'] ) ) ) {
 			return 'no-paths';
-		}
-		if ( $c['ban_id'] > 0 && 'sent' === self::export_status( $c['ban_id'] ) ) {
-			return 'sent';
-		}
-		$last = self::log()[ $c['ip'] ] ?? null;
-		if ( is_array( $last ) && ! empty( $last['ok'] ) && (int) $last['t'] > $now - self::REPORT_GAP ) {
-			return 'reported';
 		}
 		return '';
 	}
@@ -274,14 +290,13 @@ class BotStormRadar_AbuseIPDB {
 			$when = gmdate( 'Y-m-d H:i', $first ) . ( gmdate( 'Y-m-d H:i', $last ) !== gmdate( 'Y-m-d H:i', $first ) ? ' to ' . ( gmdate( 'Y-m-d', $last ) === gmdate( 'Y-m-d', $first ) ? gmdate( 'H:i', $last ) : gmdate( 'Y-m-d H:i', $last ) ) : '' ) . ' UTC';
 			$parts[] = ( $count > 0 ? sprintf( '%d probe %s, ', $count, 1 === $count ? 'request' : 'requests' ) : '' ) . $when . '.';
 		}
-		$uas = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $ev['user_agents'] ?? [] ) ) ) ), -2 );
+		$uas = self::user_agents( $ev );
 		if ( $uas ) {
 			$parts[] = ( 1 === count( $uas ) ? 'User agent: ' : 'User agents: ' ) . implode( ' | ', $uas ) . '.';
 		}
-		$claims = (string) ( $ev['claims'] ?? '' );
-		if ( false !== strpos( $claims, '(fake)' ) ) {
-			$name    = trim( str_replace( '(fake)', '', $claims ) );
-			$parts[] = 'Claimed to be ' . self::clean( (string) ( BotStormRadar_Good_Bots::bots()[ $name ]['label'] ?? $name ) ) . '; reverse and forward DNS did not confirm it.';
+		$fake = self::fake_claim( $ev );
+		if ( '' !== $fake ) {
+			$parts[] = 'Claimed to be ' . $fake . '; reverse and forward DNS did not confirm it.';
 		}
 		$parts[] = 'Reported by Bot Storm Radar.';
 		return mb_substr( implode( ' ', $parts ), 0, self::COMMENT_MAX );
@@ -306,13 +321,38 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
+	 * The last two user agents in the evidence, cleaned.
+	 *
+	 * @param array $ev
+	 * @return string[]
+	 */
+	public static function user_agents( array $ev ) {
+		return array_slice( array_values( array_filter( array_map( [ __CLASS__, 'clean' ], (array) ( $ev['user_agents'] ?? [] ) ) ) ), -2 );
+	}
+
+	/**
+	 * The search engine the address falsely claimed to be, or ''.
+	 *
+	 * @param array $ev
+	 * @return string
+	 */
+	public static function fake_claim( array $ev ) {
+		$claims = (string) ( $ev['claims'] ?? '' );
+		if ( false === strpos( $claims, '(fake)' ) ) {
+			return '';
+		}
+		$name = trim( str_replace( '(fake)', '', $claims ) );
+		return self::clean( (string) ( BotStormRadar_Good_Bots::bots()[ $name ]['label'] ?? $name ) );
+	}
+
+	/**
 	 * Probes counted in the evidence: the radar's window count, or the
 	 * gate's per-class counts added up.
 	 *
 	 * @param array $ev
 	 * @return int
 	 */
-	private static function probe_count( array $ev ) {
+	public static function probe_count( array $ev ) {
 		if ( isset( $ev['window_probes'] ) ) {
 			return (int) $ev['window_probes'];
 		}
@@ -331,7 +371,7 @@ class BotStormRadar_AbuseIPDB {
 	 * @param string $s
 	 * @return string
 	 */
-	private static function clean( $s ) {
+	public static function clean( $s ) {
 		$s = preg_replace( '/[^\x20-\x7e]/', '?', (string) $s );
 		$s = preg_replace( '/[^\s\/@]+@[^\s\/@]+\.[a-z]{2,}/i', '[e-mail]', $s );
 		return substr( trim( $s ), 0, 200 );

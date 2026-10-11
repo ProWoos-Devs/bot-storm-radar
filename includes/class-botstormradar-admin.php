@@ -51,7 +51,7 @@ class BotStormRadar_Admin {
 		wp_enqueue_style( 'botstormradar-admin' );
 		wp_add_inline_style( 'botstormradar-admin', self::css() );
 		// github-build-only:start
-		wp_add_inline_style( 'botstormradar-admin', '.bsr-report-text{white-space:pre-wrap;word-break:break-word;max-width:420px;font-size:12px;margin:4px 0}' );
+		wp_add_inline_style( 'botstormradar-admin', '.bsr-report-text{white-space:pre-wrap;word-break:break-word;max-width:420px;font-size:12px;margin:4px 0}.bsr-provider-link{margin-top:4px}.bsr-provider-panel{background:#fff;border:1px solid #c3c4c7;border-left:4px solid #2271b1;padding:4px 16px 8px;margin:12px 0;max-width:900px}' );
 		// github-build-only:end
 		// Links that ask before they act carry their question in data-botstormradar-confirm.
 		wp_register_script( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION, true );
@@ -398,6 +398,15 @@ class BotStormRadar_Admin {
 				$kind   = isset( $_GET['kind'] ) && 'would' === $_GET['kind'] ? 'would' : 'ban';
 				$notice = BotStormRadar_IP_Resolver::is_valid_ip( $ip ) ? BotStormRadar_AbuseIPDB::handle_action( $ip, $kind ) : 'abuseipdb_none';
 				break;
+			case 'provider_report':
+				$ip     = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
+				$kind   = isset( $_GET['kind'] ) && 'would' === $_GET['kind'] ? 'would' : 'ban';
+				$notice = BotStormRadar_IP_Resolver::is_valid_ip( $ip ) ? BotStormRadar_Provider_Report::handle_action( $ip, $kind ) : 'provider_none';
+				if ( '' === $notice ) {
+					wp_safe_redirect( add_query_arg( [ BotStormRadar_Provider_Report::ARG => $ip, 'kind' => $kind ], remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce', 'botstormradar_notice' ] ) ) );
+					exit;
+				}
+				break;
 			// github-build-only:end
 			case 'clear_would':
 				delete_option( BotStormRadar_Bans::WOULD_OPTION );
@@ -406,7 +415,7 @@ class BotStormRadar_Admin {
 		}
 		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
 		// github-build-only:start
-		$redirect = remove_query_arg( 'kind', $redirect );
+		$redirect = remove_query_arg( [ 'kind', BotStormRadar_Provider_Report::ARG ], $redirect );
 		// github-build-only:end
 		wp_safe_redirect( add_query_arg( 'botstormradar_notice', $notice, $redirect ) );
 		exit;
@@ -453,6 +462,7 @@ class BotStormRadar_Admin {
 				'abuseipdb_sent'  => [ 'success', __( 'The address was reported to AbuseIPDB.', 'bot-storm-radar' ) ],
 				'abuseipdb_none'  => [ 'warning', __( 'That address has no ban or would-be ban to report.', 'bot-storm-radar' ) ],
 				'abuseipdb_failed' => [ 'error', sprintf( /* translators: %s: the reason */ __( 'The AbuseIPDB report was not sent: %s.', 'bot-storm-radar' ), (string) get_transient( 'botstormradar_abuseipdb_error' ) ) ],
+				'provider_none'   => [ 'warning', __( 'That address has no probe ban or would-be ban that can be reported.', 'bot-storm-radar' ) ],
 				// github-build-only:end
 			];
 			if ( isset( $messages[ $key ] ) ) {
@@ -1041,6 +1051,9 @@ class BotStormRadar_Admin {
 			printf( esc_html__( '%1$d in force, %2$d would-be, %3$d waiting for a search-bot check, %4$d unbanned by hand so far.', 'bot-storm-radar' ), count( $active ), count( $would ), count( $pending ), (int) $hand );
 			?>
 		</p>
+		<?php // github-build-only:start ?>
+		<?php BotStormRadar_Provider_Report::render_panel(); ?>
+		<?php // github-build-only:end ?>
 
 		<h2><?php esc_html_e( 'Bans', 'bot-storm-radar' ); ?></h2>
 		<?php if ( empty( $rows ) ) : ?>
@@ -1085,6 +1098,7 @@ class BotStormRadar_Admin {
 							<?php endif; ?>
 							<?php // github-build-only:start ?>
 							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
+							<?php BotStormRadar_Provider_Report::render_link( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
 							<?php // github-build-only:end ?>
 						</td>
 					</tr>
@@ -1120,7 +1134,10 @@ class BotStormRadar_Admin {
 						<td><?php echo esc_html( wp_date( $fmt, (int) $w['last'] ) ); ?></td>
 						<td><?php self::render_evidence( (array) $w['evidence'] ); ?></td>
 						<?php // github-build-only:start ?>
-						<td><?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?></td>
+						<td>
+							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?>
+							<?php BotStormRadar_Provider_Report::render_link( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?>
+						</td>
 						<?php // github-build-only:end ?>
 					</tr>
 				<?php endforeach; ?>
