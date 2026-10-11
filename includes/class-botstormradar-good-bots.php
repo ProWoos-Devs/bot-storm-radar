@@ -70,8 +70,8 @@ class BotStormRadar_Good_Bots {
 		return [
 			'googlebot'   => [
 				'label'   => 'Googlebot',
-				'pattern' => '~Googlebot|Google-InspectionTool|AdsBot-Google|Storebot-Google|GoogleOther|Google-Read-Aloud~i',
-				'rdns'    => [ '.googlebot.com', '.google.com', '.googleusercontent.com' ],
+				'pattern' => '~Googlebot|Google-InspectionTool|AdsBot-Google|Storebot-Google|GoogleOther~i',
+				'rdns'    => [ '.googlebot.com', '.google.com' ],
 			],
 			'bingbot'     => [
 				'label'   => 'Bingbot',
