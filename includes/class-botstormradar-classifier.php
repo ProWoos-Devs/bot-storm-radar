@@ -105,6 +105,53 @@ class BotStormRadar_Classifier {
 	}
 
 	/**
+	 * Paths of the WordPress endpoints the classifier names, from WordPress
+	 * itself (so a moved admin or login page is recognized), relative to the
+	 * site's base path, so a site in a subdirectory and a log line written
+	 * without that base both match.
+	 *
+	 * @return array name => lower-case path starting with '/'
+	 */
+	public static function endpoint_paths() {
+		static $paths = null;
+		if ( null === $paths ) {
+			$base  = rtrim( strtolower( (string) wp_parse_url( site_url( '/' ), PHP_URL_PATH ) ), '/' );
+			$urls  = [
+				'ajax'    => admin_url( 'admin-ajax.php' ),
+				'login'   => wp_login_url(),
+				'xmlrpc'  => site_url( 'xmlrpc.php' ),
+				'comment' => site_url( 'wp-comments-post.php' ),
+				'cron'    => site_url( 'wp-cron.php' ),
+			];
+			$paths = [];
+			foreach ( $urls as $name => $url ) {
+				$path = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_PATH ) );
+				if ( '' !== $base && 0 === strpos( $path, $base . '/' ) ) {
+					$path = substr( $path, strlen( $base ) );
+				}
+				$paths[ $name ] = '/' . ltrim( $path, '/' );
+			}
+		}
+		return $paths;
+	}
+
+	/**
+	 * Whether a lower-case request path ends with one of the endpoint paths
+	 * (the site's base path or a language prefix may come before it).
+	 *
+	 * @param string $lower
+	 * @param string $name
+	 * @return bool
+	 */
+	private static function is_endpoint( $lower, $name ) {
+		$want = self::endpoint_paths()[ $name ];
+		if ( '/' === $want ) {
+			return false;
+		}
+		return $lower === $want || substr( $lower, -strlen( $want ) ) === $want;
+	}
+
+	/**
 	 * Pure classification so tests can feed synthetic requests.
 	 *
 	 * @param string $path   Request path without the query string.
@@ -134,20 +181,20 @@ class BotStormRadar_Classifier {
 			} elseif ( false !== strpos( $route, '/wc/store' ) ) {
 				$detail = 'wc-store';
 			}
-		} elseif ( '/xmlrpc.php' === substr( $lower, -11 ) ) {
+		} elseif ( self::is_endpoint( $lower, 'xmlrpc' ) ) {
 			$class = 'xmlrpc';
-		} elseif ( '/wp-login.php' === substr( $lower, -13 ) ) {
+		} elseif ( self::is_endpoint( $lower, 'login' ) ) {
 			$class = ( isset( $query['action'] ) && 'register' === $query['action'] ) ? 'register' : 'login';
-		} elseif ( '/wp-comments-post.php' === substr( $lower, -21 ) ) {
+		} elseif ( self::is_endpoint( $lower, 'comment' ) ) {
 			$class = 'comment';
-		} elseif ( '/wp-admin/admin-ajax.php' === substr( $lower, -24 ) ) {
+		} elseif ( self::is_endpoint( $lower, 'ajax' ) ) {
 			$class  = 'admin-ajax';
 			$detail = isset( $query['action'] ) ? substr( sanitize_key( (string) $query['action'] ), 0, 40 ) : '';
 			// Classification only: the action name of an admin-ajax POST is counted, never acted on, so no nonce applies.
 			if ( '' === $detail && isset( $server['REQUEST_METHOD'] ) && 'POST' === $server['REQUEST_METHOD'] && isset( $_POST['action'] ) && is_string( $_POST['action'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 				$detail = substr( sanitize_key( wp_unslash( $_POST['action'] ) ), 0, 40 ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			}
-		} elseif ( '/wp-cron.php' === substr( $lower, -12 ) ) {
+		} elseif ( self::is_endpoint( $lower, 'cron' ) ) {
 			$class = 'cron';
 		} elseif ( '' !== $ext && in_array( $ext, self::ASSET_EXTENSIONS, true ) ) {
 			$class  = 'asset';
