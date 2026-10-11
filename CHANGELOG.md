@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Search bot check** switch on the Settings tab, off by default (second wordpress.org review). The reverse and forward DNS lookups that verify visitors claiming to be Googlebot, Bingbot, Applebot or Yandex run only when it is on. Off, those claims count as "not checked" on the Radar and their addresses are never banned: a trip is held on the Bans tab for a day and dropped, or queued for the check once it is switched on. DuckDuckBot is still checked against its address list. `replay --gate --verify-bots` still asks for DNS explicitly. A site that relied on the check has to switch it on after updating.
 - The reverse-DNS host endings are written with their leading dot (`.googlebot.com`), which is what the match compares.
 
+### Fixed
+- The request classifier takes the admin-ajax, login, XML-RPC, comment and cron paths from `admin_url()`, `wp_login_url()` and `site_url()` instead of fixed paths, so a moved admin or login page is classified correctly (second wordpress.org review).
+
 ## [0.4.0] - 2026-10-10
 
 ### Fixed
