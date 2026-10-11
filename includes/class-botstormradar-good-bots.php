@@ -8,8 +8,10 @@
  *
  * DNS never runs on the request path: an unknown address claiming a
  * reverse-DNS bot is queued and verified by the minute tick, with a budget,
- * and counts as "pending" until then. In v0.1 the verdict only labels
- * traffic on the dashboard.
+ * and counts as "pending" until then. The DNS check runs only when the owner
+ * switched it on (`bot_dns`, off by default); off, such a claim stays
+ * "unchecked" and its address is never banned, so a real crawler is never
+ * refused.
  *
  * Sources (fetched 2026-09-02): developers.google.com verifying-googlebot
  * (googlebot.com for common crawlers, google.com for special-case crawlers
@@ -54,25 +56,36 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * @return array name => [pattern, rdns suffixes | ip list]
+	 * Whether the owner switched on the DNS check of claimed search bots.
+	 *
+	 * @return bool
+	 */
+	public static function dns_enabled() {
+		return ! empty( BotStormRadar_Helpers::opt( 'bot_dns', 0 ) );
+	}
+
+	/**
+	 * Host name endings each family's reverse DNS must have. They are compared
+	 * with the answer of the server's own resolver; nothing is fetched from them.
+	 *
+	 * @return array name => [pattern, rdns host endings | ip list]
 	 */
 	public static function bots() {
 		return [
 			'googlebot'   => [
 				'label'   => 'Googlebot',
 				'pattern' => '~Googlebot|Google-InspectionTool|AdsBot-Google|Storebot-Google|GoogleOther|Google-Read-Aloud~i',
-				// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- reverse-DNS suffixes, nothing is loaded from them.
-				'rdns'    => [ 'googlebot.com', 'google.com', 'googleusercontent.com' ],
+				'rdns'    => [ '.googlebot.com', '.google.com', '.googleusercontent.com' ],
 			],
 			'bingbot'     => [
 				'label'   => 'Bingbot',
 				'pattern' => '~bingbot|BingPreview|msnbot|adidxbot|MicrosoftPreview~i',
-				'rdns'    => [ 'search.msn.com' ],
+				'rdns'    => [ '.search.msn.com' ],
 			],
 			'applebot'    => [
 				'label'   => 'Applebot',
 				'pattern' => '~Applebot~i',
-				'rdns'    => [ 'applebot.apple.com' ],
+				'rdns'    => [ '.applebot.apple.com' ],
 			],
 			'duckduckbot' => [
 				'label'   => 'DuckDuckBot',
@@ -82,7 +95,7 @@ class BotStormRadar_Good_Bots {
 			'yandex'      => [
 				'label'   => 'Yandex',
 				'pattern' => '~Yandex~i',
-				'rdns'    => [ 'yandex.ru', 'yandex.net', 'yandex.com' ],
+				'rdns'    => [ '.yandex.ru', '.yandex.net', '.yandex.com' ],
 			],
 		];
 	}
@@ -106,9 +119,9 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * Cached verdict for an address claiming a bot: verified | fake | pending.
-	 * Address-list bots are resolved immediately (no DNS); the others are
-	 * queued for the tick.
+	 * Cached verdict for an address claiming a bot: verified | fake | pending |
+	 * unchecked. Address-list bots are resolved immediately (no DNS); the
+	 * others are queued for the tick, or "unchecked" while the DNS check is off.
 	 *
 	 * @param string $ip
 	 * @param string $name
@@ -128,6 +141,9 @@ class BotStormRadar_Good_Bots {
 			self::store_verdict( $ip, $name, $v );
 			return $v;
 		}
+		if ( ! self::dns_enabled() ) {
+			return 'unchecked';
+		}
 		BotStormRadar_Counters::registry_add( self::PENDING_KEY, $ip, $name, self::PENDING_CAP, BotStormRadar_Counters::TTL_GLOBAL );
 		return 'pending';
 	}
@@ -140,6 +156,10 @@ class BotStormRadar_Good_Bots {
 	public static function verify_pending() {
 		$pending = BotStormRadar_Counters::get_value( self::PENDING_KEY, [] );
 		if ( ! is_array( $pending ) || empty( $pending ) ) {
+			return 0;
+		}
+		if ( ! self::dns_enabled() ) {
+			BotStormRadar_Counters::set_value( self::PENDING_KEY, [], BotStormRadar_Counters::TTL_GLOBAL ); // Switched off with addresses queued.
 			return 0;
 		}
 		$t0   = microtime( true );
@@ -158,7 +178,9 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * Synchronous verification (DNS or list). Tests and the tick only.
+	 * Synchronous verification (DNS or list). Called by the tick only when the
+	 * DNS check is on, and by `wp bot-storm-radar replay --gate --verify-bots`,
+	 * which asks for it explicitly.
 	 *
 	 * @param string $ip
 	 * @param string $name
@@ -190,8 +212,8 @@ class BotStormRadar_Good_Bots {
 		$host = strtolower( rtrim( $host, '.' ) );
 		$ok   = false;
 		foreach ( $suffixes as $s ) {
-			$s = strtolower( $s );
-			if ( $host === $s || substr( $host, -strlen( '.' . $s ) ) === '.' . $s ) {
+			$s = '.' . ltrim( strtolower( $s ), '.' );
+			if ( $host === substr( $s, 1 ) || substr( $host, -strlen( $s ) ) === $s ) {
 				$ok = true;
 				break;
 			}

@@ -18,7 +18,9 @@
  *   - a protected address (BotStormRadar_Guard) never trips;
  *   - an address whose user agent claims a verified-bot family and has no
  *     verdict yet is held as pending until the tick has verified it, and is
- *     banned only when the verdict is "fake";
+ *     banned only when the verdict is "fake". While the DNS check of search
+ *     bots is off, a reverse-DNS claim is never verified, so it stays held
+ *     and is dropped after a day: an unchecked claim is never banned;
  *   - observe mode (the default) records a would-be ban and writes no ban;
  *   - enforce mode writes the ban: base length, or the repeat length when
  *     the address was banned in the last day.
@@ -102,7 +104,7 @@ class BotStormRadar_Trips {
 			if ( 'verified' === $verdict ) {
 				return 'verified-bot';
 			}
-			if ( 'pending' === $verdict ) {
+			if ( 'pending' === $verdict || 'unchecked' === $verdict ) {
 				self::hold( $ip, $reason, $evidence + [ 'claims' => $claim ], $origin, $claim, $now );
 				return 'pending';
 			}
@@ -154,7 +156,8 @@ class BotStormRadar_Trips {
 	/**
 	 * After the tick verified the queued bot claims: a verified address is
 	 * dropped (it is protected), a fake one trips now, one still pending after
-	 * a day is dropped. Returns what was decided per address.
+	 * a day is dropped. A claim held while the DNS check was off is queued for
+	 * it once the check is switched on. Returns what was decided per address.
 	 *
 	 * @param int|null $now
 	 * @return array ip => result
@@ -181,6 +184,9 @@ class BotStormRadar_Trips {
 			} elseif ( (int) $p['at'] < $now - self::PENDING_MAX ) {
 				$done[ $ip ] = 'expired';
 			} else {
+				if ( '' === $v ) {
+					BotStormRadar_Good_Bots::verdict( (string) $ip, (string) $p['claim'] ); // Queues it when the DNS check is on.
+				}
 				continue;
 			}
 			unset( $list[ $ip ] );

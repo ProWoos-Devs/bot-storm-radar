@@ -153,6 +153,15 @@ class BotStormRadar_Admin {
 				esc_html__( 'Off by default. Off, the plugin uses the lists it ships with, updated with each release. On, it downloads them from Cloudflare and DuckDuckGo once a day, so a range added between releases is known within a day. Nothing about your visitors is sent.', 'bot-storm-radar' )
 			);
 		}, self::PAGE, 'botstormradar_proxies' );
+		add_settings_field( 'bot_dns', __( 'Search bot check', 'bot-storm-radar' ), function () {
+			printf(
+				'<label><input type="checkbox" name="%1$s[bot_dns]" value="1" %2$s /> %3$s</label><p class="description">%4$s</p>',
+				esc_attr( Bot_Storm_Radar::OPTION_KEY ),
+				checked( 1, (int) BotStormRadar_Helpers::opt( 'bot_dns', 0 ), false ),
+				esc_html__( 'Verify visitors that claim to be Googlebot, Bingbot, Applebot or Yandex by DNS', 'bot-storm-radar' ),
+				esc_html__( 'Off by default. On, the plugin asks your server\'s DNS resolver for the host name of such an address and confirms that the name points back to it; depending on your server, the resolver may ask other DNS servers, which then see the address. Off, no lookup is made: these visitors are counted as unchecked and are never banned, so a scanner that pretends to be a search engine is not banned either. DuckDuckBot is checked against its address list either way.', 'bot-storm-radar' )
+			);
+		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: it is answered 403 before a page is built. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
@@ -247,7 +256,7 @@ class BotStormRadar_Admin {
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
-		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates' ] as $k ) {
+		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates', 'bot_dns' ] as $k ) {
 			$out[ $k ] = empty( $input[ $k ] ) ? 0 : 1;
 		}
 		if ( array_key_exists( 'trusted_proxies', $input ) ) {
@@ -790,11 +799,14 @@ class BotStormRadar_Admin {
 			}
 		}
 		$bots = BotStormRadar_Good_Bots::bots();
-		echo '<table class="widefat striped bsr-table"><thead><tr><th>' . esc_html__( 'Claimed', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Verified', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Fake', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Pending', 'bot-storm-radar' ) . '</th></tr></thead><tbody>';
+		echo '<table class="widefat striped bsr-table"><thead><tr><th>' . esc_html__( 'Claimed', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Verified', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Fake', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Pending', 'bot-storm-radar' ) . '</th><th>' . esc_html__( 'Not checked', 'bot-storm-radar' ) . '</th></tr></thead><tbody>';
 		foreach ( $bots as $name => $bot ) {
-			printf( '<tr><td>%s</td><td>%d</td><td class="%s">%d</td><td>%d</td></tr>', esc_html( $bot['label'] ), (int) ( $sum[ $name ]['verified'] ?? 0 ), ( (int) ( $sum[ $name ]['fake'] ?? 0 ) > 0 ? 'bsr-danger' : '' ), (int) ( $sum[ $name ]['fake'] ?? 0 ), (int) ( $sum[ $name ]['pending'] ?? 0 ) );
+			printf( '<tr><td>%s</td><td>%d</td><td class="%s">%d</td><td>%d</td><td>%d</td></tr>', esc_html( $bot['label'] ), (int) ( $sum[ $name ]['verified'] ?? 0 ), ( (int) ( $sum[ $name ]['fake'] ?? 0 ) > 0 ? 'bsr-danger' : '' ), (int) ( $sum[ $name ]['fake'] ?? 0 ), (int) ( $sum[ $name ]['pending'] ?? 0 ), (int) ( $sum[ $name ]['unchecked'] ?? 0 ) );
 		}
 		echo '</tbody></table>';
+		if ( ! BotStormRadar_Good_Bots::dns_enabled() ) {
+			echo '<p class="description">' . esc_html__( 'The DNS check of search bots is off (Settings, Search bot check): claims other than DuckDuckBot are counted as not checked, and those addresses are never banned.', 'bot-storm-radar' ) . '</p>';
+		}
 		if ( BotStormRadar_Sources::SITE !== $source ) {
 			return; // The verification queue and verdicts below are the site's.
 		}
@@ -1119,7 +1131,11 @@ class BotStormRadar_Admin {
 
 		<?php if ( ! empty( $pending ) ) : ?>
 			<h2><?php esc_html_e( 'Waiting for a search-bot check', 'bot-storm-radar' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'These addresses tripped while claiming to be a search engine. They are checked by reverse and forward DNS on the next minute tick; a real crawler is let go, a fake one is banned (or listed above in observe mode).', 'bot-storm-radar' ); ?></p>
+			<?php if ( BotStormRadar_Good_Bots::dns_enabled() ) : ?>
+				<p class="description"><?php esc_html_e( 'These addresses tripped while claiming to be a search engine. They are checked by reverse and forward DNS on the next minute tick; a real crawler is let go, a fake one is banned (or listed above in observe mode).', 'bot-storm-radar' ); ?></p>
+			<?php else : ?>
+				<p class="description"><?php esc_html_e( 'These addresses tripped while claiming to be a search engine. The DNS check of search bots is off (Settings, Search bot check), so they are not banned and drop off this list after a day. Switched on, the check runs on the next minute tick.', 'bot-storm-radar' ); ?></p>
+			<?php endif; ?>
 			<div class="bsr-table-wrap"><table class="widefat striped bsr-bans-table">
 				<thead><tr>
 					<th><?php esc_html_e( 'Address', 'bot-storm-radar' ); ?></th>

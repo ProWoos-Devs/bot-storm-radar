@@ -24,7 +24,7 @@ It also protects. It refuses requests for files only scanners ask for before Wor
 * **Learned baseline.** Over the first seven days the plugin learns the site's normal number of distinct addresses per minute and its normal asset ratio, and shows them beside each threshold.
 * **Storm states.** Calm, warning, storm and cooling. Every transition is logged with the numbers that caused it and an explanation in words.
 * **Alerts** by plain-text email on warning, storm and all-clear.
-* **Good-bot verification.** Googlebot, Bingbot, Applebot and Yandex are verified by reverse DNS plus forward confirmation, DuckDuckBot against its published address list. A user agent alone proves nothing.
+* **Good-bot verification.** DuckDuckBot is verified against its published address list. Googlebot, Bingbot, Applebot and Yandex are verified by reverse DNS plus forward confirmation once you switch on the Search bot check; until then their claims are counted as not checked and never banned. A user agent alone proves nothing.
 * **The real visitor address behind a proxy.** A forwarding header is believed only when the request arrived through Cloudflare, a local proxy or a proxy you declare. A spoofed `X-Forwarded-For` from an ordinary client is ignored.
 * **Radar screen** with the current state, the last 24 hours per minute, top classes, top keys, bot claims and the storm timeline, plus a dashboard widget.
 
@@ -51,7 +51,7 @@ The plugin ships with two public address lists and uses them as they are. It mak
 * **Cloudflare address ranges**, from `https://www.cloudflare.com/ips-v4` and `https://www.cloudflare.com/ips-v6`. The plugin needs them to tell a request that really came through Cloudflare from one that only claims to. The request carries the WordPress default user agent, which names your site's address. The bundled copy is used until the first download and whenever a download fails. The service is provided by Cloudflare, see its [terms](https://www.cloudflare.com/website-terms/) and [privacy policy](https://www.cloudflare.com/privacypolicy/).
 * **DuckDuckBot address list**, from `https://duckduckgo.com/duckduckbot.json`. The plugin needs it to verify visitors that claim to be DuckDuckBot. The request carries the user agent `BotStormRadar/` followed by the plugin version. The bundled copy is used until the first download and whenever a download fails. The service is provided by DuckDuckGo, see its [terms](https://duckduckgo.com/terms) and [privacy policy](https://duckduckgo.com/privacy).
 
-To verify a visitor that claims to be Googlebot, Bingbot, Applebot or Yandex, the plugin asks your server's own DNS resolver for the host name of that address, then looks that host name up to confirm it points back to the same address. This check is not covered by the Address lists switch, because without it any bot could pass as a search engine. Whether your resolver answers from its cache or asks other DNS servers depends on your server's configuration. The plugin has no telemetry service.
+The DNS check of search bots is off by default as well. Switch on **Search bot check** on the Settings tab to verify visitors that claim to be Googlebot, Bingbot, Applebot or Yandex: the plugin then asks your server's own DNS resolver for the host name of such an address, and looks that host name up to confirm it points back to the same address. Whether your resolver answers from its cache or asks other DNS servers, which then see the address, depends on your server's configuration. With the check off, no lookup is made and those visitors are never banned. The plugin has no telemetry service.
 
 == Installation ==
 
@@ -72,7 +72,7 @@ Address bans start in observe mode. An address that would have been banned is li
 
 = Can it lock me or a search engine out? =
 
-Administrators, for a day after they last used wp-admin, verified search bots, Cloudflare and declared proxies, and the addresses on your never-ban list are never banned. Put your own address on the never-ban list if you may stay away from wp-admin longer. An address that claims to be a search bot is verified by DNS before anything happens to it.
+Administrators, for a day after they last used wp-admin, verified search bots, Cloudflare and declared proxies, and the addresses on your never-ban list are never banned. Put your own address on the never-ban list if you may stay away from wp-admin longer. An address that claims to be a search bot is verified before anything happens to it; while the Search bot check is off, an address claiming to be Googlebot, Bingbot, Applebot or Yandex is never banned.
 
 = How do I switch the refusals off without wp-admin? =
 
@@ -92,7 +92,7 @@ No. Settings, bans, minute history and the refusal rules are stored in the datab
 
 = Does it track visitors? =
 
-No. It sets no cookies and has no telemetry, so nothing about your visitors is sent to the plugin's author or any other service. The only lookups that involve a visitor's address are the DNS checks of visitors that claim to be search bots, described under External services. To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
+No. It sets no cookies and has no telemetry, so nothing about your visitors is sent to the plugin's author or any other service. The only lookups that involve a visitor's address are the DNS checks of visitors that claim to be search bots, which run only if you switch them on (see External services). To tell real browsers from bots, every front-end page asks your own site for a 1-pixel image and runs one line of JavaScript that requests it once more; both requests only add to the counts of the current minute.
 
 Visitor addresses are kept only as long as the detection needs them: per-minute counters expire after 25 minutes, and the minute history of the last 25 hours keeps totals plus the busiest addresses of each minute (at most 20, each with 10 or more requests in that minute). An address that tripped a ban is stored with the requests that caused it (paths and user agent) until 30 days after its ban ended, the list of would-be bans keeps the latest 200 addresses, an address claiming to be a search bot waits at most a day for its check, and the addresses banned in the last hour are kept for the digest mail until the next ban replaces them. Administrator addresses are remembered for a day so they are never banned, search-bot checks for a day, and a suspected proxy address until you trust or dismiss it. Uninstalling the plugin deletes all of it.
 

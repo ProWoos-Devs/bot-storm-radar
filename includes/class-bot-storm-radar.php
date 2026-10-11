@@ -268,6 +268,7 @@ class Bot_Storm_Radar {
 			'trusted_proxies'       => '',
 			'trust_all_forwarding'  => 0,
 			'list_updates'          => 0,
+			'bot_dns'               => 0,
 			'allowlist'             => '',
 			'probe_refusal'         => 1,
 			'probe_extra'           => '',
