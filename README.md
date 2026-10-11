@@ -1,6 +1,6 @@
 # Bot Storm Radar
 
-[![Version](https://img.shields.io/badge/Version-0.4.0-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
+[![Version](https://img.shields.io/badge/Version-0.5.0-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -9,7 +9,7 @@
 
 Since 0.2 it also protects. A gate that runs before WordPress refuses requests for files only scanners ask for (`.env`, `.git`, backups, other applications' admin pages), and a single address that keeps probing or asking for missing pages can be banned for a while. Address bans start in observe mode: they are listed, nobody is refused, until you switch them on.
 
-> **Current Version: 0.4.0** | **Released: October 9, 2026**
+> **Current Version: 0.5.0** | **Released: October 11, 2026**
 
 ## Why
 
@@ -25,7 +25,7 @@ The radar observes and reports; swarms are never blocked by it. On a quiet site 
 - **Counters** in sliding one-minute and ten-minute windows keyed by address, IPv4 /24, IPv6 /48, user-agent hash and WordPress session. Stored in the persistent object cache when there is one (Redis, Memcached), in APCu next, and in a transient fallback as the last resort. The Radar screen says which backend is active and warns on the fallback.
 - **Swarm metrics** every minute: single-hit ratio, asset ratio (a beacon that real browsers fetch and swarms do not, uncacheable so page caches do not hide it), user-agent evenness, error pressure, endpoint concentration, and the combined storm score, gated by traffic volume against the learned baseline.
 - **Learned baseline** over the first seven days: median distinct addresses per minute and the normal asset ratio, shown beside each threshold.
-- **Good-bot verification.** Googlebot, Bingbot, Applebot and Yandex are verified by reverse DNS plus forward confirmation, DuckDuckBot against its published address list, cached per address for a day. A user agent alone proves nothing; the dashboard labels claims as verified, fake, or pending.
+- **Good-bot verification.** DuckDuckBot is verified against its published address list. Googlebot, Bingbot, Applebot and Yandex are verified by reverse DNS plus forward confirmation once the **Search bot check** setting is on (off by default; off, their claims count as not checked and are never banned). Verdicts are cached per address for a day. A user agent alone proves nothing; the dashboard labels claims as verified, fake, pending or not checked.
 - **Storm states** calm, warning, storm, cooling, with the real transitions and hold times. Every transition is logged with the metrics that caused it and an explanation in words.
 - **Alerts** by plain-text email on warning, storm, and all-clear.
 - **Trusted-proxy address resolution.** A forwarding header is believed only when the request arrived through a known proxy: Cloudflare (ranges fetched daily, bundled fallback), a local proxy (private, link-local or loopback peer address), or a proxy you declare. Spoofed `X-Forwarded-For` from an ordinary client is ignored. An undeclared public proxy is detected and can be trusted with one click.
@@ -35,7 +35,7 @@ The radar observes and reports; swarms are never blocked by it. On a quiet site 
 
 - **The gate**, loaded by a must-use plugin before other plugins, or before WordPress itself with early protection. It never loads WordPress or queries the database.
 - **Probe refusal** (on by default): 403 for `.env` and other dot-files, copies of PHP files, configuration and log files, backups and dumps, other applications' admin paths and `.php` files that do not exist. Files the web server serves itself never reach it.
-- **Address bans by trips**, observe mode first: probes from one address (3 in 10 minutes) or missing pages (20 in a minute) ban it for an hour, a day on a repeat. Administrators, verified search bots, Cloudflare and declared proxies, and a never-ban list are never banned; a search-bot claim is verified by DNS first.
+- **Address bans by trips**, observe mode first: probes from one address (3 in 10 minutes) or missing pages (20 in a minute) ban it for an hour, a day on a repeat. Administrators, verified search bots, Cloudflare and declared proxies, and a never-ban list are never banned; a search-bot claim is verified by DNS first, or never banned while the Search bot check is off.
 - **The Bans tab**: bans with their evidence and Unban, would-be bans, claims waiting for verification. One digest mail when more than 10 addresses are banned in an hour.
 - **`replay --gate`**: a dry run over your access logs before you switch bans on.
 - **AbuseIPDB reports** (this GitHub build only): with an API key saved under Settings, AbuseIPDB reports, a probe ban or would-be ban gets a Report button with a preview of the exact comment, or, in automatic mode, every new probe ban in enforce mode is reported. Only probe trips with recorded paths, never missing-page trips, swarm members or protected addresses; one report per address a day and a daily cap you set. The report goes to `https://api.abuseipdb.com/api/v2/report` with the address, category 21 (19 as well for a fake search-bot claim), the first trip's time and a comment made of the probed paths without query strings, the probe count, the UTC window and the user agent. AbuseIPDB reports are public. Nothing is sent while reporting is off or no key is saved.
