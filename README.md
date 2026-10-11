@@ -38,10 +38,11 @@ The radar observes and reports; swarms are never blocked by it. On a quiet site 
 - **Address bans by trips**, observe mode first: probes from one address (3 in 10 minutes) or missing pages (20 in a minute) ban it for an hour, a day on a repeat. Administrators, verified search bots, Cloudflare and declared proxies, and a never-ban list are never banned; a search-bot claim is verified by DNS first.
 - **The Bans tab**: bans with their evidence and Unban, would-be bans, claims waiting for verification. One digest mail when more than 10 addresses are banned in an hour.
 - **`replay --gate`**: a dry run over your access logs before you switch bans on.
+- **AbuseIPDB reports** (this GitHub build only): with an API key saved under Settings, AbuseIPDB reports, a probe ban or would-be ban gets a Report button with a preview of the exact comment, or, in automatic mode, every new probe ban in enforce mode is reported. Only probe trips with recorded paths, never missing-page trips, swarm members or protected addresses; one report per address a day and a daily cap you set. The report goes to `https://api.abuseipdb.com/api/v2/report` with the address, category 21 (19 as well for a fake search-bot claim), the first trip's time and a comment made of the probed paths without query strings, the probe count, the UTC window and the user agent. AbuseIPDB reports are public. Nothing is sent while reporting is off or no key is saved.
 
 ## What it does not do yet
 
-Storm mode with the Cloudflare exporter and the challenge, the other exporters (CrowdSec, fail2ban, web-server include, AbuseIPDB), health signals for a database that is down, a capacity estimate, telemetry, multisite. See the roadmap in the design document.
+Storm mode with the Cloudflare exporter and the challenge, the other exporters (CrowdSec, fail2ban, web-server include), health signals for a database that is down, a capacity estimate, telemetry, multisite. See the roadmap in the design document.
 
 ## Requirements
 

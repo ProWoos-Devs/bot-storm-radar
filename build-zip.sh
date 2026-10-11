@@ -66,7 +66,7 @@ if [[ "$FLAVOR" == "wporg" ]]; then
     # the state file and the channel), and every block marked
     # github-build-only. The plugin then refuses inside WordPress
     # (BotStormRadar_Inline_Gate).
-    for f in github-updater gate gate-install gate-early state state-reader channel channel-drain; do
+    for f in github-updater gate gate-install gate-early state state-reader channel channel-drain abuseipdb; do
         rm "$STAGED/includes/class-botstormradar-$f.php"
     done
     # readme.txt is the wordpress.org readme; these two describe the GitHub build.
@@ -105,6 +105,10 @@ if [[ "$FLAVOR" == "wporg" ]]; then
     fi
     if ls "$STAGED"/assets/*.png "$STAGED"/assets/*.svg >/dev/null 2>&1; then
         echo "Error: directory assets are left in assets/"
+        exit 1
+    fi
+    if grep -rnE 'BotStormRadar_AbuseIPDB|abuseipdb_|api\.abuseipdb' "$STAGED"; then
+        echo "Error: AbuseIPDB reporting is GitHub-build only (lines above)"
         exit 1
     fi
     if grep -rnE 'BotStormRadar_(Gate|Gate_Install|Gate_Early|State|State_Reader|Channel|Channel_Drain)\b' "$STAGED" --include='*.php'; then
