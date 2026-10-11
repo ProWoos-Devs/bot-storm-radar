@@ -65,7 +65,7 @@ class BotStormRadar_Metrics {
 		}
 		$bots = array_keys( BotStormRadar_Good_Bots::bots() );
 		foreach ( $bots as $b ) {
-			foreach ( [ 'verified', 'fake', 'pending' ] as $v ) {
+			foreach ( [ 'verified', 'fake', 'pending', 'unchecked' ] as $v ) {
 				$keys[] = $p . 'bot:' . $b . ':' . $v;
 			}
 		}
@@ -87,7 +87,7 @@ class BotStormRadar_Metrics {
 		$row['bots'] = [];
 		foreach ( $bots as $b ) {
 			$set = [];
-			foreach ( [ 'verified', 'fake', 'pending' ] as $v ) {
+			foreach ( [ 'verified', 'fake', 'pending', 'unchecked' ] as $v ) {
 				$n = (int) ( $vals[ $p . 'bot:' . $b . ':' . $v ] ?? 0 );
 				if ( $n > 0 ) {
 					$set[ $v ] = $n;
