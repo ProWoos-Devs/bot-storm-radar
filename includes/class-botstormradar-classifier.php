@@ -122,6 +122,7 @@ class BotStormRadar_Classifier {
 				'xmlrpc'  => site_url( 'xmlrpc.php' ),
 				'comment' => site_url( 'wp-comments-post.php' ),
 				'cron'    => site_url( 'wp-cron.php' ),
+				'admin'   => admin_url( '/' ),
 			];
 			$paths = [];
 			foreach ( $urls as $name => $url ) {
@@ -130,6 +131,9 @@ class BotStormRadar_Classifier {
 					$path = substr( $path, strlen( $base ) );
 				}
 				$paths[ $name ] = '/' . ltrim( $path, '/' );
+				if ( 'admin' === $name ) {
+					$paths[ $name ] = rtrim( $paths[ $name ], '/' ) . '/';
+				}
 			}
 		}
 		return $paths;
@@ -165,15 +169,16 @@ class BotStormRadar_Classifier {
 		$class  = 'html';
 		$detail = '';
 
-		$ext = strtolower( (string) pathinfo( $lower, PATHINFO_EXTENSION ) );
+		$ext  = strtolower( (string) pathinfo( $lower, PATHINFO_EXTENSION ) );
+		$rest = '/' . trim( strtolower( rest_get_url_prefix() ), '/' );
 
 		// A probe that reached WordPress (gate off, or not loaded early enough).
 		$probe = BotStormRadar_Probe::classify( $path, BotStormRadar_Projection::probe_config(), (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
 		if ( '' !== $probe ) {
 			$class  = 'probe';
 			$detail = $probe;
-		} elseif ( isset( $query['rest_route'] ) || false !== strpos( $lower, '/wp-json/' ) || '/wp-json' === substr( $lower, -8 ) ) {
-			$route  = isset( $query['rest_route'] ) ? strtolower( (string) $query['rest_route'] ) : substr( $lower, (int) strpos( $lower, '/wp-json' ) + 8 );
+		} elseif ( isset( $query['rest_route'] ) || false !== strpos( $lower, $rest . '/' ) || substr( $lower, -strlen( $rest ) ) === $rest ) {
+			$route  = isset( $query['rest_route'] ) ? strtolower( (string) $query['rest_route'] ) : substr( $lower, (int) strpos( $lower, $rest ) + strlen( $rest ) );
 			$class  = 'rest';
 			$detail = 'other';
 			if ( false !== strpos( $route, '/wp/v2/users' ) ) {
@@ -201,7 +206,7 @@ class BotStormRadar_Classifier {
 			$detail = $ext;
 		} elseif ( isset( $query['s'] ) || false !== strpos( $lower, '/search/' ) || '/search' === substr( $lower, -7 ) ) {
 			$class = 'search';
-		} elseif ( 0 === strpos( $lower, '/wp-admin/' ) ) {
+		} elseif ( '/' !== self::endpoint_paths()['admin'] && false !== strpos( $lower, self::endpoint_paths()['admin'] ) ) {
 			$class = 'other';
 		}
 

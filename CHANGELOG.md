@@ -18,7 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The reverse-DNS host endings are written with their leading dot (`.googlebot.com`), which is what the match compares.
 
 ### Fixed
-- The request classifier takes the admin-ajax, login, XML-RPC, comment and cron paths from `admin_url()`, `wp_login_url()` and `site_url()` instead of fixed paths, so a moved admin or login page is classified correctly (second wordpress.org review).
+- The request classifier takes the admin-ajax, login, XML-RPC, comment, cron and admin paths from `admin_url()`, `wp_login_url()` and `site_url()`, and the REST prefix from `rest_get_url_prefix()`, instead of fixed paths, so a moved admin or login page is classified correctly (second wordpress.org review). The admin path also matches on a site in a subdirectory, which it did not before.
+- `replay --gate --home=<path>` takes the uploads folder from WordPress instead of assuming `wp-content/uploads`.
+- `verify_now()` itself refuses a reverse-DNS lookup while the Search bot check is off, unless the caller is an explicit `--verify-bots` run.
 
 ## [0.4.0] - 2026-10-10
 

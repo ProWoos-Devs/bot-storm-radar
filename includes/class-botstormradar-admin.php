@@ -63,7 +63,7 @@ class BotStormRadar_Admin {
 
 	private static function current_tab() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'radar';
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'radar';
 		return in_array( $tab, [ 'radar', 'bans', 'settings' ], true ) ? $tab : 'radar';
 	}
 

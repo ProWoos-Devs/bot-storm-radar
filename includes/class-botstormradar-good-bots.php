@@ -13,12 +13,8 @@
  * "unchecked" and its address is never banned, so a real crawler is never
  * refused.
  *
- * Sources (fetched 2026-09-02): developers.google.com verifying-googlebot
- * (googlebot.com for common crawlers, google.com for special-case crawlers
- * and user-triggered fetchers, gae.googleusercontent.com for fetchers),
- * support.apple.com/119829, yandex.com check-yandex-robots,
- * duckduckgo.com/duckduckbot.json; Bingbot's search.msn.com rule from the
- * Bing Webmaster blog "How to Verify that Bingbot is Bingbot".
+ * The host name endings come from each search engine's own documentation
+ * on verifying its crawler (checked 2026-09-02).
  *
  * @package Bot_Storm_Radar
  */
@@ -178,21 +174,25 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * Synchronous verification (DNS or list). Called by the tick only when the
-	 * DNS check is on, and by `wp bot-storm-radar replay --gate --verify-bots`,
-	 * which asks for it explicitly.
+	 * Synchronous verification (DNS or list). A reverse-DNS bot is looked up
+	 * only when the DNS check is on, or when `$explicit` says the owner asked
+	 * for this one run (`wp bot-storm-radar replay --gate --verify-bots`).
 	 *
 	 * @param string $ip
 	 * @param string $name
+	 * @param bool   $explicit
 	 * @return bool
 	 */
-	public static function verify_now( $ip, $name ) {
+	public static function verify_now( $ip, $name, $explicit = false ) {
 		$bots = self::bots();
 		if ( ! isset( $bots[ $name ] ) || ! BotStormRadar_Helpers::is_valid_ip( $ip ) ) {
 			return false;
 		}
 		if ( ! empty( $bots[ $name ]['iplist'] ) ) {
 			return self::verify_by_list( $ip, $name );
+		}
+		if ( ! $explicit && ! self::dns_enabled() ) {
+			return false;
 		}
 		return self::verify_by_rdns( $ip, $bots[ $name ]['rdns'] );
 	}
@@ -213,7 +213,7 @@ class BotStormRadar_Good_Bots {
 		$ok   = false;
 		foreach ( $suffixes as $s ) {
 			$s = '.' . ltrim( strtolower( $s ), '.' );
-			if ( $host === substr( $s, 1 ) || substr( $host, -strlen( $s ) ) === $s ) {
+			if ( substr( $s, 1 ) === $host || substr( $host, -strlen( $s ) ) === $s ) {
 				$ok = true;
 				break;
 			}
