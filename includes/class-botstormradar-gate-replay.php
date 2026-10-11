@@ -41,7 +41,10 @@ class BotStormRadar_Gate_Replay {
 		$cfg['root'] = isset( $opts['root'] ) ? (string) $opts['root'] : '';
 		$cfg['home'] = isset( $opts['home'] ) ? rtrim( (string) $opts['home'], '/' ) : '';
 		if ( isset( $opts['home'] ) ) {
-			$cfg['uploads'] = $cfg['home'] . '/wp-content/uploads/';
+			// The uploads folder as this site has it, moved under the given address path.
+			$site_home      = BotStormRadar_Projection::probe_config()['home'];
+			$uploads        = (string) $cfg['uploads'];
+			$cfg['uploads'] = $cfg['home'] . ( '' !== $site_home && 0 === strpos( $uploads, $site_home . '/' ) ? substr( $uploads, strlen( $site_home ) ) : $uploads );
 		}
 		$cfg['on'] = true;
 		$trips     = BotStormRadar_Trips::settings();
@@ -140,7 +143,7 @@ class BotStormRadar_Gate_Replay {
 					continue;
 				}
 				if ( ! isset( $bot_cache[ $ip ] ) ) {
-					$bot_cache[ $ip ] = BotStormRadar_Good_Bots::verify_now( $ip, $claim );
+					$bot_cache[ $ip ] = BotStormRadar_Good_Bots::verify_now( $ip, $claim, true );
 				}
 				if ( $bot_cache[ $ip ] ) {
 					$sum['pending'][ $ip ] = $claim . ' (verified, never banned)';
