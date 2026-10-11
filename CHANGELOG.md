@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The request classifier takes the admin-ajax, login, XML-RPC, comment, cron and admin paths from `admin_url()`, `wp_login_url()` and `site_url()`, and the REST prefix from `rest_get_url_prefix()`, instead of fixed paths, so a moved admin or login page is classified correctly (second wordpress.org review). The admin path also matches on a site in a subdirectory, which it did not before.
 - `replay --gate --home=<path>` takes the uploads folder from WordPress instead of assuming `wp-content/uploads`.
+- Google's user-triggered fetchers (Google-Read-Aloud, reverse DNS under Google's user-content domain) are no longer treated as a search-bot claim; they count as ordinary visitors. A single user-triggered fetch never trips a ban, and the plugin no longer names that domain.
 - `verify_now()` itself refuses a reverse-DNS lookup while the Search bot check is off, unless the caller is an explicit `--verify-bots` run.
 
 ## [0.4.0] - 2026-10-10
