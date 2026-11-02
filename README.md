@@ -31,6 +31,8 @@ The radar observes and reports; swarms are never blocked by it. On a quiet site 
 - **Trusted-proxy address resolution.** A forwarding header is believed only when the request arrived through a known proxy: Cloudflare (ranges fetched daily, bundled fallback), a local proxy (private, link-local or loopback peer address), or a proxy you declare. Spoofed `X-Forwarded-For` from an ordinary client is ignored. An undeclared public proxy is detected and can be trusted with one click.
 - **Radar screen** with the current state, the last 24 hours per minute, top classes, top keys, bot claims, and the storm timeline. Dashboard widget with the state and the last storm.
 
+**Page cache check.** Once a day, and on **Check now** on the Radar tab, it requests the home page, shop, one product, one category and one post of the site itself and says whether a cache answers them. It reads Cloudflare, Fastly, CloudFront, LiteSpeed, Varnish, nginx and host cache headers, plus a positive `Age`, and says "could not tell" rather than "not cached" when it has no evidence. It names the cookies on pages that are not cached and the cookies that take a visitor out of the cache. It changes no setting, and stores cookie names only. An administrator can mark a site as uncached on purpose, which stops the daily check. Filters: `botstormradar_cache_check_pages` and `botstormradar_cache_check_readers`.
+
 ## What the protection does (0.2)
 
 - **The gate**, loaded by a must-use plugin before other plugins, or before WordPress itself with early protection. It never loads WordPress or queries the database.
@@ -129,6 +131,8 @@ Behind a page cache PHP sees mostly cache misses, so the site's "slow request" m
 
 - `botstormradar_request_class( array $result, string $path, array $query, array $server )` adds or overrides the request class.
 - `botstormradar_known_classes( array $classes )` extends the fixed set of classes the metrics enumerate.
+- `botstormradar_cache_check_pages( array $pages )` changes the pages the page cache check requests, kind => URL. URLs off the site are dropped.
+- `botstormradar_cache_check_readers( array $readers )` adds cache headers, header name => callable returning `hit`, `miss`, `dynamic` or `bypass`.
 - `botstormradar_actions( BotStormRadar_Actions[] $actions )` attaches implementations of the `BotStormRadar_Actions` interface, which later releases use for enforcement and export.
 
 ## Development
