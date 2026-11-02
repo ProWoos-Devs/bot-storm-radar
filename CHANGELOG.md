@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-02
+
 ### Added
 - Page cache check (#86). A card on the Radar tab says whether a cache really answers the site's pages, from a daily sample of the home page, shop, one product, one category and one post, or on **Check now**. It names pages that ask to be cached and are not, cookies on uncached pages, cookies that take a visitor out of the cache, pages one cache answers while another does not store them, and pages asking caches to keep nonces longer than 12 hours. It says "could not tell" when it has no evidence, stores cookie names only, skips the daily run unless the radar is calm, and can be stopped per site. Filters: `botstormradar_cache_check_pages`, `botstormradar_cache_check_readers`.
 

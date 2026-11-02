@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.6.0
+Stable tag: 0.7.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,9 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 6. The dashboard widget.
 
 == Changelog ==
+
+= 0.7.0 =
+* Page cache check: a card on the Radar tab says whether a cache really answers your pages, from a daily sample of your own site or on Check now. It names pages a cache does not store and the cookies that take a visitor out of the cache, says "could not tell" when it has no evidence, and can be stopped per site.
 
 = 0.6.0 =
 * Maintenance release, no change in behavior.
