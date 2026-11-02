@@ -43,6 +43,7 @@ The radar observes and reports. It never blocks a swarm. On a quiet site the num
 * Reads web-server access logs (nginx or Apache combined format) as separate sources from WP-CLI, for traffic that never reaches WordPress.
 * WooCommerce request classes (cart, checkout, wc-ajax) when WooCommerce is active.
 * Counters live in the persistent object cache or in APCu, with a transient fallback. One of the first two is strongly recommended.
+* **Page cache check.** Once a day it requests a few of your own public pages and says in plain words whether a cache really answers them, which pages it does not store, and which cookies take a visitor out of the cache. It changes no cache or CDN setting and needs no credentials.
 
 == External services ==
 
@@ -52,6 +53,8 @@ The plugin ships with two public address lists and uses them as they are. It mak
 * **DuckDuckBot address list**, from `https://duckduckgo.com/duckduckbot.json`. The plugin needs it to verify visitors that claim to be DuckDuckBot. The request carries the user agent `BotStormRadar/` followed by the plugin version. The bundled copy is used until the first download and whenever a download fails. The service is provided by DuckDuckGo, see its [terms](https://duckduckgo.com/terms) and [privacy policy](https://duckduckgo.com/privacy).
 
 The DNS check of search bots is off by default as well. Switch on **Search bot check** on the Settings tab to verify visitors that claim to be Googlebot, Bingbot, Applebot or Yandex: the plugin then asks your server's own DNS resolver for the host name of such an address, and looks that host name up to confirm it points back to the same address. Whether your resolver answers from its cache or asks other DNS servers, which then see the address, depends on your server's configuration. With the check off, no lookup is made and those visitors are never banned. The same lookups run once when you ask for them on the command line with `wp bot-storm-radar replay --gate --verify-bots`. The plugin has no telemetry service.
+
+The page cache check talks only to your own site. Once a day, and when you click **Check now** on the Radar tab, it requests your home page, shop, one product, one category and one post, sends back any cookies those pages set, and keeps the result in your database with cookie names only, never their values. To go through a CDN that your server would otherwise skip because of a hosts-file entry, it looks up your site's host name in DNS and connects to the address it finds. Choose **Uncached on purpose, stop checking** to stop the daily check.
 
 == Installation ==
 
@@ -85,6 +88,10 @@ Yes. Cloudflare is recognized by its published address ranges. Another proxy has
 = Does it need an object cache? =
 
 No, but a persistent object cache (Redis, Memcached) or APCu is strongly recommended. Without one the counters fall back to transients in the database, and the Radar screen warns about it.
+
+= Why does the Radar tab say it could not tell whether my pages are cached? =
+
+The pages answered without a cache header the plugin knows, or did not answer at all. A cache may still be there: some do not announce themselves, and a request from your own server may not pass through your CDN. It is not a fault, and the plugin never reports "not cached" on that evidence. Add your own cache's header with the `botstormradar_cache_check_readers` filter.
 
 = Does it write files? =
 

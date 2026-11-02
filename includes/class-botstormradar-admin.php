@@ -412,6 +412,22 @@ class BotStormRadar_Admin {
 				delete_option( BotStormRadar_Bans::WOULD_OPTION );
 				$notice = 'would_cleared';
 				break;
+			case 'cache_check':
+				$last = BotStormRadar_Cache_Sampler::last();
+				if ( $last && time() - (int) $last['time'] < MINUTE_IN_SECONDS ) {
+					$notice = 'cache_recent';
+				} else {
+					$notice = BotStormRadar_Cache_Sampler::run( 'admin' ) ? 'cache_checked' : 'cache_locked';
+				}
+				break;
+			case 'cache_dismiss':
+				BotStormRadar_Cache_Sampler::set_dismissed( true );
+				$notice = 'cache_dismissed';
+				break;
+			case 'cache_restore':
+				BotStormRadar_Cache_Sampler::set_dismissed( false );
+				$notice = 'cache_restored';
+				break;
 		}
 		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
 		// github-build-only:start
@@ -454,6 +470,11 @@ class BotStormRadar_Admin {
 				'unbanned'        => [ 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ],
 				'unban_none'      => [ 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ],
 				'would_cleared'   => [ 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ],
+				'cache_checked'   => [ 'success', __( 'The page cache was checked.', 'bot-storm-radar' ) ],
+				'cache_locked'    => [ 'warning', __( 'A page cache check was already running; nothing was done.', 'bot-storm-radar' ) ],
+				'cache_recent'    => [ 'warning', __( 'The page cache was checked less than a minute ago; nothing was done.', 'bot-storm-radar' ) ],
+				'cache_dismissed' => [ 'success', __( 'Noted: this site is uncached on purpose. The daily page cache check has stopped.', 'bot-storm-radar' ) ],
+				'cache_restored'  => [ 'success', __( 'The daily page cache check is back on.', 'bot-storm-radar' ) ],
 				// github-build-only:start
 				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
 				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
@@ -695,6 +716,7 @@ class BotStormRadar_Admin {
 				<?php endif; ?>
 				<div class="bsr-card-sub"><strong><?php esc_html_e( 'WooCommerce:', 'bot-storm-radar' ); ?></strong> <?php echo BotStormRadar_WooCommerce::active() ? esc_html__( 'module active', 'bot-storm-radar' ) : esc_html__( 'not present', 'bot-storm-radar' ); ?></div>
 			</div>
+			<?php self::render_cache_card(); ?>
 			<?php endif; ?>
 		</div>
 
@@ -717,6 +739,128 @@ class BotStormRadar_Admin {
 		<h2><?php esc_html_e( 'Storm timeline', 'bot-storm-radar' ); ?></h2>
 		<?php self::render_timeline( $state, $source ); ?>
 		<?php
+	}
+
+	/**
+	 * What the last page cache check found, in words (issue #86).
+	 */
+	public static function render_cache_card() {
+		$last = BotStormRadar_Cache_Sampler::last();
+		?>
+		<div class="bsr-card">
+			<div class="bsr-card-label"><?php esc_html_e( 'Page cache', 'bot-storm-radar' ); ?></div>
+			<?php if ( BotStormRadar_Cache_Sampler::is_dismissed() ) : ?>
+				<div class="bsr-card-sub"><?php esc_html_e( 'You marked this site as uncached on purpose, so the daily check does not run.', 'bot-storm-radar' ); ?></div>
+				<p><a class="button button-small" href="<?php echo esc_url( self::action_url( 'cache_restore' ) ); ?>"><?php esc_html_e( 'Check daily again', 'bot-storm-radar' ); ?></a></p>
+			<?php else : ?>
+				<?php if ( $last ) : ?>
+					<div class="bsr-cache-verdict"><?php echo esc_html( self::cache_verdict_label( (string) $last['verdict'] ) ); ?></div>
+					<?php foreach ( self::cache_lines( $last ) as $line ) : ?>
+						<div class="bsr-card-sub bsr-evidence <?php echo BotStormRadar_Cache_Check::FAULT === $line[0] ? 'bsr-danger' : ''; ?>"><?php echo esc_html( $line[1] ); ?></div>
+					<?php endforeach; ?>
+					<div class="bsr-card-sub"><?php /* translators: %s: relative time, such as "5 mins ago" */ printf( esc_html__( 'Checked %s.', 'bot-storm-radar' ), esc_html( self::ago( (int) $last['time'] ) ) ); ?></div>
+				<?php else : ?>
+					<div class="bsr-card-sub"><?php esc_html_e( 'Not checked yet. Once a day, a few public pages of this site are requested to see whether a cache answers them.', 'bot-storm-radar' ); ?></div>
+				<?php endif; ?>
+				<p class="bsr-cache-actions">
+					<a class="button button-small" href="<?php echo esc_url( self::action_url( 'cache_check' ) ); ?>"><?php esc_html_e( 'Check now', 'bot-storm-radar' ); ?></a>
+					<?php if ( $last && BotStormRadar_Cache_Check::SITE_CACHED !== $last['verdict'] ) : ?>
+						<a class="button button-small" href="<?php echo esc_url( self::action_url( 'cache_dismiss' ) ); ?>"><?php esc_html_e( 'Uncached on purpose, stop checking', 'bot-storm-radar' ); ?></a>
+					<?php endif; ?>
+				</p>
+				<div class="bsr-card-sub bsr-muted"><?php esc_html_e( 'A check can take up to 40 seconds.', 'bot-storm-radar' ); ?></div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * @param string $verdict
+	 * @return string
+	 */
+	private static function cache_verdict_label( $verdict ) {
+		$labels = [
+			BotStormRadar_Cache_Check::SITE_CACHED         => __( 'Cached', 'bot-storm-radar' ),
+			BotStormRadar_Cache_Check::SITE_PARTLY         => __( 'Partly cached', 'bot-storm-radar' ),
+			BotStormRadar_Cache_Check::SITE_NOT_CACHED     => __( 'Not cached', 'bot-storm-radar' ),
+			BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL => __( 'Could not tell', 'bot-storm-radar' ),
+		];
+		return $labels[ $verdict ] ?? $labels[ BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL ];
+	}
+
+	/**
+	 * The findings of a check as sentences. Each states what was seen: from
+	 * outside a cache, the cause of a miss cannot be proved.
+	 *
+	 * @param array $result BotStormRadar_Cache_Sampler::last()
+	 * @return array List of [ severity, text ].
+	 */
+	private static function cache_lines( array $result ) {
+		$lines = [];
+		if ( BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL !== $result['verdict'] && BotStormRadar_Cache_Check::SITE_NOT_CACHED !== $result['verdict'] ) {
+			$lines[] = [ BotStormRadar_Cache_Check::INFO, __( 'Requests a cache answers do not reach this radar, so its numbers cover only what gets through.', 'bot-storm-radar' ) ];
+		}
+		foreach ( (array) $result['findings'] as $finding ) {
+			$pages   = self::cache_page_names( (array) $finding['pages'] );
+			$cookies = implode( ', ', array_slice( (array) $finding['cookies'], 0, 8 ) );
+			switch ( $finding['code'] ) {
+				case BotStormRadar_Cache_Check::PAGE_NOT_STORED:
+					/* translators: %s: list of pages, such as "home page, shop" */
+					$text = sprintf( __( 'Not stored: %s. These pages ask caches to keep them, and a cache in front of the site did not. Check that a caching rule covers this host name and these paths.', 'bot-storm-radar' ), $pages );
+					break;
+				case BotStormRadar_Cache_Check::PAGE_COOKIE_BLOCKS:
+					/* translators: 1: list of pages, 2: list of cookie names */
+					$text = sprintf( __( 'Not cached, and sending cookies: %1$s. Cookies: %2$s. Many caches do not store a response that sets a cookie.', 'bot-storm-radar' ), $pages, $cookies );
+					break;
+				case 'cookie_leaves_cache':
+					/* translators: 1: list of pages, 2: list of cookie names */
+					$text = sprintf( __( 'Cached for a new visitor, but not for one holding the cookies this site hands out: %1$s. Cookies: %2$s. A visitor who picks them up may leave the cache on every page.', 'bot-storm-radar' ), $pages, $cookies );
+					break;
+				case BotStormRadar_Cache_Check::PAGE_ORIGIN_FORBIDS:
+					/* translators: %s: list of pages */
+					$text = sprintf( __( 'Uncached on purpose: %s. The site tells caches not to store these pages.', 'bot-storm-radar' ), $pages );
+					break;
+				case BotStormRadar_Cache_Check::PAGE_ORIGIN_SILENT:
+					/* translators: %s: list of pages */
+					$text = sprintf( __( 'Not asked to be cached: %s. A cache is present, and these pages do not ask it to keep them.', 'bot-storm-radar' ), $pages );
+					break;
+				case BotStormRadar_Cache_Check::PAGE_NO_SIGNAL:
+					/* translators: %s: list of pages */
+					$text = sprintf( __( 'No cache header on: %s. There may be no cache, or a request from this server may not pass through it.', 'bot-storm-radar' ), $pages );
+					break;
+				case BotStormRadar_Cache_Check::PAGE_NO_ANSWER:
+					/* translators: %s: list of pages */
+					$text = sprintf( __( 'No usable answer from: %s. A timeout, a refusal or a redirect says nothing about caching.', 'bot-storm-radar' ), $pages );
+					break;
+				case 'ttl_outlives_nonces':
+					/* translators: %s: list of pages */
+					$text = sprintf( __( 'Asking caches to keep nonces longer than 12 hours: %s. A page kept that long can carry an expired nonce, which can break forms and buttons for guests.', 'bot-storm-radar' ), $pages );
+					break;
+				default:
+					continue 2;
+			}
+			$lines[] = [ (string) $finding['severity'], $text ];
+		}
+		return $lines;
+	}
+
+	/**
+	 * @param array $kinds Sampled page kinds.
+	 * @return string
+	 */
+	private static function cache_page_names( array $kinds ) {
+		$names = [
+			'home'     => __( 'home page', 'bot-storm-radar' ),
+			'shop'     => __( 'shop', 'bot-storm-radar' ),
+			'product'  => __( 'product', 'bot-storm-radar' ),
+			'category' => __( 'category', 'bot-storm-radar' ),
+			'post'     => __( 'post', 'bot-storm-radar' ),
+		];
+		$out   = [];
+		foreach ( $kinds as $kind ) {
+			$out[] = $names[ $kind ] ?? (string) $kind;
+		}
+		return implode( ', ', $out );
 	}
 
 	/**
@@ -1412,6 +1556,8 @@ class BotStormRadar_Admin {
 .bsr-state-warning .bsr-state-name{color:#dba617}
 .bsr-state-storm .bsr-state-name{color:#d63638}
 .bsr-state-cooling .bsr-state-name{color:#2271b1}
+.bsr-cache-verdict{font-size:20px;font-weight:600;line-height:1.2;margin:2px 0 6px}
+.bsr-cache-actions .button{white-space:normal;height:auto;margin:0 4px 4px 0}
 .bsr-danger{color:#d63638}.bsr-muted{opacity:.6}.bsr-evidence{word-break:break-word}.bsr-table-wrap{overflow-x:auto;max-width:100%}.bsr-bans-table code{white-space:nowrap}.bsr-bans-table td{vertical-align:top}
 .bsr-baseline{font-style:italic}
 .bsr-wrap input[type=number].small-text{width:6em}

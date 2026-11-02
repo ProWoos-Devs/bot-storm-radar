@@ -28,9 +28,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Cache_Sampler {
 
-	const OPTION   = 'botstormradar_cache_check';
-	const LOCK     = 'g:cache_check_lock';
-	const LOCK_TTL = 120;
+	const OPTION    = 'botstormradar_cache_check';
+	const DISMISSED = 'botstormradar_cache_check_dismissed';
+	const LOCK      = 'g:cache_check_lock';
+	const LOCK_TTL  = 120;
 
 	/**
 	 * Seconds for one request, and for the whole run. No new request starts
@@ -74,6 +75,9 @@ class BotStormRadar_Cache_Sampler {
 	 * answers would say more about the storm than about the cache.
 	 */
 	public static function daily() {
+		if ( self::is_dismissed() ) {
+			return;
+		}
 		$last = self::last();
 		if ( $last && time() - (int) $last['time'] < self::MIN_AGE ) {
 			return;
@@ -91,6 +95,27 @@ class BotStormRadar_Cache_Sampler {
 	public static function last() {
 		$result = get_option( self::OPTION, null );
 		return is_array( $result ) && isset( $result['time'] ) ? $result : null;
+	}
+
+	/**
+	 * Whether the owner said this site is uncached on purpose. It stays that
+	 * way until they undo it, and no daily requests run meanwhile.
+	 *
+	 * @return bool
+	 */
+	public static function is_dismissed() {
+		return (bool) get_option( self::DISMISSED, false );
+	}
+
+	/**
+	 * @param bool $dismissed
+	 */
+	public static function set_dismissed( $dismissed ) {
+		if ( $dismissed ) {
+			update_option( self::DISMISSED, 1, false );
+		} else {
+			delete_option( self::DISMISSED );
+		}
 	}
 
 	/**
