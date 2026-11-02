@@ -18,6 +18,7 @@
  * - x-litespeed-cache: https://docs.litespeedtech.com/lscache/noplugin/installation/
  * - x-proxy-cache: https://eu.siteground.com/kb/siteground-dynamic-caching-configuration/
  * - x-cache-status, x-srcache-fetch-status, x-varnish: WP_Site_Health::get_page_cache_headers()
+ * - x-wp-spc-disk-cache: Super Page Cache 5.3.8, src/Modules/Fallback_Cache.php and Cache_Controller.php
  *
  * x-kinsta-cache, x-sucuri-cache, cdn-cache, x-fastcgi-cache and x-cacheable
  * have no value list we could confirm in vendor documentation, so only the
@@ -80,6 +81,7 @@ class BotStormRadar_Cache_Check {
 		'cdn-cache'              => 'cdn-cache',
 		'x-fastcgi-cache'        => 'fastcgi',
 		'x-cacheable'            => 'x-cacheable',
+		'x-wp-spc-disk-cache'    => 'super-page-cache',
 	];
 
 	/**
@@ -275,7 +277,7 @@ class BotStormRadar_Cache_Check {
 	 *
 	 * @param array $sample kind (string), url (string), has_nonce (bool), requests: list of [ status (int), headers (array) ], or [ error (string) ]
 	 * @param array $custom See read_response().
-	 * @return array kind, url, outcome, cookies, layers, edge_ttl, has_nonce
+	 * @return array kind, url, outcome, cookies, layers, edge_ttl, has_nonce, passed_by (layers that did not store a page another layer answered)
 	 */
 	public static function analyze_page( array $sample, array $custom = [] ) {
 		$requests = isset( $sample['requests'] ) ? (array) $sample['requests'] : [];
@@ -287,6 +289,7 @@ class BotStormRadar_Cache_Check {
 			'layers'    => [],
 			'edge_ttl'  => 0,
 			'has_nonce' => ! empty( $sample['has_nonce'] ),
+			'passed_by' => [],
 		];
 
 		if ( ! $requests ) {
@@ -313,6 +316,13 @@ class BotStormRadar_Cache_Check {
 
 		if ( in_array( self::HIT, $states, true ) ) {
 			$result['outcome'] = self::PAGE_CACHED;
+			// One cache answers and another, asked to store the page, does not.
+			// A plain miss proves nothing here: a cache behind a hit also misses.
+			foreach ( $asks ? $read['layers'] : [] as $layer ) {
+				if ( in_array( $layer['state'], [ self::DYNAMIC, self::BYPASS ], true ) ) {
+					$result['passed_by'][] = $layer['layer'];
+				}
+			}
 		} elseif ( ! array_diff( $states, [ self::NONE, self::UNKNOWN ] ) ) {
 			$result['outcome'] = self::PAGE_NO_SIGNAL;
 		} elseif ( $forbids ) {
@@ -388,6 +398,22 @@ class BotStormRadar_Cache_Check {
 		$lost = self::replay_finding( $replay, $custom, $cached > 0 );
 		if ( $lost ) {
 			$findings[] = $lost;
+		}
+
+		$passed = array_filter(
+			$pages,
+			static function ( $page ) {
+				return (bool) $page['passed_by'];
+			}
+		);
+		if ( $passed ) {
+			$findings[] = [
+				'code'     => 'layer_not_storing',
+				'severity' => self::INFO,
+				'pages'    => array_column( $passed, 'kind' ),
+				'cookies'  => [],
+				'layers'   => array_values( array_unique( array_merge( ...array_column( $passed, 'passed_by' ) ) ) ),
+			];
 		}
 
 		$old_nonces = array_filter(

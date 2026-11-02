@@ -799,6 +799,8 @@ class BotStormRadar_Admin {
 		$lines = [];
 		if ( BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL !== $result['verdict'] && BotStormRadar_Cache_Check::SITE_NOT_CACHED !== $result['verdict'] ) {
 			$lines[] = [ BotStormRadar_Cache_Check::INFO, __( 'Requests a cache answers do not reach this radar, so its numbers cover only what gets through.', 'bot-storm-radar' ) ];
+		} elseif ( defined( 'WP_CACHE' ) && WP_CACHE ) {
+			$lines[] = [ BotStormRadar_Cache_Check::INFO, __( 'A PHP page cache is switched on here (WP_CACHE). Not every one announces itself, so it may still be answering.', 'bot-storm-radar' ) ];
 		}
 		foreach ( (array) $result['findings'] as $finding ) {
 			$pages   = self::cache_page_names( (array) $finding['pages'] );
@@ -831,6 +833,10 @@ class BotStormRadar_Admin {
 				case BotStormRadar_Cache_Check::PAGE_NO_ANSWER:
 					/* translators: %s: list of pages */
 					$text = sprintf( __( 'No usable answer from: %s. A timeout, a refusal or a redirect says nothing about caching.', 'bot-storm-radar' ), $pages );
+					break;
+				case 'layer_not_storing':
+					/* translators: 1: list of pages, 2: name of a cache, such as cloudflare */
+					$text = sprintf( __( 'One cache answers these pages, but another is not storing them: %1$s. Not storing: %2$s. These visits still pass through that one to reach the cache that answers.', 'bot-storm-radar' ), $pages, implode( ', ', (array) ( $finding['layers'] ?? [] ) ) );
 					break;
 				case 'ttl_outlives_nonces':
 					/* translators: %s: list of pages */
