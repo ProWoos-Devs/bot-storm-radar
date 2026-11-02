@@ -76,6 +76,8 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-storm.php';
 		require_once $dir . 'class-botstormradar-error-burst.php';
 		require_once $dir . 'class-botstormradar-tick.php';
+		require_once $dir . 'class-botstormradar-cache-check.php';
+		require_once $dir . 'class-botstormradar-cache-sampler.php';
 		require_once $dir . 'class-botstormradar-email-alerts.php';
 		require_once $dir . 'class-botstormradar-admin.php';
 		require_once $dir . 'class-botstormradar-migration.php';
@@ -128,6 +130,7 @@ class Bot_Storm_Radar {
 		BotStormRadar_Good_Bots::init();
 		self::gate_list_downloads();
 		BotStormRadar_Tick::init();
+		BotStormRadar_Cache_Sampler::init();
 		// Last: a refused request stops here (builds without the early gate).
 		BotStormRadar_Inline_Gate::init();
 	}
