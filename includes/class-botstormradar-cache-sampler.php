@@ -16,8 +16,13 @@
  * address instead (cURL only). Where DNS itself answers differently inside the
  * network, the check still cannot see the CDN and reports "could not tell".
  *
- * Whatever goes wrong (a timeout, a firewall refusal, a redirect off the site)
- * becomes "no answer" for that page, which reports nothing.
+ * On that route the certificate is always checked, whatever core's loopback
+ * filter says, so the answer cannot come from a server that only claims to be
+ * the site.
+ *
+ * Whatever goes wrong (a timeout, a firewall refusal, a certificate that does
+ * not verify, a redirect off the site) becomes "no answer" for that page,
+ * which reports nothing.
  *
  * @package Bot_Storm_Radar
  */
@@ -383,7 +388,7 @@ class BotStormRadar_Cache_Sampler {
 			};
 			add_action( 'http_api_curl', $connect );
 		}
-		$response = self::request( $url, $cookies );
+		$response = self::request( $url, $cookies, '' !== $address );
 		if ( $connect ) {
 			remove_action( 'http_api_curl', $connect );
 		}
@@ -419,18 +424,24 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
+	 * The certificate is always checked on the route to the public address:
+	 * that answer counts as what visitors get, so it must come from a server
+	 * holding the site's certificate. The normal route is the site asking
+	 * itself, as core's loopback does, and follows core's filter for that.
+	 *
 	 * @param string $url
 	 * @param array  $cookies
+	 * @param bool   $public  Connecting to the public address.
 	 * @return array|WP_Error
 	 */
-	private static function request( $url, array $cookies ) {
+	private static function request( $url, array $cookies, $public = false ) {
 		return wp_safe_remote_get(
 			$url,
 			[
 				'timeout'             => self::TIMEOUT,
 				'redirection'         => 0,
 				/** This filter is documented in wp-includes/class-wp-http-streams.php */
-				'sslverify'           => apply_filters( 'https_local_ssl_verify', false, $url ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
+				'sslverify'           => $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
 				'limit_response_size' => self::MAX_BODY,
 				'headers'             => [ 'Accept' => 'text/html' ],
 				'cookies'             => $cookies,
