@@ -491,9 +491,22 @@ class BotStormRadar_Admin {
 			}
 		}
 
+		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		// github-build-only:start
+		// A gate that could not be written: Dashboard, Plugins and the plugin's
+		// own page, until a retry works.
+		$gi = BotStormRadar_Gate_Install::install_status();
+		if ( $screen && in_array( $screen->id, [ 'dashboard', 'plugins', 'toplevel_page_' . self::PAGE ], true ) && BOTSTORMRADAR_VERSION === $gi['version'] && ! $gi['ok'] && '' !== $gi['error'] ) {
+			printf(
+				'<div class="notice notice-error"><p><strong>%1$s</strong> %2$s</p></div>',
+				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
+				/* translators: %s: the reason, such as a folder that could not be written */
+				esc_html( sprintf( __( 'the gate could not be installed (%s), so it may be missing or still running an older version. It is tried again every few minutes; check that the uploads folder and wp-content/mu-plugins are writable.', 'bot-storm-radar' ), $gi['error'] ) )
+			);
+		}
+		// github-build-only:end
 		// The suspected-proxy notice shows on the Dashboard and the plugin's
 		// own page only. It resolves itself through its two buttons.
-		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		$suspect = ( $screen && in_array( $screen->id, [ 'dashboard', 'toplevel_page_' . self::PAGE ], true ) ) ? BotStormRadar_Client_IP::suspect() : null;
 		if ( $suspect && BotStormRadar_Client_IP::ip_rules_suspended() ) {
 			printf(
@@ -1423,6 +1436,15 @@ class BotStormRadar_Admin {
 							/* translators: %s: path of the file that holds the line */
 							echo esc_html( sprintf( __( 'A php_value auto_prepend_file line in %s. Apache applies it on the next request.', 'bot-storm-radar' ), $e['target'] ) );
 						}
+						?>
+					</td></tr>
+				<?php endif; ?>
+				<?php $gi = BotStormRadar_Gate_Install::install_status(); ?>
+				<?php if ( BOTSTORMRADAR_VERSION === $gi['version'] && ! $gi['ok'] ) : ?>
+					<tr><th><?php esc_html_e( 'Installation', 'bot-storm-radar' ); ?></th><td class="bsr-danger">
+						<?php
+						/* translators: 1: the reason, 2: number of attempts, 3: relative time */
+						echo esc_html( sprintf( __( 'Failed: %1$s. Attempts: %2$d, last %3$s. Tried again every few minutes.', 'bot-storm-radar' ), $gi['error'], $gi['attempts'], self::ago( $gi['at'] ) ) );
 						?>
 					</td></tr>
 				<?php endif; ?>

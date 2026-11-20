@@ -79,10 +79,19 @@ class BotStormRadar_Gate_Install {
 	 */
 	private static $error = '';
 
+	/**
+	 * Outcome of the last setup(), kept apart from the plugin's version so a
+	 * failed write is retried and shown instead of counting as done:
+	 * {version, ok, error, at, attempts}.
+	 */
+	const STATUS_OPTION = 'botstormradar_gate_install';
+	const RETRY_AFTER   = 5 * MINUTE_IN_SECONDS;
+
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'finish_move' ], 45, 0 );
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'retire' ], 50, 0 );
+		self::maybe_retry();
 	}
 
 	/**
@@ -92,9 +101,90 @@ class BotStormRadar_Gate_Install {
 	 */
 	public static function finish_move() {
 		if ( BotStormRadar_State::move_pending() ) {
-			BotStormRadar_State::rebuild();
-			self::install();
+			self::setup();
 		}
+	}
+
+	/**
+	 * Rebuild the state file and install the gate for this version, and store
+	 * the outcome (activation, upgrade, retries). Returns true when both worked.
+	 *
+	 * @param int|null $now Tests.
+	 * @return bool
+	 */
+	public static function setup( $now = null ) {
+		$now   = null === $now ? time() : (int) $now;
+		$error = '';
+		if ( ! BotStormRadar_State::rebuild() ) {
+			$error = 'state file: ' . ( '' !== BotStormRadar_State::last_error() ? BotStormRadar_State::last_error() : 'not written' );
+		}
+		if ( ! self::install( null, null, $now ) ) {
+			$error .= ( '' !== $error ? '; ' : '' ) . 'gate: ' . ( '' !== self::$error ? self::$error : 'not installed' );
+		}
+		$last     = self::install_status();
+		$attempts = '' === $error ? 0 : ( BOTSTORMRADAR_VERSION === $last['version'] && ! $last['ok'] ? $last['attempts'] + 1 : 1 );
+		update_option(
+			self::STATUS_OPTION,
+			[
+				'version'  => BOTSTORMRADAR_VERSION,
+				'ok'       => '' === $error,
+				'error'    => $error,
+				'at'       => $now,
+				'attempts' => $attempts,
+			],
+			true
+		);
+		return '' === $error;
+	}
+
+	/**
+	 * The stored outcome of the last setup().
+	 *
+	 * @return array {version: string, ok: bool, error: string, at: int, attempts: int}
+	 */
+	public static function install_status() {
+		$s = get_option( self::STATUS_OPTION, [] );
+		$s = is_array( $s ) ? $s : [];
+		return [
+			'version'  => (string) ( $s['version'] ?? '' ),
+			'ok'       => ! empty( $s['ok'] ),
+			'error'    => (string) ( $s['error'] ?? '' ),
+			'at'       => (int) ( $s['at'] ?? 0 ),
+			'attempts' => (int) ( $s['attempts'] ?? 0 ),
+		];
+	}
+
+	/**
+	 * True when the gate of this version is not known to be installed: the
+	 * last setup() failed, or ran for another version, or never ran.
+	 *
+	 * @return bool
+	 */
+	public static function needs_setup() {
+		$s = self::install_status();
+		return BOTSTORMRADAR_VERSION !== $s['version'] || ! $s['ok'];
+	}
+
+	/**
+	 * Try setup() again when needed, at most every RETRY_AFTER, and only on
+	 * admin, cron or WP-CLI requests: visitors' requests never write files.
+	 *
+	 * @param int|null $now Tests.
+	 * @return bool|null Result of setup(), or null when nothing was tried.
+	 */
+	public static function maybe_retry( $now = null ) {
+		if ( ! self::needs_setup() ) {
+			return null;
+		}
+		if ( ! is_admin() && ! wp_doing_cron() && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			return null;
+		}
+		$now = null === $now ? time() : (int) $now;
+		$s   = self::install_status();
+		if ( BOTSTORMRADAR_VERSION === $s['version'] && $s['at'] > $now - self::RETRY_AFTER ) {
+			return null;
+		}
+		return self::setup( $now );
 	}
 
 	/**
