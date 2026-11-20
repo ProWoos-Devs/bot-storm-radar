@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- A lost minute tick event comes back (#113). When the `botstormradar_tick` cron event went missing, page loads kept the radar going but nothing scheduled the event again until the next update or reactivation. Admin, cron and WP-CLI requests now restore it, and drop a second event if two requests added one at once. Visitor requests never write the cron option.
+
 ## [0.7.1] - 2026-11-20
 
 ### Fixed
