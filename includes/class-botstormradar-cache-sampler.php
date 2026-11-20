@@ -41,8 +41,8 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Seconds for one request, and for the whole run. Every request, redirects
 	 * and replays included, gets at most the time left before the deadline,
-	 * and none starts with less than MIN_LEFT left, so a run ends within its
-	 * budget.
+	 * and none starts with less than MIN_LEFT left. The system DNS resolver
+	 * controls how long its synchronous lookup can take.
 	 */
 	const TIMEOUT  = 8;
 	const BUDGET   = 30;
@@ -306,14 +306,13 @@ class BotStormRadar_Cache_Sampler {
 			if ( self::MAX_REQUESTS === $i ) {
 				break;
 			}
-			if ( microtime( true ) + self::GAP >= $deadline ) {
+			if ( ! self::wait_for_retry( $deadline ) ) {
 				// One response that is no hit proves nothing about the cache.
 				if ( 1 === $i ) {
 					$sample['requests'] = [];
 				}
 				return $sample;
 			}
-			sleep( self::GAP );
 			$response = self::get( $final, [], $deadline );
 		}
 		return $sample;
@@ -340,7 +339,7 @@ class BotStormRadar_Cache_Sampler {
 			if ( ! $send ) {
 				continue;
 			}
-			if ( microtime( true ) + self::GAP >= $deadline ) {
+			if ( $deadline - microtime( true ) < self::GAP + self::MIN_LEFT ) {
 				return null;
 			}
 			$response = self::get( $page['url'], $send, $deadline );
@@ -349,7 +348,9 @@ class BotStormRadar_Cache_Sampler {
 			}
 			$request = self::to_request( $response );
 			if ( isset( $request['status'] ) && 200 === $request['status'] ) {
-				sleep( self::GAP );
+				if ( ! self::wait_for_retry( $deadline ) ) {
+					return null;
+				}
 				$response = self::get( $page['url'], $send, $deadline );
 				// Without the second answer the first could be a per-cookie miss.
 				if ( self::out_of_time( $response ) ) {
@@ -364,6 +365,20 @@ class BotStormRadar_Cache_Sampler {
 			];
 		}
 		return null;
+	}
+
+	/**
+	 * Wait only when the budget covers both the gap and another request.
+	 *
+	 * @param float $deadline
+	 * @return bool
+	 */
+	private static function wait_for_retry( $deadline ) {
+		if ( $deadline - microtime( true ) < self::GAP + self::MIN_LEFT ) {
+			return false;
+		}
+		sleep( self::GAP );
+		return true;
 	}
 
 	/**
@@ -411,11 +426,9 @@ class BotStormRadar_Cache_Sampler {
 	 * @return array|WP_Error
 	 */
 	private static function get( $url, array $cookies, $deadline ) {
-		$left = $deadline - microtime( true );
-		if ( $left < self::MIN_LEFT ) {
+		if ( $deadline - microtime( true ) < self::MIN_LEFT ) {
 			return new WP_Error( self::OUT_OF_TIME, 'No time left for this request.' );
 		}
-		$timeout = $left >= self::TIMEOUT ? self::TIMEOUT : $left;
 		$host    = (string) wp_parse_url( $url, PHP_URL_HOST );
 		$address = self::public_address( $host );
 		$connect = null;
@@ -427,11 +440,13 @@ class BotStormRadar_Cache_Sampler {
 			};
 			add_action( 'http_api_curl', $connect );
 		}
-		$response = self::request( $url, $cookies, '' !== $address, $timeout );
-		if ( $connect ) {
-			remove_action( 'http_api_curl', $connect );
+		try {
+			return self::request( $url, $cookies, '' !== $address, $deadline );
+		} finally {
+			if ( $connect ) {
+				remove_action( 'http_api_curl', $connect );
+			}
 		}
-		return $response;
 	}
 
 	/**
@@ -471,17 +486,22 @@ class BotStormRadar_Cache_Sampler {
 	 * @param string $url
 	 * @param array  $cookies
 	 * @param bool   $public  Connecting to the public address.
-	 * @param float  $timeout Seconds.
+	 * @param float  $deadline The sampling deadline.
 	 * @return array|WP_Error
 	 */
-	private static function request( $url, array $cookies, $public = false, $timeout = self::TIMEOUT ) {
+	private static function request( $url, array $cookies, $public, $deadline ) {
+		/** This filter is documented in wp-includes/class-wp-http-streams.php */
+		$verify = $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
+		$left   = $deadline - microtime( true );
+		if ( $left < self::MIN_LEFT ) {
+			return new WP_Error( self::OUT_OF_TIME, 'No time left for this request.' );
+		}
 		return wp_safe_remote_get(
 			$url,
 			[
-				'timeout'             => $timeout,
+				'timeout'             => min( self::TIMEOUT, $left ),
 				'redirection'         => 0,
-				/** This filter is documented in wp-includes/class-wp-http-streams.php */
-				'sslverify'           => $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
+				'sslverify'           => $verify,
 				'limit_response_size' => self::MAX_BODY,
 				'headers'             => [ 'Accept' => 'text/html' ],
 				'cookies'             => $cookies,
