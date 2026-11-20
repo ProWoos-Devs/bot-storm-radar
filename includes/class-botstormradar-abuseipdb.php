@@ -78,6 +78,7 @@ class BotStormRadar_AbuseIPDB {
 	const AUTO_WINDOW   = 2 * DAY_IN_SECONDS;
 	const AUTO_BATCH    = 10;
 	const AUTO_ATTEMPTS = 3;
+	const RETRY_AFTER   = 15 * MINUTE_IN_SECONDS;
 
 	const PATHS        = 5;
 	const COMMENT_MAX  = 1000;
@@ -560,6 +561,34 @@ class BotStormRadar_AbuseIPDB {
 		);
 	}
 
+	/**
+	 * Mark a ban the automatic run will not report (refusal() said why), so
+	 * the oldest-first query moves past it instead of selecting it again.
+	 * A manual report is still possible; refusal() decides that afresh.
+	 *
+	 * @param int    $ban_id
+	 * @param string $why
+	 * @param int    $now
+	 */
+	private static function skip( $ban_id, $why, $now ) {
+		if ( $ban_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		$table = BotStormRadar_Bans::exports_table();
+		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+				"INSERT INTO {$table} (ban_id, layer, remote_id, status, attempts, last_error, updated_at) VALUES (%d, %s, '', 'skipped', 0, %s, %d)
+				ON DUPLICATE KEY UPDATE status = 'skipped', last_error = VALUES(last_error), updated_at = VALUES(updated_at)",
+				(int) $ban_id,
+				self::LAYER,
+				substr( (string) $why, 0, 200 ),
+				(int) $now
+			)
+		);
+	}
+
 	// ── Automatic ────────────────────────────────────────────────────
 
 	/**
@@ -574,8 +603,10 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * Report probe bans written in the last AUTO_WINDOW that have no report
 	 * yet, up to AUTO_BATCH and the daily cap. Runs again in a minute while
-	 * more wait, or after the next UTC midnight when the cap was reached.
-	 * Returns the number reported.
+	 * more wait, after RETRY_AFTER when a report failed and may be retried,
+	 * or after the next UTC midnight when the cap was reached. A ban that is
+	 * not reportable gets an exports row with status `skipped` and the
+	 * reason, so the next run moves past it. Returns the number reported.
 	 *
 	 * @param int|null $now
 	 * @return int
@@ -591,26 +622,29 @@ class BotStormRadar_AbuseIPDB {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from $wpdb->prefix.
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT b.id, b.ip_text, b.prefix_len, b.reason, b.evidence, b.created_at, b.updated_at FROM {$bans} b
+				"SELECT b.id, b.ip_text, b.prefix_len, b.reason, b.evidence, b.created_at, b.updated_at, e.attempts FROM {$bans} b
 				LEFT JOIN {$exports} e ON e.ban_id = b.id AND e.layer = %s
 				WHERE b.reason = 'probe' AND b.unbanned_at = 0 AND b.created_at > %d AND ( e.id IS NULL OR ( e.status = 'error' AND e.attempts < %d AND e.updated_at < %d ) )
 				ORDER BY b.created_at ASC LIMIT %d",
 				self::LAYER,
 				$now - self::AUTO_WINDOW,
 				self::AUTO_ATTEMPTS,
-				$now - 15 * MINUTE_IN_SECONDS,
+				$now - self::RETRY_AFTER,
 				self::AUTO_BATCH + 1
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = is_array( $rows ) ? $rows : [];
-		$done = 0;
-		$more = count( $rows ) > self::AUTO_BATCH;
+		$done  = 0;
+		$retry = false;
+		$more  = count( $rows ) > self::AUTO_BATCH;
 		foreach ( array_slice( $rows, 0, self::AUTO_BATCH ) as $r ) {
 			$r['evidence'] = json_decode( (string) $r['evidence'], true );
 			$c             = self::from_ban( $r );
-			if ( '' !== self::refusal( $c, $now ) ) {
+			$why           = self::refusal( $c, $now );
+			if ( '' !== $why ) {
+				self::skip( $c['ban_id'], $why, $now );
 				continue;
 			}
 			if ( self::sent_today( $now ) >= self::daily_cap() ) {
@@ -619,10 +653,14 @@ class BotStormRadar_AbuseIPDB {
 			}
 			if ( ! empty( self::report( $c, 'auto', $now )['ok'] ) ) {
 				$done++;
+			} elseif ( (int) $r['attempts'] + 1 < self::AUTO_ATTEMPTS ) {
+				$retry = true;
 			}
 		}
 		if ( $more && ! wp_next_scheduled( self::HOOK ) ) {
 			wp_schedule_single_event( $now + 60, self::HOOK );
+		} elseif ( $retry && ! wp_next_scheduled( self::HOOK ) ) {
+			wp_schedule_single_event( $now + self::RETRY_AFTER + 60, self::HOOK );
 		}
 		return $done;
 	}
