@@ -60,6 +60,12 @@ class BotStormRadar_AbuseIPDB {
 	const LOG_KEEP   = 7 * DAY_IN_SECONDS;
 
 	/**
+	 * Accepted reports of the current UTC day, "<day start>:<count>", kept
+	 * apart from the log because the log holds LOG_CAP addresses at most.
+	 */
+	const SENT_OPTION = 'botstormradar_abuseipdb_sent';
+
+	/**
 	 * One report per address per day.
 	 */
 	const REPORT_GAP = DAY_IN_SECONDS;
@@ -449,6 +455,9 @@ class BotStormRadar_AbuseIPDB {
 			return (int) $e['t'] > $now - self::LOG_KEEP;
 		} );
 		update_option( self::LOG_OPTION, array_slice( $log, 0, self::LOG_CAP, true ), false );
+		if ( ! empty( $res['ok'] ) ) {
+			self::count_sent( $now );
+		}
 		if ( $c['ban_id'] > 0 ) {
 			global $wpdb;
 			$table = BotStormRadar_Bans::exports_table();
@@ -485,13 +494,56 @@ class BotStormRadar_AbuseIPDB {
 	public static function sent_today( $now = null ) {
 		$now   = null === $now ? time() : (int) $now;
 		$start = $now - $now % DAY_IN_SECONDS;
-		$n     = 0;
+		// Read past the options cache: another process may have counted.
+		global $wpdb;
+		$raw = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::SENT_OPTION )
+		);
+		$counted = 0;
+		if ( preg_match( '/^(\d+):(\d+)$/', $raw, $m ) && (int) $m[1] === $start ) {
+			$counted = (int) $m[2];
+		}
+		// The log as well, for reports made the same day before the counter
+		// existed; it can never see more than LOG_CAP.
+		$logged = 0;
 		foreach ( self::log() as $e ) {
 			if ( ! empty( $e['ok'] ) && (int) $e['t'] >= $start ) {
-				$n++;
+				$logged++;
 			}
 		}
-		return $n;
+		return max( $counted, $logged );
+	}
+
+	/**
+	 * Count one accepted report in SENT_OPTION, atomically: concurrent
+	 * reports each add one, and the first report of a UTC day starts at 1.
+	 *
+	 * @param int $now
+	 */
+	private static function count_sent( $now ) {
+		global $wpdb;
+		$day  = (string) ( $now - $now % DAY_IN_SECONDS );
+		$like = $wpdb->esc_like( $day . ':' ) . '%';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		for ( $try = 0; $try < 2; $try++ ) {
+			// Today's row: add one.
+			if ( $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = CONCAT( %s, ':', CAST( SUBSTRING_INDEX( option_value, ':', -1 ) AS UNSIGNED ) + 1 ) WHERE option_name = %s AND option_value LIKE %s", $day, self::SENT_OPTION, $like ) ) ) {
+				break;
+			}
+			// An earlier day's row: start today at 1.
+			if ( $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value NOT LIKE %s", $day . ':1', self::SENT_OPTION, $like ) ) ) {
+				break;
+			}
+			// No row: create it. Not add_option(), whose ON DUPLICATE KEY UPDATE
+			// would overwrite a row another process just created; INSERT IGNORE
+			// fails instead, and the loop adds one to that row.
+			if ( $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", self::SENT_OPTION, $day . ':1' ) ) ) {
+				break;
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( self::SENT_OPTION, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
 	}
 
 	/**
