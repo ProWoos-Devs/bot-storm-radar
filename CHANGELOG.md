@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-20
+
 ### Fixed
 - Cache check deadline (#101). Redirects and the replay's second request did not check the deadline, and every request could take the full 8-second timeout, so with slow answers a run took several times its 30-second budget. After route lookup, the sampler caps the HTTP timeout at the remaining budget and skips the request if less than a second remains. It waits between attempts only when another request can fit. A cookie finding requires a completed replay.
 - Cache check cookie scope (#100). The check kept only each cookie's name and value and sent every cookie it was handed to the first cached page, so a cookie set for `/shop/` was sent to the home page, which a browser never does, and could be reported as taking that page out of the cache. Each cookie now keeps its path and domain, and the replay sends only the cookies a browser would send to that page, going to the first cached page that has any.

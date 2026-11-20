@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.7.0
+Stable tag: 0.7.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,11 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 6. The dashboard widget.
 
 == Changelog ==
+
+= 0.7.1 =
+* Sites without an object cache or APCu: the minute tick can no longer run twice at once, which could repeat a state change and its alert.
+* Probe window: 1 to 20 minutes. A longer saved window counted only the last 25 minutes and is now used as 20.
+* Page cache check: a cookie is sent back only to the pages a browser would send it to, the check stays within its time budget, and the certificate is checked when it goes to the site's public address.
 
 = 0.7.0 =
 * Page cache check: a card on the Radar tab says whether a cache really answers your pages, from a daily sample of your own site or on Check now. It names pages a cache does not store and the cookies that take a visitor out of the cache, says "could not tell" when it has no evidence, and can be stopped per site.
