@@ -39,11 +39,19 @@ class BotStormRadar_Cache_Sampler {
 	const LOCK_TTL  = 120;
 
 	/**
-	 * Seconds for one request, and for the whole run. No new request starts
-	 * after the budget, so a run ends within BUDGET + TIMEOUT.
+	 * Seconds for one request, and for the whole run. Every request, redirects
+	 * and replays included, gets at most the time left before the deadline,
+	 * and none starts with less than MIN_LEFT left, so a run ends within its
+	 * budget.
 	 */
-	const TIMEOUT = 8;
-	const BUDGET  = 30;
+	const TIMEOUT  = 8;
+	const BUDGET   = 30;
+	const MIN_LEFT = 1;
+
+	/**
+	 * The error a request skipped for lack of time returns.
+	 */
+	const OUT_OF_TIME = 'botstormradar_out_of_time';
 
 	/**
 	 * A cache can answer a second request before it finished storing the
@@ -260,7 +268,7 @@ class BotStormRadar_Cache_Sampler {
 	 * @return array|null A sample for analyze_page(), or null when this URL was already sampled.
 	 */
 	private static function sample_page( $kind, $url, array $custom, $deadline, array &$seen, array &$cookies ) {
-		$followed = self::follow( $url );
+		$followed = self::follow( $url, $deadline );
 		$final    = $followed['url'];
 		if ( isset( $seen[ $final ] ) ) {
 			return null;
@@ -276,6 +284,13 @@ class BotStormRadar_Cache_Sampler {
 		$response = $followed['response'];
 
 		for ( $i = 1; $i <= self::MAX_REQUESTS; $i++ ) {
+			if ( self::out_of_time( $response ) ) {
+				// One response that is no hit proves nothing about the cache.
+				if ( 2 === $i ) {
+					$sample['requests'] = [];
+				}
+				return $sample;
+			}
 			$request              = self::to_request( $response );
 			$sample['requests'][] = $request;
 			if ( ! isset( $request['status'] ) || 200 !== $request['status'] ) {
@@ -299,7 +314,7 @@ class BotStormRadar_Cache_Sampler {
 				return $sample;
 			}
 			sleep( self::GAP );
-			$response = self::get( $final );
+			$response = self::get( $final, [], $deadline );
 		}
 		return $sample;
 	}
@@ -328,10 +343,19 @@ class BotStormRadar_Cache_Sampler {
 			if ( microtime( true ) + self::GAP >= $deadline ) {
 				return null;
 			}
-			$request = self::to_request( self::get( $page['url'], $send ) );
+			$response = self::get( $page['url'], $send, $deadline );
+			if ( self::out_of_time( $response ) ) {
+				return null;
+			}
+			$request = self::to_request( $response );
 			if ( isset( $request['status'] ) && 200 === $request['status'] ) {
 				sleep( self::GAP );
-				$request = self::to_request( self::get( $page['url'], $send ) );
+				$response = self::get( $page['url'], $send, $deadline );
+				// Without the second answer the first could be a per-cookie miss.
+				if ( self::out_of_time( $response ) ) {
+					return null;
+				}
+				$request = self::to_request( $response );
 			}
 			return [
 				'kind'     => $page['kind'],
@@ -348,10 +372,11 @@ class BotStormRadar_Cache_Sampler {
 	 * stay what it is, an answer that says nothing about caching.
 	 *
 	 * @param string $url
+	 * @param float  $deadline
 	 * @return array url, response
 	 */
-	private static function follow( $url ) {
-		$response = self::get( $url );
+	private static function follow( $url, $deadline ) {
+		$response = self::get( $url, [], $deadline );
 		for ( $hop = 0; $hop < self::MAX_REDIRECTS; $hop++ ) {
 			$code = (int) wp_remote_retrieve_response_code( $response );
 			if ( is_wp_error( $response ) || $code < 300 || $code >= 400 ) {
@@ -367,7 +392,7 @@ class BotStormRadar_Cache_Sampler {
 				break;
 			}
 			$url      = $next;
-			$response = self::get( $url );
+			$response = self::get( $url, [], $deadline );
 		}
 		return [
 			'url'      => $url,
@@ -379,10 +404,18 @@ class BotStormRadar_Cache_Sampler {
 	 * One request, the way core's Site Health loopback makes it.
 	 *
 	 * @param string $url
-	 * @param array  $cookies name => value.
+	 * @param array  $cookies  name => value.
+	 * @param float  $deadline The run's deadline. With less than MIN_LEFT left
+	 *                         no request is made; otherwise the timeout is
+	 *                         TIMEOUT or the time left, whichever is shorter.
 	 * @return array|WP_Error
 	 */
-	private static function get( $url, array $cookies = [] ) {
+	private static function get( $url, array $cookies, $deadline ) {
+		$left = $deadline - microtime( true );
+		if ( $left < self::MIN_LEFT ) {
+			return new WP_Error( self::OUT_OF_TIME, 'No time left for this request.' );
+		}
+		$timeout = $left >= self::TIMEOUT ? self::TIMEOUT : $left;
 		$host    = (string) wp_parse_url( $url, PHP_URL_HOST );
 		$address = self::public_address( $host );
 		$connect = null;
@@ -394,7 +427,7 @@ class BotStormRadar_Cache_Sampler {
 			};
 			add_action( 'http_api_curl', $connect );
 		}
-		$response = self::request( $url, $cookies, '' !== $address );
+		$response = self::request( $url, $cookies, '' !== $address, $timeout );
 		if ( $connect ) {
 			remove_action( 'http_api_curl', $connect );
 		}
@@ -438,13 +471,14 @@ class BotStormRadar_Cache_Sampler {
 	 * @param string $url
 	 * @param array  $cookies
 	 * @param bool   $public  Connecting to the public address.
+	 * @param float  $timeout Seconds.
 	 * @return array|WP_Error
 	 */
-	private static function request( $url, array $cookies, $public = false ) {
+	private static function request( $url, array $cookies, $public = false, $timeout = self::TIMEOUT ) {
 		return wp_safe_remote_get(
 			$url,
 			[
-				'timeout'             => self::TIMEOUT,
+				'timeout'             => $timeout,
 				'redirection'         => 0,
 				/** This filter is documented in wp-includes/class-wp-http-streams.php */
 				'sslverify'           => $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
@@ -531,6 +565,16 @@ class BotStormRadar_Cache_Sampler {
 			}
 		}
 		return $send;
+	}
+
+	/**
+	 * A request skipped for lack of time.
+	 *
+	 * @param array|WP_Error $response
+	 * @return bool
+	 */
+	private static function out_of_time( $response ) {
+		return is_wp_error( $response ) && self::OUT_OF_TIME === $response->get_error_code();
 	}
 
 	/**
