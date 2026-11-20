@@ -198,8 +198,9 @@ class Bot_Storm_Radar {
 		BotStormRadar_Bans::install();
 		BotStormRadar_Inline_Gate::store();
 		// github-build-only:start
-		BotStormRadar_State::rebuild();
-		BotStormRadar_Gate_Install::install();
+		// The outcome is stored apart from the version: a failed write is
+		// retried and shown in wp-admin (BotStormRadar_Gate_Install::maybe_retry()).
+		BotStormRadar_Gate_Install::setup();
 		// github-build-only:end
 		BotStormRadar_Tick::schedule();
 		BotStormRadar_Client_IP::ensure_cron();
@@ -241,8 +242,9 @@ class Bot_Storm_Radar {
 		// A new version brings a new gate: rebuild the state and the bundle.
 		BotStormRadar_Inline_Gate::store();
 		// github-build-only:start
-		BotStormRadar_State::rebuild();
-		BotStormRadar_Gate_Install::install();
+		// The version below is saved either way; a gate that could not be
+		// written is tracked and retried on its own.
+		BotStormRadar_Gate_Install::setup();
 		// github-build-only:end
 		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 	}
