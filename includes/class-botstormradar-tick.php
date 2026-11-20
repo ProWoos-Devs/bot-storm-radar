@@ -28,6 +28,45 @@ class BotStormRadar_Tick {
 
 	public static function init() {
 		add_action( self::HOOK, [ __CLASS__, 'run' ] );
+		// 0 arguments: do_action( 'init' ) passes '', which would read as "not allowed".
+		add_action( 'init', [ __CLASS__, 'restore' ], 10, 0 );
+	}
+
+	/**
+	 * Put the recurring event back when it went missing (#113). The inline
+	 * guard keeps the radar going from page loads, but never schedules the
+	 * event again. Runs on admin, cron and WP-CLI requests only, so a visitor's
+	 * request never writes the cron option; the check itself reads the cron
+	 * array already in memory. Two requests that both found it missing can
+	 * each add one, so a second event is dropped here too.
+	 *
+	 * @param bool|null $allowed Whether this request may schedule. Null: admin, cron or WP-CLI.
+	 * @return bool True when the event was scheduled.
+	 */
+	public static function restore( $allowed = null ) {
+		if ( null === $allowed ) {
+			$allowed = is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI );
+		}
+		if ( ! $allowed ) {
+			return false;
+		}
+		$times = [];
+		foreach ( (array) _get_cron_array() as $ts => $hooks ) {
+			if ( isset( $hooks[ self::HOOK ] ) ) {
+				$times[] = (int) $ts;
+			}
+		}
+		if ( count( $times ) > 1 ) {
+			sort( $times );
+			foreach ( array_slice( $times, 1 ) as $ts ) {
+				wp_unschedule_event( $ts, self::HOOK );
+			}
+		}
+		if ( $times ) {
+			return false;
+		}
+		self::schedule();
+		return (bool) wp_next_scheduled( self::HOOK );
 	}
 
 	public static function schedule() {
