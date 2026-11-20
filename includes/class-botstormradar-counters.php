@@ -77,6 +77,13 @@ class BotStormRadar_Counters {
 	private static $mem     = [];
 	private static $mem_exp = [];
 
+	/**
+	 * Transient backend locks this process holds: key => owner token.
+	 *
+	 * @var array
+	 */
+	private static $claims = [];
+
 	// ── Backend selection ───────────────────────────────────────────
 
 	/**
@@ -302,7 +309,10 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Add only when absent: the lock primitive for the tick.
+	 * Add only when absent: the lock primitive for the tick and the page
+	 * cache check. On the transient backend the lock is a row of its own in
+	 * the options table, claimed atomically (see db_claim()); get_value()
+	 * does not read it, and delete() removes it only for its owner.
 	 *
 	 * @param string $key
 	 * @param mixed  $value
@@ -323,15 +333,60 @@ class BotStormRadar_Counters {
 				self::$mem_exp[ $key ] = time() + (int) $ttl;
 				return true;
 			default:
-				// Global keys go straight to a transient here, because a lock
-				// that is only visible after shutdown is not a lock.
-				$name = self::t_name( $key );
-				if ( false !== get_transient( $name ) ) {
-					return false;
-				}
-				set_transient( $name, [ '_v' => $value ], $ttl );
-				return true;
+				return self::db_claim( $key, $ttl );
 		}
+	}
+
+	/**
+	 * Claim a lock row in one statement, so two processes can never both
+	 * hold it: INSERT IGNORE creates it, or an UPDATE takes it over once its
+	 * expiry has passed. The value is "<expiry>:<owner token>". A get then a
+	 * set, as with transients, lets two processes in between.
+	 *
+	 * @param string $key
+	 * @param int    $ttl
+	 * @return bool
+	 */
+	private static function db_claim( $key, $ttl ) {
+		global $wpdb;
+		$name  = self::lock_name( $key );
+		$now   = time();
+		$token = bin2hex( random_bytes( 8 ) );
+		$value = ( $now + max( 1, (int) $ttl ) ) . ':' . $token;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", $name, $value ) );
+		if ( ! $got ) {
+			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND CAST( SUBSTRING_INDEX( option_value, ':', 1 ) AS UNSIGNED ) <= %d", $value, $name, $now ) );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $name, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+		if ( $got ) {
+			self::$claims[ $key ] = $token;
+		}
+		return $got;
+	}
+
+	/**
+	 * Release a lock row, only while it still carries this process's token:
+	 * a lock that expired and was taken by another process stays theirs.
+	 *
+	 * @param string $key
+	 */
+	private static function db_release( $key ) {
+		global $wpdb;
+		$name = self::lock_name( $key );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value LIKE %s", $name, '%:' . $wpdb->esc_like( self::$claims[ $key ] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		unset( self::$claims[ $key ] );
+		wp_cache_delete( $name, 'options' );
+	}
+
+	/**
+	 * @param string $key
+	 * @return string Option name of a lock row.
+	 */
+	private static function lock_name( $key ) {
+		return 'botstormradar_lock_' . substr( self::t_name( $key ), strlen( 'botstormradar_' ) );
 	}
 
 	/**
@@ -349,6 +404,10 @@ class BotStormRadar_Counters {
 				unset( self::$mem[ $key ], self::$mem_exp[ $key ] );
 				return;
 			default:
+				if ( isset( self::$claims[ $key ] ) ) {
+					self::db_release( $key );
+					return;
+				}
 				delete_transient( self::t_name( $key ) );
 				$g = self::t_group_of( $key );
 				if ( isset( self::$t_groups[ $g ][ $key ] ) ) {
