@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Update channel (#93). The GitHub build now carries an `Update URI` header pointing at GitHub, so the wordpress.org API no longer offers its package for it, and the updater runs on every request (cron, WP-CLI and management tools included, not only wp-admin) and drops any other source's update entry for the plugin. Before, a scheduled or automatic update could replace the GitHub build with the wordpress.org build, which has no early gate, as soon as wordpress.org carried a higher version. The wordpress.org build strips the header.
+
 ## [0.7.0] - 2026-11-02
 
 ### Added

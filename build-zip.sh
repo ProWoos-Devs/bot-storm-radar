@@ -69,6 +69,13 @@ if [[ "$FLAVOR" == "wporg" ]]; then
     for f in github-updater gate gate-install gate-early state state-reader channel channel-drain abuseipdb provider-report; do
         rm "$STAGED/includes/class-botstormradar-$f.php"
     done
+    # The Update URI header points the GitHub build at GitHub; wordpress.org
+    # updates its own build and does not accept a header pointing elsewhere.
+    sed -i '/^ \* Update URI: /d' "$STAGED/$PLUGIN_SLUG.php"
+    if grep -n 'Update URI' "$STAGED/$PLUGIN_SLUG.php"; then
+        echo "Error: the Update URI header is left in the wordpress.org build"
+        exit 1
+    fi
     # readme.txt is the wordpress.org readme; these two describe the GitHub build.
     rm "$STAGED/README.md" "$STAGED/CHANGELOG.md"
     # Directory icons and banners go to SVN assets/, not into the plugin. The
