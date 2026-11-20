@@ -158,10 +158,13 @@ class Bot_Storm_Radar {
 
 		if ( is_admin() ) {
 			BotStormRadar_Admin::init();
-			// github-build-only:start
-			new BotStormRadar_GitHub_Updater();
-			// github-build-only:end
 		}
+		// github-build-only:start
+		// On every request, not only in wp-admin: cron runs the scheduled
+		// update checks and the automatic updates, and WP-CLI or a management
+		// tool can run them too. Without it those checks see wordpress.org only.
+		new BotStormRadar_GitHub_Updater();
+		// github-build-only:end
 	}
 
 	/**

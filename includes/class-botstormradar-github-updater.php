@@ -51,6 +51,12 @@ class BotStormRadar_GitHub_Updater {
 			return $transient;
 		}
 
+		// Only GitHub answers for this build. The Update URI header keeps the
+		// wordpress.org API from offering its package, and anything another
+		// source left here goes too: the wordpress.org build has no early
+		// gate, so installing it over this one changes the site's protection.
+		unset( $transient->response[ $this->plugin_basename ], $transient->no_update[ $this->plugin_basename ] );
+
 		$remote = $this->get_remote_data();
 
 		if ( ! $remote || empty( $remote['version'] ) ) {
