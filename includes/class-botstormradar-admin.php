@@ -173,7 +173,7 @@ class BotStormRadar_Admin {
 			}
 		}, self::PAGE, 'botstormradar_bans' );
 		self::number_field( 'trip_probe_count', __( 'Probe trip', 'bot-storm-radar' ), 'botstormradar_bans', 0, 1000, 1, __( 'Probes from one address within the window below that trip it. 0 turns probe trips off.', 'bot-storm-radar' ) );
-		self::number_field( 'trip_probe_window_minutes', __( 'Probe window (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 1440, 1, '' );
+		self::number_field( 'trip_probe_window_minutes', __( 'Probe window (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, BotStormRadar_Trips::MAX_PROBE_WINDOW_MINUTES, 1, '' );
 		self::number_field( 'trip_404_count', __( 'Missing-page trip', 'bot-storm-radar' ), 'botstormradar_bans', 0, 10000, 1, __( 'Pages not found for one address within one minute that trip it. Missing images and other files never count. 0 turns this off.', 'bot-storm-radar' ) );
 		self::number_field( 'trip_ban_minutes', __( 'Ban length (minutes)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 10080, 1, '' );
 		self::number_field( 'trip_ban_repeat_hours', __( 'Ban length on a repeat (hours)', 'bot-storm-radar' ), 'botstormradar_bans', 1, 720, 1, __( 'For an address that trips again within a day of its last ban.', 'bot-storm-radar' ) );
@@ -232,7 +232,7 @@ class BotStormRadar_Admin {
 		if ( isset( $input['ban_mode'] ) ) {
 			$out['ban_mode'] = 'enforce' === $input['ban_mode'] ? 'enforce' : 'observe';
 		}
-		$ints = [ 'trip_probe_count' => [ 0, 1000 ], 'trip_probe_window_minutes' => [ 1, 1440 ], 'trip_404_count' => [ 0, 10000 ], 'trip_ban_minutes' => [ 1, 10080 ], 'trip_ban_repeat_hours' => [ 1, 720 ], 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
+		$ints = [ 'trip_probe_count' => [ 0, 1000 ], 'trip_probe_window_minutes' => [ 1, BotStormRadar_Trips::MAX_PROBE_WINDOW_MINUTES ], 'trip_404_count' => [ 0, 10000 ], 'trip_ban_minutes' => [ 1, 10080 ], 'trip_ban_repeat_hours' => [ 1, 720 ], 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
 		foreach ( $ints as $k => $range ) {
 			if ( isset( $input[ $k ] ) ) {
 				$out[ $k ] = (int) BotStormRadar_Helpers::clamp( (int) $input[ $k ], $range[0], $range[1] );

@@ -36,6 +36,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Trips {
 
+	// Leave five minutes for a late tick before the 25-minute counters expire.
+	const MAX_PROBE_WINDOW_MINUTES = 20;
+
 	const PENDING_OPTION = 'botstormradar_pending_trips';
 	const PENDING_CAP    = 100;
 	const PENDING_MAX    = DAY_IN_SECONDS;
@@ -55,7 +58,7 @@ class BotStormRadar_Trips {
 			'mode'       => 'enforce' === ( $o['ban_mode'] ?? 'observe' ) ? 'enforce' : 'observe',
 			'probe'      => [
 				'count'  => max( 0, (int) ( $o['trip_probe_count'] ?? 3 ) ),
-				'window' => max( 1, (int) ( $o['trip_probe_window_minutes'] ?? 10 ) ) * MINUTE_IN_SECONDS,
+				'window' => $o['trip_probe_window_minutes'] * MINUTE_IN_SECONDS,
 				'ttl'    => $ttl,
 			],
 			'404'        => [

@@ -25,6 +25,8 @@ class BotStormRadar_Helpers {
 		if ( null === self::$options ) {
 			$stored        = get_option( Bot_Storm_Radar::OPTION_KEY, [] );
 			self::$options = wp_parse_args( is_array( $stored ) ? $stored : [], Bot_Storm_Radar::get_default_options() );
+			// Older installs could save up to 24 hours. Use the effective window in the gate and settings form alike.
+			self::$options['trip_probe_window_minutes'] = (int) self::clamp( (int) ( self::$options['trip_probe_window_minutes'] ?? 10 ), 1, BotStormRadar_Trips::MAX_PROBE_WINDOW_MINUTES );
 		}
 		return self::$options;
 	}
