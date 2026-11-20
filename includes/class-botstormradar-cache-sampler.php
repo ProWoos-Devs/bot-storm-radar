@@ -256,7 +256,7 @@ class BotStormRadar_Cache_Sampler {
 	 * @param array  $custom
 	 * @param float  $deadline
 	 * @param array  $seen    Final URLs already sampled. A shop page can be the home page.
-	 * @param array  $cookies The cookies handed out so far, name => value.
+	 * @param array  $cookies The cookies handed out so far, see collect_cookies().
 	 * @return array|null A sample for analyze_page(), or null when this URL was already sampled.
 	 */
 	private static function sample_page( $kind, $url, array $custom, $deadline, array &$seen, array &$cookies ) {
@@ -282,7 +282,7 @@ class BotStormRadar_Cache_Sampler {
 				return $sample;
 			}
 			$sample['has_nonce'] = $sample['has_nonce'] || BotStormRadar_Cache_Check::body_has_nonce( wp_remote_retrieve_body( $response ) );
-			self::collect_cookies( $response, $cookies );
+			self::collect_cookies( $response, $final, $cookies );
 
 			$read = BotStormRadar_Cache_Check::read_response( $request['headers'], $custom );
 			if ( BotStormRadar_Cache_Check::HIT === $read['state'] || ( $i >= 2 && BotStormRadar_Cache_Check::MISS !== $read['state'] ) ) {
@@ -307,10 +307,12 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Send the cookies back to a page that was cached without them. The first
 	 * answer can miss on a cache that keeps a copy per cookie, so the second
-	 * one counts: a miss then means the cookie really leaves the cache.
+	 * one counts: a miss then means the cookie really leaves the cache. Only
+	 * the cookies a browser would send to that page go back, so a cookie
+	 * scoped to /shop/ is never blamed for the home page.
 	 *
 	 * @param array $pages    analyze_site() pages.
-	 * @param array $cookies  name => value.
+	 * @param array $cookies  See collect_cookies().
 	 * @param float $deadline
 	 * @return array|null See analyze_site().
 	 */
@@ -319,17 +321,21 @@ class BotStormRadar_Cache_Sampler {
 			if ( BotStormRadar_Cache_Check::PAGE_CACHED !== $page['outcome'] ) {
 				continue;
 			}
+			$send = self::cookies_for( $cookies, $page['url'] );
+			if ( ! $send ) {
+				continue;
+			}
 			if ( microtime( true ) + self::GAP >= $deadline ) {
 				return null;
 			}
-			$request = self::to_request( self::get( $page['url'], $cookies ) );
+			$request = self::to_request( self::get( $page['url'], $send ) );
 			if ( isset( $request['status'] ) && 200 === $request['status'] ) {
 				sleep( self::GAP );
-				$request = self::to_request( self::get( $page['url'], $cookies ) );
+				$request = self::to_request( self::get( $page['url'], $send ) );
 			}
 			return [
 				'kind'     => $page['kind'],
-				'cookies'  => array_keys( $cookies ),
+				'cookies'  => array_keys( $send ),
 				'response' => $request,
 			];
 		}
@@ -465,23 +471,66 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * Keep what a browser would keep: a cookie being deleted is not sent back.
+	 * Keep what a browser would keep: a cookie being deleted is not sent back,
+	 * and each cookie keeps its scope. A browser keys a cookie by name, domain
+	 * and path, so the same name under two paths is two cookies.
 	 *
-	 * @param array $response
-	 * @param array $cookies name => value.
+	 * @param array  $response
+	 * @param string $url     The URL that answered.
+	 * @param array  $cookies "name|domain|path" => name, value, domain, host_only, path.
 	 */
-	private static function collect_cookies( $response, array &$cookies ) {
+	private static function collect_cookies( $response, $url, array &$cookies ) {
+		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
 		foreach ( wp_remote_retrieve_cookies( $response ) as $cookie ) {
 			if ( ! $cookie instanceof WP_Http_Cookie || '' === (string) $cookie->name ) {
 				continue;
 			}
-			$gone = '' === (string) $cookie->value || 'deleted' === $cookie->value || ( ! empty( $cookie->expires ) && (int) $cookie->expires <= time() );
+			$domain = isset( $cookie->domain ) && '' !== (string) $cookie->domain ? ltrim( strtolower( (string) $cookie->domain ), '.' ) : '';
+			$path   = isset( $cookie->path ) && 0 === strpos( (string) $cookie->path, '/' ) ? (string) $cookie->path : '/';
+			$entry  = [
+				'name'      => (string) $cookie->name,
+				'value'     => (string) $cookie->value,
+				'domain'    => '' === $domain ? $host : $domain,
+				'host_only' => '' === $domain || ! empty( $cookie->host_only ),
+				'path'      => $path,
+			];
+			$key    = $entry['name'] . '|' . $entry['domain'] . '|' . $entry['path'];
+			$gone   = '' === $entry['value'] || 'deleted' === $entry['value'] || ( ! empty( $cookie->expires ) && (int) $cookie->expires <= time() );
 			if ( $gone ) {
-				unset( $cookies[ $cookie->name ] );
+				unset( $cookies[ $key ] );
 			} else {
-				$cookies[ $cookie->name ] = (string) $cookie->value;
+				$cookies[ $key ] = $entry;
 			}
 		}
+	}
+
+	/**
+	 * The cookies a browser would send to a URL (RFC 6265 5.1.3 and 5.1.4),
+	 * name => value. Where two match under one name, the longer path wins, as
+	 * it comes first in a browser's Cookie header.
+	 *
+	 * @param array  $cookies See collect_cookies().
+	 * @param string $url
+	 * @return array
+	 */
+	private static function cookies_for( array $cookies, $url ) {
+		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		$path = '' === $path ? '/' : $path;
+		$send = [];
+		$best = [];
+		foreach ( $cookies as $c ) {
+			$domain_ok = $c['host_only'] ? $host === $c['domain'] : ( $host === $c['domain'] || substr( $host, -strlen( '.' . $c['domain'] ) ) === '.' . $c['domain'] );
+			$path_ok   = $path === $c['path'] || ( 0 === strpos( $path, $c['path'] ) && ( '/' === substr( $c['path'], -1 ) || '/' === substr( $path, strlen( $c['path'] ), 1 ) ) );
+			if ( ! $domain_ok || ! $path_ok ) {
+				continue;
+			}
+			if ( ! isset( $best[ $c['name'] ] ) || strlen( $c['path'] ) > $best[ $c['name'] ] ) {
+				$best[ $c['name'] ] = strlen( $c['path'] );
+				$send[ $c['name'] ] = $c['value'];
+			}
+		}
+		return $send;
 	}
 
 	/**
