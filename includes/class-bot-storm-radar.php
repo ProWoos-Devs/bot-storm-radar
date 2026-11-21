@@ -256,7 +256,7 @@ class Bot_Storm_Radar {
 	 * @return array
 	 */
 	public static function get_default_options() {
-		return [
+		$defaults = [
 			'email_recipients'      => get_option( 'admin_email' ),
 			'alert_on_warning'      => 1,
 			'alert_on_storm'        => 1,
@@ -288,7 +288,13 @@ class Bot_Storm_Radar {
 			'trip_404_count'        => 20,
 			'trip_ban_minutes'      => 60,
 			'trip_ban_repeat_hours' => 24,
+			// The daily page cache check (#115): off in the wordpress.org build.
+			'cache_check_daily'     => 0,
 		];
+		// github-build-only:start
+		$defaults['cache_check_daily'] = 1;
+		// github-build-only:end
+		return $defaults;
 	}
 }
 
