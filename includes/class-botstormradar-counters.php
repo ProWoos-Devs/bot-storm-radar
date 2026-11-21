@@ -409,7 +409,9 @@ class BotStormRadar_Counters {
 			return false;
 		}
 		$name = self::fallback_name( $key );
-		set_transient( $name, $token, max( 1, (int) $ttl ) );
+		if ( ! set_transient( $name, $token, max( 1, (int) $ttl ) ) || ! self::fallback_held( $key, $now ) ) {
+			return false;
+		}
 		// Written first, checked after: a process that got the row meanwhile
 		// checks for this transient after its insert, so one of the two sees
 		// the other.
