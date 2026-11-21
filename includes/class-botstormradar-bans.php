@@ -33,6 +33,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The ban tables, the would-be bans of observe mode and the generation that voids provisional bans.
+ */
 class BotStormRadar_Bans {
 
 	/**
@@ -62,6 +65,8 @@ class BotStormRadar_Bans {
 	const OPEN_EXPORT_STATUSES = [ 'pending', 'failed' ];
 
 	/**
+	 * Return the name of the bans table.
+	 *
 	 * @return string
 	 */
 	public static function table() {
@@ -70,6 +75,8 @@ class BotStormRadar_Bans {
 	}
 
 	/**
+	 * Return the name of the table that tracks reports of bans to outside services.
+	 *
 	 * @return string
 	 */
 	public static function exports_table() {
@@ -96,6 +103,9 @@ class BotStormRadar_Bans {
 	const HAND_UNBANS_OPTION = 'botstormradar_hand_unbans';
 	const WOULD_CAP    = 200;
 
+	/**
+	 * Register the daily cleanup and the settings-change hooks.
+	 */
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'cleanup' ], 30, 0 );
@@ -128,15 +138,12 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * Record a would-be ban (observe mode) for the Bans tab: per address the
-	 * reason, first and last time, count and the latest evidence, capped at
-	 * WOULD_CAP addresses (oldest dropped). Never a ban, never through the
-	 * table. Protected addresses are not recorded.
+	 * Record a would-be ban (observe mode) for the Bans tab: per address the reason, first and last time, count and the latest evidence, capped at WOULD_CAP addresses (oldest dropped). Never a ban, never through the table. Protected addresses are not recorded.
 	 *
-	 * @param string $ip
-	 * @param string $reason
-	 * @param array  $evidence
-	 * @param int    $at
+	 * @param string $ip       IP address.
+	 * @param string $reason   Ban reason: probe or 404.
+	 * @param array  $evidence Evidence recorded for the ban.
+	 * @param int    $at       Unix time of the trip.
 	 * @return bool
 	 */
 	public static function would_ban( $ip, $reason, array $evidence, $at ) {
@@ -159,6 +166,8 @@ class BotStormRadar_Bans {
 	}
 
 	/**
+	 * Return the bans that observe mode would have made, newest first.
+	 *
 	 * @return array ip => reason, first, last, count, evidence (newest first)
 	 */
 	public static function would_bans() {
@@ -179,7 +188,7 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * dbDelta the tables and record the schema version.
+	 * Create the ban tables with dbDelta and record the schema version.
 	 */
 	public static function install() {
 		global $wpdb;
@@ -259,11 +268,9 @@ class BotStormRadar_Bans {
 	// ── Keys ──────────────────────────────────────────────────────────
 
 	/**
-	 * The ban key for an address and prefix length: the network address in
-	 * binary form (host bits cleared) and its text. A single address is /32
-	 * (IPv4) or /128 (IPv6).
+	 * The ban key for an address and prefix length: the network address in binary form (host bits cleared) and its text. A single address is /32 (IPv4) or /128 (IPv6).
 	 *
-	 * @param string   $ip
+	 * @param string   $ip         IP address.
 	 * @param int|null $prefix_len Null for a single address.
 	 * @return array|null {address: binary, prefix_len: int, ip_text: string}
 	 */
@@ -295,10 +302,9 @@ class BotStormRadar_Bans {
 	// ── Changes (each one statement) ─────────────────────────────────
 
 	/**
-	 * Record a trip: create the ban or extend it. Returns the ban id, or 0
-	 * when the address is not valid or the query failed.
+	 * Record a trip: create the ban or extend it. Returns the ban id, or 0 when the address is not valid or the query failed.
 	 *
-	 * @param string   $ip
+	 * @param string   $ip         IP address.
 	 * @param int      $ttl        Seconds the ban lasts from now.
 	 * @param string   $reason     Trip class (probe, 404, manual, ...).
 	 * @param array    $evidence   paths, user_agents (lists), anything else scalar.
@@ -358,12 +364,11 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * Lift a ban now. Returns true when an active ban was lifted. Raises the
-	 * generation so provisional bans decided before it stop applying.
+	 * Lift a ban now. Returns true when an active ban was lifted. Raises the generation so provisional bans decided before it stop applying.
 	 *
-	 * @param string   $ip
+	 * @param string   $ip         IP address.
 	 * @param int      $by         User id who lifted it (0 = system).
-	 * @param int|null $prefix_len
+	 * @param int|null $prefix_len Prefix length of the range, or null for the single address.
 	 * @param int|null $now        Tests.
 	 * @return bool
 	 */
@@ -482,12 +487,11 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * Rows for the Bans tab: in force now, or ended within the last $days
-	 * days, newest first, evidence decoded.
+	 * Rows for the Bans tab: in force now, or ended within the last $days days, newest first, evidence decoded.
 	 *
-	 * @param int      $days
-	 * @param int      $limit
-	 * @param int|null $now
+	 * @param int      $days  Days back to include bans that ended.
+	 * @param int      $limit Most rows to return.
+	 * @param int|null $now   Unix timestamp; the current time when omitted.
 	 * @return array[]
 	 */
 	public static function listing( $days = 7, $limit = 200, $now = null ) {
@@ -525,7 +529,7 @@ class BotStormRadar_Bans {
 	/**
 	 * Keys unbanned by hand since a time (the gate's recent-unban list).
 	 *
-	 * @param int $since
+	 * @param int $since Unix time to look back to.
 	 * @return array[] ip_text, prefix_len, unbanned_at
 	 */
 	public static function recent_unbans( $since ) {
@@ -544,8 +548,8 @@ class BotStormRadar_Bans {
 	/**
 	 * One ban row by key, evidence decoded, or null.
 	 *
-	 * @param string   $ip
-	 * @param int|null $prefix_len
+	 * @param string   $ip         IP address.
+	 * @param int|null $prefix_len Prefix length of the range, or null for the single address.
 	 * @return array|null
 	 */
 	public static function get( $ip, $prefix_len = null ) {
@@ -571,10 +575,9 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * Cut evidence to the limits: lists to EVIDENCE_ENTRIES entries of
-	 * EVIDENCE_CHARS characters, scalars to EVIDENCE_CHARS, nothing nested.
+	 * Cut evidence to the limits: lists to EVIDENCE_ENTRIES entries of EVIDENCE_CHARS characters, scalars to EVIDENCE_CHARS, nothing nested.
 	 *
-	 * @param array $evidence
+	 * @param array $evidence Evidence recorded for the ban.
 	 * @return array
 	 */
 	public static function bound_evidence( array $evidence ) {

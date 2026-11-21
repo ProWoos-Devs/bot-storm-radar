@@ -14,6 +14,9 @@
 // Loadable inside WordPress or by the gate, which defines BOTSTORMRADAR_GATE first.
 defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
+/**
+ * Reads the gate's state file without WordPress.
+ */
 class BotStormRadar_State_Reader {
 
 	/**
@@ -27,10 +30,9 @@ class BotStormRadar_State_Reader {
 	const FORMAT = 1;
 
 	/**
-	 * Decoded state, or null when the file is missing, unreadable, not ours
-	 * or of another format.
+	 * Decoded state, or null when the file is missing, unreadable, not ours or of another format.
 	 *
-	 * @param string $path
+	 * @param string $path Path of the state file.
 	 * @return array|null
 	 */
 	public static function read( $path ) {
@@ -48,7 +50,7 @@ class BotStormRadar_State_Reader {
 	/**
 	 * Wrap a JSON-encodable array as file contents.
 	 *
-	 * @param array $data
+	 * @param array $data State to encode.
 	 * @return string|false
 	 */
 	public static function encode( array $data ) {

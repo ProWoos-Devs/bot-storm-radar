@@ -27,13 +27,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Dry run of the gate and the trips over web-server logs: what would have been refused and banned.
+ */
 class BotStormRadar_Gate_Replay {
 
 	const REFUSED_STATUSES = [ 403, 429, 444 ];
 
 	/**
-	 * @param string[] $files
-	 * @param array    $opts root, home, verify_bots, list
+	 * Replay the logs through the gate and the trips and return what would have happened.
+	 *
+	 * @param string[] $files Log files to replay.
+	 * @param array    $opts  root, home, verify_bots, list.
 	 * @return array Summary.
 	 */
 	public static function run( array $files, array $opts = [] ) {
@@ -174,9 +179,9 @@ class BotStormRadar_Gate_Replay {
 	/**
 	 * The last few paths an address asked for (evidence).
 	 *
-	 * @param array  $evidence
-	 * @param string $ip
-	 * @param string $target
+	 * @param array  $evidence Evidence recorded for the ban.
+	 * @param string $ip       IP address.
+	 * @param string $target   Requested path, with any query string.
 	 */
 	private static function note( array &$evidence, $ip, $target ) {
 		$evidence[ $ip ][] = substr( (string) strtok( (string) $target, '?' ), 0, 120 );
@@ -186,10 +191,9 @@ class BotStormRadar_Gate_Replay {
 	}
 
 	/**
-	 * Parsed lines of every file merged in time order (each file is in order
-	 * itself). Yields null for a line that does not parse.
+	 * Parsed lines of every file merged in time order (each file is in order itself). Yields null for a line that does not parse.
 	 *
-	 * @param string[] $files
+	 * @param string[] $files Log files to read.
 	 * @return Generator
 	 */
 	public static function lines( array $files ) {

@@ -42,6 +42,9 @@
 // Loadable inside WordPress or by the gate, which defines BOTSTORMRADAR_GATE first.
 defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
+/**
+ * The channel through which what the gate refused reaches the radar: spool files, with APCu where it is enabled.
+ */
 class BotStormRadar_Channel {
 
 	const PREFIX     = 'bsrc:';
@@ -59,7 +62,7 @@ class BotStormRadar_Channel {
 	/**
 	 * A short id for a data directory, shared by the gate and the drain.
 	 *
-	 * @param string $dir
+	 * @param string $dir Path of the data directory.
 	 * @return string
 	 */
 	public static function site_id( $dir ) {
@@ -80,10 +83,10 @@ class BotStormRadar_Channel {
 	 * Record one event. Never throws, never blocks a request for long.
 	 *
 	 * @param string   $dir    Data directory with a trailing slash.
-	 * @param string   $kind   probe | ban
+	 * @param string   $kind   probe | ban.
 	 * @param string   $detail Probe class, or '' for a ban.
 	 * @param string   $ip     Client address ('' when unknown).
-	 * @param int|null $now
+	 * @param int|null $now    Unix timestamp; the current time when omitted.
 	 * @return bool
 	 */
 	public static function write( $dir, $kind, $detail, $ip, $now = null ) {
@@ -104,9 +107,11 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * @param string $dir
-	 * @param int    $minute
-	 * @param string $line
+	 * Append a line to a minute's spool file, creating the file when it does not exist.
+	 *
+	 * @param string $dir    Path of the data directory.
+	 * @param int    $minute Minute number (Unix time divided by 60).
+	 * @param string $line   Line to store.
 	 * @param int    $cap    Bytes the file may reach with this line.
 	 * @return bool
 	 */
@@ -137,13 +142,10 @@ class BotStormRadar_Channel {
 	// ── Probe evidence ────────────────────────────────────────────────
 
 	/**
-	 * One evidence value as stored: no query string or fragment, printable
-	 * ASCII only (anything else becomes "?", so the value is always valid
-	 * UTF-8 and safe to cut), at most EVIDENCE_CHARS characters. Request
-	 * paths arrive percent-encoded and user agents are ASCII in practice.
+	 * One evidence value as stored: no query string or fragment, printable ASCII only (anything else becomes "?", so the value is always valid UTF-8 and safe to cut), at most EVIDENCE_CHARS characters. Request paths arrive percent-encoded and user agents are ASCII in practice.
 	 *
-	 * @param string $s
-	 * @param bool   $is_path
+	 * @param string $s       String to clean.
+	 * @param bool   $is_path Whether the value is a request path.
 	 * @return string
 	 */
 	public static function evidence_clean( $s, $is_path = false ) {
@@ -156,15 +158,14 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * Record what one refused probe looked like. Returns false when nothing
-	 * was written (no address, spool at half its cap).
+	 * Record what one refused probe looked like. Returns false when nothing was written (no address, spool at half its cap).
 	 *
-	 * @param string   $dir
-	 * @param string   $ip
-	 * @param string   $method
+	 * @param string   $dir    Path of the data directory.
+	 * @param string   $ip     IP address.
+	 * @param string   $method Request method.
 	 * @param string   $uri    REQUEST_URI; the query string is cut here.
-	 * @param string   $ua
-	 * @param int|null $now
+	 * @param string   $ua     User agent.
+	 * @param int|null $now    Unix timestamp; the current time when omitted.
 	 * @return bool
 	 */
 	public static function evidence_add( $dir, $ip, $method, $uri, $ua, $now = null ) {
@@ -188,14 +189,13 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * Merge paths and user agents into an evidence record: distinct values,
-	 * newest last, bounded.
+	 * Merge paths and user agents into an evidence record: distinct values, newest last, bounded.
 	 *
-	 * @param array    $v     paths, user_agents, n, first, last
-	 * @param string[] $paths
-	 * @param string[] $uas
+	 * @param array    $v     paths, user_agents, n, first, last.
+	 * @param string[] $paths Paths to add.
+	 * @param string[] $uas   User agents to add.
 	 * @param int      $n     Probes these values stand for.
-	 * @param int      $now
+	 * @param int      $now   Unix timestamp.
 	 * @return array
 	 */
 	public static function evidence_merge( array $v, array $paths, array $uas, $n, $now ) {
@@ -223,8 +223,8 @@ class BotStormRadar_Channel {
 	/**
 	 * The APCu evidence record of an address, or null.
 	 *
-	 * @param string $dir
-	 * @param string $ip
+	 * @param string $dir Path of the data directory.
+	 * @param string $ip  IP address.
 	 * @return array|null paths, user_agents, n, first, last
 	 */
 	public static function evidence_get( $dir, $ip ) {
@@ -239,7 +239,7 @@ class BotStormRadar_Channel {
 	/**
 	 * The evidence of one spool `pev` line: "pev\t<method path>\t<ip>\t<user agent>".
 	 *
-	 * @param string $line
+	 * @param string $line Evidence line, as it is stored in the spool.
 	 * @return array|null ip, p (method and path), u (user agent)
 	 */
 	public static function evidence_decode( $line ) {
@@ -257,13 +257,12 @@ class BotStormRadar_Channel {
 	// ── Gate-side trips and provisional bans (APCu only) ─────────────
 
 	/**
-	 * Count one probe from an address in a fixed window. Returns the count
-	 * in the current window, 0 without APCu.
+	 * Count one probe from an address in a fixed window. Returns the count in the current window, 0 without APCu.
 	 *
-	 * @param string $dir
-	 * @param string $ip
+	 * @param string $dir    Path of the data directory.
+	 * @param string $ip     IP address.
 	 * @param int    $window Seconds.
-	 * @param int    $now
+	 * @param int    $now    Unix timestamp.
 	 * @return int
 	 */
 	public static function probe_count( $dir, $ip, $window, $now ) {
@@ -277,16 +276,14 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * Store a provisional ban: enforced by the gate at once, written to the
-	 * ban table by the next drain. Stamped with the generation it was decided
-	 * under, so any administrative change since makes it void.
+	 * Store a provisional ban: enforced by the gate at once, written to the ban table by the next drain. Stamped with the generation it was decided under, so any administrative change since makes it void.
 	 *
-	 * @param string $dir
-	 * @param string $ip
-	 * @param int    $expires
-	 * @param int    $generation
-	 * @param string $reason
-	 * @param int    $now
+	 * @param string $dir        Path of the data directory.
+	 * @param string $ip         IP address.
+	 * @param int    $expires    Unix time the ban ends.
+	 * @param int    $generation Ban generation the ban was decided under.
+	 * @param string $reason     Ban reason: probe or 404.
+	 * @param int    $now        Unix timestamp.
 	 * @return bool
 	 */
 	public static function ban_set( $dir, $ip, $expires, $generation, $reason, $now ) {
@@ -299,8 +296,8 @@ class BotStormRadar_Channel {
 	/**
 	 * The provisional ban stored for an address, or null.
 	 *
-	 * @param string $dir
-	 * @param string $ip
+	 * @param string $dir Path of the data directory.
+	 * @param string $ip  IP address.
 	 * @return array|null exp, gen, reason, t
 	 */
 	public static function ban_get( $dir, $ip ) {
@@ -317,8 +314,8 @@ class BotStormRadar_Channel {
 	/**
 	 * Minutes that have events waiting, oldest first, and are closed.
 	 *
-	 * @param string   $dir
-	 * @param int|null $now
+	 * @param string   $dir Path of the data directory.
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return int[]
 	 */
 	public static function closed_minutes( $dir, $now = null ) {
@@ -344,14 +341,11 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * Claim and read one minute from both channels. Returns the events as
-	 * [ "kind\tdetail\tip" => count ] (empty when another drainer took them),
-	 * plus the spool's evidence lines as [ "pev\t<method path>\tip\t<user agent>" => count ],
-	 * and sets $full when the spool file had reached its cap.
+	 * Claim and read one minute from both channels. Returns the events as [ "kind\tdetail\tip" => count ] (empty when another drainer took them), plus the spool's evidence lines as [ "pev\t<method path>\tip\t<user agent>" => count ], and sets $full when the spool file had reached its cap.
 	 *
-	 * @param string $dir
-	 * @param int    $minute
-	 * @param bool   $full
+	 * @param string $dir    Path of the data directory.
+	 * @param int    $minute Minute number (Unix time divided by 60).
+	 * @param bool   $full   Set to true when the spool file had reached its cap.
 	 * @return array
 	 */
 	public static function take( $dir, $minute, &$full = false ) {
@@ -407,12 +401,11 @@ class BotStormRadar_Channel {
 	}
 
 	/**
-	 * Delete `.draining` files older than $age seconds: drains interrupted
-	 * after their claim. Returns the minutes lost.
+	 * Delete `.draining` files older than $age seconds: drains interrupted after their claim. Returns the minutes lost.
 	 *
-	 * @param string   $dir
-	 * @param int      $age
-	 * @param int|null $now
+	 * @param string   $dir Path of the data directory.
+	 * @param int      $age Age in seconds after which a draining file counts as interrupted.
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return int[]
 	 */
 	public static function sweep_interrupted( $dir, $age = 600, $now = null ) {

@@ -39,6 +39,9 @@
 // Loadable inside WordPress (tests) or by the gate, which defines BOTSTORMRADAR_GATE first.
 defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
+/**
+ * The gate: runs before themes and plugins, never loads WordPress and answers 403 to probes and banned addresses.
+ */
 class BotStormRadar_Gate {
 
 	/**
@@ -49,7 +52,7 @@ class BotStormRadar_Gate {
 	/**
 	 * The gate for this request. Runs once, whichever loader called it.
 	 *
-	 * @param string $state_path
+	 * @param string $state_path Path of the state file.
 	 */
 	public static function run( $state_path ) {
 		if ( defined( 'BOTSTORMRADAR_GATE_RAN' ) || 'cli' === PHP_SAPI ) {
@@ -84,20 +87,13 @@ class BotStormRadar_Gate {
 	}
 
 	/**
-	 * Gate-side probe trip (APCu only; without APCu the radar trips from the
-	 * channel counts). On the probe that reaches the threshold: in enforce
-	 * mode a provisional ban, stamped with the generation, plus a `trip`
-	 * event the drain turns into a ban row; in observe mode only a `wouldban`
-	 * event. Protected addresses never trip. A user agent that claims a
-	 * verified-bot family gets no provisional ban: the gate cannot verify it,
-	 * so it sends a `claimtrip` event and the radar decides after verifying.
-	 * Returns trip | wouldban | claimtrip | ''.
+	 * Gate-side probe trip (APCu only; without APCu the radar trips from the channel counts). On the probe that reaches the threshold: in enforce mode a provisional ban, stamped with the generation, plus a `trip` event the drain turns into a ban row; in observe mode only a `wouldban` event. Protected addresses never trip. A user agent that claims a verified-bot family gets no provisional ban: the gate cannot verify it, so it sends a `claimtrip` event and the radar decides after verifying. Returns trip | wouldban | claimtrip | ''.
 	 *
-	 * @param string $dir
-	 * @param string $ip
-	 * @param array  $state
-	 * @param int    $now
-	 * @param string $ua
+	 * @param string $dir   Path of the data directory.
+	 * @param string $ip    IP address.
+	 * @param array  $state Gate state, as the state file holds it.
+	 * @param int    $now   Unix timestamp.
+	 * @param string $ua    User agent.
 	 * @return string
 	 */
 	public static function probe_trip( $dir, $ip, array $state, $now, $ua = '' ) {
@@ -127,12 +123,9 @@ class BotStormRadar_Gate {
 	}
 
 	/**
-	 * The decoded state with its ban index. With APCu the decoded array is
-	 * cached under the file's inode, modification time and size: a rebuild
-	 * renames a new file into place, so its inode changes even within one
-	 * second.
+	 * The decoded state with its ban index. With APCu the decoded array is cached under the file's inode, modification time and size: a rebuild renames a new file into place, so its inode changes even within one second.
 	 *
-	 * @param string $path
+	 * @param string $path Path of the state file.
 	 * @return array|null
 	 */
 	public static function state( $path ) {

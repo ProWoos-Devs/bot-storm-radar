@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The learned baseline: normal distinct addresses per minute and normal asset ratio, learned over the first days.
+ */
 class BotStormRadar_Baseline {
 
 	const OPTION     = 'botstormradar_baseline';
@@ -20,7 +23,9 @@ class BotStormRadar_Baseline {
 	const KEEP_DAYS  = 14;
 
 	/**
-	 * @param string $source
+	 * Return the name of the option that holds a source's baseline.
+	 *
+	 * @param string $source Source id: the site or a log source.
 	 * @return string
 	 */
 	private static function option_name( $source ) {
@@ -28,7 +33,9 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * @param string $source
+	 * Return a source's stored baseline, with defaults for what is missing.
+	 *
+	 * @param string $source Source id; the site itself by default.
 	 * @return array
 	 */
 	public static function get( $source = BotStormRadar_Sources::SITE ) {
@@ -43,7 +50,9 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * @param string $source
+	 * Record when learning began, unless it already has.
+	 *
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function ensure_started( $source = BotStormRadar_Sources::SITE ) {
 		$b = self::get( $source );
@@ -56,18 +65,17 @@ class BotStormRadar_Baseline {
 	/**
 	 * Forget everything and start learning again.
 	 *
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function reset( $source = BotStormRadar_Sources::SITE ) {
 		update_option( self::option_name( $source ), [ 'started' => time(), 'days' => [], 'learned' => null, 'last_day' => '' ], false );
 	}
 
 	/**
-	 * Called by the tick. When the UTC day has rolled over since the last
-	 * summary, summarize yesterday from its minute rows.
+	 * Called by the tick. When the UTC day has rolled over since the last summary, summarize yesterday from its minute rows.
 	 *
-	 * @param int    $now
-	 * @param string $source
+	 * @param int    $now    Unix timestamp.
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function maybe_rollover( $now, $source = BotStormRadar_Sources::SITE ) {
 		$b         = self::get( $source );
@@ -110,7 +118,9 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * @param array $days
+	 * Summarize the learned days into medians and a 90th percentile.
+	 *
+	 * @param array $days Daily summaries, keyed by UTC date.
 	 * @return array
 	 */
 	private static function summarize( array $days ) {
@@ -133,11 +143,9 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * What the score should use right now: the frozen values once learned,
-	 * otherwise the provisional figure from whatever days exist, otherwise
-	 * nothing (the score then falls back to the minimum-IPs setting).
+	 * What the score should use right now: the frozen values once learned, otherwise the provisional figure from whatever days exist, otherwise nothing (the score then falls back to the minimum-IPs setting).
 	 *
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 * @return array {ips_median, ips_p90, asset_median, days, status}
 	 */
 	public static function effective( $source = BotStormRadar_Sources::SITE ) {
@@ -152,7 +160,9 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * @param array $values
+	 * Return the median of the values.
+	 *
+	 * @param array $values Numbers.
 	 * @return float
 	 */
 	public static function median( array $values ) {
@@ -160,8 +170,10 @@ class BotStormRadar_Baseline {
 	}
 
 	/**
-	 * @param array $values
-	 * @param float $p
+	 * Return a percentile of the values, interpolating between the nearest two.
+	 *
+	 * @param array $values Numbers.
+	 * @param float $p      Percentile as a fraction between 0 and 1, such as 0.9.
 	 * @return float
 	 */
 	public static function percentile( array $values, $p ) {

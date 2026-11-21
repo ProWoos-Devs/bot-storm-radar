@@ -11,17 +11,18 @@
 // Loadable inside WordPress or by the gate, which defines BOTSTORMRADAR_GATE first.
 defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
+/**
+ * The gate's decision for one request: refuse a probe, refuse an address under a ban, or let it through.
+ */
 class BotStormRadar_Decision {
 
 	/**
-	 * Whether a provisional ban still holds: not expired, decided under the
-	 * current generation (any unban, mode switch or settings change since
-	 * raised it), and the address not unbanned after it was decided.
+	 * Whether a provisional ban still holds: not expired, decided under the current generation (any unban, mode switch or settings change since raised it), and the address not unbanned after it was decided.
 	 *
-	 * @param array|null $pb    exp, gen, reason, t
-	 * @param string     $ip
-	 * @param array      $state
-	 * @param int        $now
+	 * @param array|null $pb    exp, gen, reason, t.
+	 * @param string     $ip    IP address.
+	 * @param array      $state Gate state, as the state file holds it.
+	 * @param int        $now   Unix timestamp.
 	 * @return bool
 	 */
 	public static function provisional_holds( $pb, $ip, array $state, $now ) {
@@ -39,9 +40,9 @@ class BotStormRadar_Decision {
 	/**
 	 * The decision for one request, pure: no output, no globals.
 	 *
-	 * @param array         $server
+	 * @param array         $server      Server variables ($_SERVER or a synthetic array).
 	 * @param array         $state       Decoded state (with or without the index).
-	 * @param int           $now
+	 * @param int           $now         Unix timestamp.
 	 * @param callable|null $provisional fn( $ip ) => provisional ban or null.
 	 * @return array {action: pass|ban|probe, why: string, ip: string|false}
 	 */
@@ -73,11 +74,10 @@ class BotStormRadar_Decision {
 	}
 
 	/**
-	 * Never refused: private and reserved addresses, the CDN and declared
-	 * proxy ranges, the allowlist, administrator addresses, verified bots.
+	 * Never refused: private and reserved addresses, the CDN and declared proxy ranges, the allowlist, administrator addresses, verified bots.
 	 *
-	 * @param string $ip
-	 * @param array  $state
+	 * @param string $ip    IP address.
+	 * @param array  $state Gate state, as the state file holds it.
 	 * @return bool
 	 */
 	public static function is_protected( $ip, array $state ) {
@@ -95,13 +95,11 @@ class BotStormRadar_Decision {
 	}
 
 	/**
-	 * Whether an active ban covers the address. Single-address bans are
-	 * looked up by their binary form (so any spelling of an IPv6 address
-	 * matches); prefix bans are matched as ranges.
+	 * Whether an active ban covers the address. Single-address bans are looked up by their binary form (so any spelling of an IPv6 address matches); prefix bans are matched as ranges.
 	 *
-	 * @param string $ip
-	 * @param array  $state
-	 * @param int    $now
+	 * @param string $ip    IP address.
+	 * @param array  $state Gate state, as the state file holds it.
+	 * @param int    $now   Unix timestamp.
 	 * @return bool
 	 */
 	public static function banned( $ip, array $state, $now ) {
@@ -123,10 +121,9 @@ class BotStormRadar_Decision {
 	}
 
 	/**
-	 * Lookup index for the bans: single addresses by hex binary => expiry,
-	 * prefixes as [cidr, expiry].
+	 * Lookup index for the bans: single addresses by hex binary => expiry, prefixes as [cidr, expiry].
 	 *
-	 * @param array $state
+	 * @param array $state Gate state, as the state file holds it.
 	 * @return array {single: array, ranges: array}
 	 */
 	public static function index( array $state ) {

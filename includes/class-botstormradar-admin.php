@@ -10,12 +10,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The Radar, Bans and Settings screens, the dashboard widget and the actions behind their buttons.
+ */
 class BotStormRadar_Admin {
 
 	const PAGE         = 'bot-storm-radar';
 	const ACTION_NONCE = 'botstormradar_admin_action';
 	const CAP          = 'manage_options';
 
+	/**
+	 * Register the admin hooks.
+	 */
 	public static function init() {
 		add_action( 'admin_menu', [ __CLASS__, 'add_menu_page' ] );
 		add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
@@ -26,6 +32,9 @@ class BotStormRadar_Admin {
 		add_filter( 'plugin_action_links_' . BOTSTORMRADAR_PLUGIN_BASENAME, [ __CLASS__, 'add_action_links' ] );
 	}
 
+	/**
+	 * Add the Bot Storm Radar entry to the admin menu.
+	 */
 	public static function add_menu_page() {
 		add_menu_page(
 			__( 'Bot Storm Radar', 'bot-storm-radar' ),
@@ -38,11 +47,22 @@ class BotStormRadar_Admin {
 		);
 	}
 
+	/**
+	 * Add a Radar link to the plugin's row on the Plugins screen.
+	 *
+	 * @param array $links Action links of the plugin's row.
+	 * @return array The action links, with the Radar link first.
+	 */
 	public static function add_action_links( $links ) {
 		array_unshift( $links, sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ), esc_html__( 'Radar', 'bot-storm-radar' ) ) );
 		return $links;
 	}
 
+	/**
+	 * Add the screen's styles and its confirm-before-acting script on the plugin screen and the dashboard.
+	 *
+	 * @param string $hook Suffix of the current admin page.
+	 */
 	public static function enqueue_assets( $hook ) {
 		if ( 'toplevel_page_' . self::PAGE !== $hook && 'index.php' !== $hook ) {
 			return;
@@ -50,7 +70,7 @@ class BotStormRadar_Admin {
 		wp_register_style( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION );
 		wp_enqueue_style( 'botstormradar-admin' );
 		wp_add_inline_style( 'botstormradar-admin', self::css() );
-		// github-build-only:start
+		// github-build-only:start.
 		wp_add_inline_style( 'botstormradar-admin', '.bsr-report-text{white-space:pre-wrap;word-break:break-word;max-width:420px;font-size:12px;margin:4px 0}.bsr-provider-link{margin-top:4px}.bsr-provider-panel{background:#fff;border:1px solid #c3c4c7;border-left:4px solid #2271b1;padding:4px 16px 8px;margin:12px 0;max-width:900px}' );
 		// github-build-only:end
 		// Links that ask before they act carry their question in data-botstormradar-confirm.
@@ -61,6 +81,11 @@ class BotStormRadar_Admin {
 
 	// ── Tabs ────────────────────────────────────────────────────────
 
+	/**
+	 * Return the tab named in the query, or the Radar tab.
+	 *
+	 * @return string Tab slug.
+	 */
 	private static function current_tab() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'radar';
@@ -79,6 +104,11 @@ class BotStormRadar_Admin {
 		return BotStormRadar_Sources::exists( $source ) ? $source : BotStormRadar_Sources::SITE;
 	}
 
+	/**
+	 * Return the tab labels, keyed by tab slug.
+	 *
+	 * @return array Tab labels, keyed by tab slug.
+	 */
 	private static function tabs() {
 		return [
 			'radar'    => __( 'Radar', 'bot-storm-radar' ),
@@ -89,6 +119,9 @@ class BotStormRadar_Admin {
 
 	// ── Settings ────────────────────────────────────────────────────
 
+	/**
+	 * Register the setting, its sections and its fields.
+	 */
 	public static function register_settings() {
 		register_setting( 'botstormradar_group', Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'sanitize' ] );
 
@@ -203,19 +236,21 @@ class BotStormRadar_Admin {
 		add_settings_field( 'trust_all_forwarding', __( 'Trust all forwarding headers', 'bot-storm-radar' ), function () {
 			printf( '<label><input type="checkbox" name="%1$s[trust_all_forwarding]" value="1" %2$s /> %3$s</label><p class="description bsr-danger">%4$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), checked( 1, (int) BotStormRadar_Helpers::opt( 'trust_all_forwarding', 0 ), false ), esc_html__( 'Insecure, previous behavior', 'bot-storm-radar' ), esc_html__( 'Any client can then choose the address it is counted under. Use it only while you find your proxy address, then declare the proxy above and turn this off.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_proxies' );
-		// github-build-only:start
+		// github-build-only:start.
 		BotStormRadar_AbuseIPDB::register_settings( self::PAGE );
-		// github-build-only:end
+		// github-build-only:end.
 	}
 
 	/**
-	 * @param string $key
-	 * @param string $label
-	 * @param string $section
-	 * @param float  $min
-	 * @param float  $max
-	 * @param float  $step
-	 * @param string $desc
+	 * Add a number field to a settings section.
+	 *
+	 * @param string $key     Setting key, which names the field and its input.
+	 * @param string $label   Label of the field.
+	 * @param string $section Id of the settings section.
+	 * @param float  $min     Smallest allowed value.
+	 * @param float  $max     Largest allowed value.
+	 * @param float  $step    Step of the number input.
+	 * @param string $desc    Optional description shown under the field.
 	 */
 	private static function number_field( $key, $label, $section, $min, $max, $step, $desc = '' ) {
 		add_settings_field( $key, $label, function () use ( $key, $min, $max, $step, $desc ) {
@@ -227,7 +262,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array $input
+	 * Validate the submitted settings, clamp numbers to their ranges and keep what was not submitted.
+	 *
+	 * @param array $input Submitted settings.
 	 * @return array
 	 */
 	public static function sanitize( $input ) {
@@ -305,15 +342,18 @@ class BotStormRadar_Admin {
 			}
 			$out['allowlist'] = implode( "\n", $kept );
 		}
-		// github-build-only:start
+		// github-build-only:start.
 		$out = BotStormRadar_AbuseIPDB::sanitize( $input, $out );
-		// github-build-only:end
+		// github-build-only:end.
 		BotStormRadar_Helpers::flush_options();
 		return $out;
 	}
 
 	// ── Actions and notices ─────────────────────────────────────────
 
+	/**
+	 * Run the action named in the query after checking permission and nonce, then redirect with a notice.
+	 */
 	public static function handle_admin_actions() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- verified below.
 		if ( ! isset( $_GET['botstormradar_action'] ) || ! isset( $_GET['page'] ) || self::PAGE !== $_GET['page'] ) {
@@ -372,7 +412,7 @@ class BotStormRadar_Admin {
 				BotStormRadar_Good_Bots::refresh_ip_lists();
 				$notice = 'lists_refreshed';
 				break;
-			// github-build-only:start
+			// github-build-only:start.
 			case 'early_on':
 				if ( BotStormRadar_Gate_Early::enable() ) {
 					$notice = 'early_' . ( 'early' === BotStormRadar_Gate_Early::verify() ? 'verified' : 'pending' );
@@ -390,7 +430,7 @@ class BotStormRadar_Admin {
 			case 'early_check':
 				$notice = 'early' === BotStormRadar_Gate_Early::verify() ? 'early_verified' : 'early_pending';
 				break;
-			// github-build-only:end
+			// github-build-only:end.
 			case 'unban':
 				$ip  = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
 				$len = isset( $_GET['prefix'] ) ? (int) $_GET['prefix'] : null;
@@ -401,7 +441,7 @@ class BotStormRadar_Admin {
 					$notice = 'unban_none';
 				}
 				break;
-			// github-build-only:start
+			// github-build-only:start.
 			case 'abuseipdb_report':
 				$ip     = isset( $_GET['ip'] ) ? sanitize_text_field( wp_unslash( $_GET['ip'] ) ) : '';
 				$kind   = isset( $_GET['kind'] ) && 'would' === $_GET['kind'] ? 'would' : 'ban';
@@ -416,7 +456,7 @@ class BotStormRadar_Admin {
 					exit;
 				}
 				break;
-			// github-build-only:end
+			// github-build-only:end.
 			case 'clear_would':
 				delete_option( BotStormRadar_Bans::WOULD_OPTION );
 				$notice = 'would_cleared';
@@ -439,16 +479,18 @@ class BotStormRadar_Admin {
 				break;
 		}
 		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
-		// github-build-only:start
+		// github-build-only:start.
 		$redirect = remove_query_arg( [ 'kind', BotStormRadar_Provider_Report::ARG ], $redirect );
-		// github-build-only:end
+		// github-build-only:end.
 		wp_safe_redirect( add_query_arg( 'botstormradar_notice', $notice, $redirect ) );
 		exit;
 	}
 
 	/**
-	 * @param string $action
-	 * @param array  $extra
+	 * Build the nonce-protected URL of an action button.
+	 *
+	 * @param string $action Action name, as handle_admin_actions() knows it.
+	 * @param array  $extra  Extra query arguments, such as the address to unban.
 	 * @return string
 	 */
 	public static function action_url( $action, array $extra = [] ) {
@@ -457,6 +499,9 @@ class BotStormRadar_Admin {
 		return wp_nonce_url( add_query_arg( $args, admin_url( 'admin.php' ) ), self::ACTION_NONCE );
 	}
 
+	/**
+	 * Show the notice that the last action asked for.
+	 */
 	public static function admin_notices() {
 		if ( ! current_user_can( self::CAP ) ) {
 			return;
@@ -484,7 +529,7 @@ class BotStormRadar_Admin {
 				'cache_recent'    => [ 'warning', __( 'The page cache was checked less than a minute ago; nothing was done.', 'bot-storm-radar' ) ],
 				'cache_dismissed' => [ 'success', __( 'Noted: this site is uncached on purpose. The daily page cache check has stopped.', 'bot-storm-radar' ) ],
 				'cache_restored'  => [ 'success', __( 'The daily page cache check is back on.', 'bot-storm-radar' ) ],
-				// github-build-only:start
+				// github-build-only:start.
 				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
 				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
 				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
@@ -493,7 +538,7 @@ class BotStormRadar_Admin {
 				'abuseipdb_none'  => [ 'warning', __( 'That address has no ban or would-be ban to report.', 'bot-storm-radar' ) ],
 				'abuseipdb_failed' => [ 'error', sprintf( /* translators: %s: the reason */ __( 'The AbuseIPDB report was not sent: %s.', 'bot-storm-radar' ), (string) get_transient( 'botstormradar_abuseipdb_error' ) ) ],
 				'provider_none'   => [ 'warning', __( 'That address has no probe ban or would-be ban that can be reported.', 'bot-storm-radar' ) ],
-				// github-build-only:end
+				// github-build-only:end.
 			];
 			if ( isset( $messages[ $key ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $messages[ $key ][0] ), esc_html( $messages[ $key ][1] ) );
@@ -533,6 +578,9 @@ class BotStormRadar_Admin {
 
 	// ── Page ────────────────────────────────────────────────────────
 
+	/**
+	 * Render the screen of the current tab.
+	 */
 	public static function render_page() {
 		if ( ! current_user_can( self::CAP ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'bot-storm-radar' ) );
@@ -568,9 +616,9 @@ class BotStormRadar_Admin {
 					<a class="button" href="<?php echo esc_url( self::action_url( 'reset_baseline' ) ); ?>" data-botstormradar-confirm="<?php echo esc_attr__( 'Forget the learned baseline and start the seven-day learning period again?', 'bot-storm-radar' ); ?>"><?php esc_html_e( 'Reset the baseline', 'bot-storm-radar' ); ?></a>
 				</p>
 				<?php self::render_log_sources_table(); ?>
-				<?php // github-build-only:start ?>
+				<?php // github-build-only:start. ?>
 				<?php self::render_gate_section(); ?>
-				<?php // github-build-only:end ?>
+				<?php // github-build-only:end. ?>
 			<?php elseif ( 'bans' === $tab ) : ?>
 				<?php self::render_bans(); ?>
 			<?php else : ?>
@@ -583,6 +631,9 @@ class BotStormRadar_Admin {
 
 	// ── Radar tab ───────────────────────────────────────────────────
 
+	/**
+	 * Render the links that switch between the site and the log sources.
+	 */
 	private static function render_source_switcher() {
 		$log_sources = BotStormRadar_Sources::log_sources();
 		if ( empty( $log_sources ) ) {
@@ -615,6 +666,9 @@ class BotStormRadar_Admin {
 		);
 	}
 
+	/**
+	 * Render the Radar tab: the current state, the cards, the chart, the classes, the bot claims and the timeline.
+	 */
 	private static function render_radar() {
 		$source   = self::current_source();
 		$is_site  = BotStormRadar_Sources::SITE === $source;
@@ -676,7 +730,7 @@ class BotStormRadar_Admin {
 				}
 				$channel = '';
 				$late    = false;
-				// github-build-only:start
+				// github-build-only:start.
 				$ch      = BotStormRadar_Channel_Drain::status();
 				$waiting = BotStormRadar_Channel_Drain::oldest_waiting_age();
 				$late    = $waiting > 600;
@@ -692,7 +746,7 @@ class BotStormRadar_Admin {
 					/* translators: 1: number of minutes lost, 2: number of minutes that hit the size cap, 3: number of late refusals */
 					$channel .= ' ' . sprintf( __( 'Not counted so far: %1$d minutes lost to an interrupted count, %2$d minutes that hit the size cap, %3$d refusals that arrived after their minute was stored.', 'bot-storm-radar' ), (int) $ch['lost'], (int) $ch['full'], (int) $ch['late'] );
 				}
-				// github-build-only:end
+				// github-build-only:end.
 				?>
 				<div class="bsr-card-sub <?php echo $late ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Gate:', 'bot-storm-radar' ); ?></strong>
 					<?php
@@ -801,7 +855,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param string $verdict
+	 * Return the label of a cache check verdict.
+	 *
+	 * @param string $verdict Verdict constant of BotStormRadar_Cache_Check.
 	 * @return string
 	 */
 	private static function cache_verdict_label( $verdict ) {
@@ -815,10 +871,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * The findings of a check as sentences. Each states what was seen: from
-	 * outside a cache, the cause of a miss cannot be proved.
+	 * The findings of a check as sentences. Each states what was seen: from outside a cache, the cause of a miss cannot be proved.
 	 *
-	 * @param array $result BotStormRadar_Cache_Sampler::last()
+	 * @param array $result BotStormRadar_Cache_Sampler::last().
 	 * @return array List of [ severity, text ].
 	 */
 	private static function cache_lines( array $result ) {
@@ -877,6 +932,8 @@ class BotStormRadar_Admin {
 	}
 
 	/**
+	 * Join the names of the page kinds that were checked into a readable list.
+	 *
 	 * @param array $kinds Sampled page kinds.
 	 * @return string
 	 */
@@ -896,8 +953,10 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array $rows
-	 * @param array $opts
+	 * Draw the storm score and the distinct addresses of the last 24 hours as an SVG chart.
+	 *
+	 * @param array $rows Minute rows.
+	 * @param array $opts Settings; the warning and storm thresholds are drawn as lines.
 	 */
 	private static function render_chart( array $rows, array $opts ) {
 		if ( empty( $rows ) ) {
@@ -948,7 +1007,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array $rows
+	 * Render the request classes of the last hour as a table.
+	 *
+	 * @param array $rows Minute rows.
 	 */
 	private static function render_classes( array $rows ) {
 		$sum   = [];
@@ -972,8 +1033,10 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array  $rows
-	 * @param string $source
+	 * Render the claimed search bots and how their claims were checked.
+	 *
+	 * @param array  $rows   Minute rows.
+	 * @param string $source Source id; the site itself by default.
 	 */
 	private static function render_bots( array $rows, $source = BotStormRadar_Sources::SITE ) {
 		$sum = [];
@@ -1013,7 +1076,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param string $source
+	 * Render the busiest addresses, networks and browser names of the last ten minutes.
+	 *
+	 * @param string $source Source id; the site itself by default.
 	 */
 	private static function render_top_keys( $source = BotStormRadar_Sources::SITE ) {
 		$rows = BotStormRadar_Storage::minutes_last( 10, null, $source );
@@ -1047,8 +1112,10 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array  $state
-	 * @param string $source
+	 * Render the last storm and the log of recent state changes.
+	 *
+	 * @param array  $state  Storm state.
+	 * @param string $source Source id; the site itself by default.
 	 */
 	private static function render_timeline( array $state, $source = BotStormRadar_Sources::SITE ) {
 		$labels = self::state_labels();
@@ -1088,12 +1155,18 @@ class BotStormRadar_Admin {
 
 	// ── Dashboard widget ────────────────────────────────────────────
 
+	/**
+	 * Add the dashboard widget for users who may view the radar.
+	 */
 	public static function add_dashboard_widget() {
 		if ( current_user_can( self::CAP ) ) {
 			wp_add_dashboard_widget( 'botstormradar_dashboard_widget', __( 'Bot Storm Radar', 'bot-storm-radar' ), [ __CLASS__, 'render_dashboard_widget' ] );
 		}
 	}
 
+	/**
+	 * Render the dashboard widget: the current state and the last minute.
+	 */
 	public static function render_dashboard_widget() {
 		$state  = BotStormRadar_Storm::get_state();
 		$labels = self::state_labels();
@@ -1137,10 +1210,9 @@ class BotStormRadar_Admin {
 	// ── Log sources ─────────────────────────────────────────────────
 
 	/**
-	 * The card that replaces Status for a log source: its files, the last
-	 * ingest, the alert recipients, and per-source resets.
+	 * The card that replaces Status for a log source: its files, the last ingest, the alert recipients, and per-source resets.
 	 *
-	 * @param string $source
+	 * @param string $source Source id: the site or a log source.
 	 */
 	private static function render_log_card( $source ) {
 		$def   = BotStormRadar_Sources::log_sources()[ $source ] ?? [];
@@ -1227,9 +1299,9 @@ class BotStormRadar_Admin {
 			printf( esc_html__( '%1$d in force, %2$d would-be, %3$d waiting for a search-bot check, %4$d unbanned by hand so far.', 'bot-storm-radar' ), count( $active ), count( $would ), count( $pending ), (int) $hand );
 			?>
 		</p>
-		<?php // github-build-only:start ?>
+		<?php // github-build-only:start. ?>
 		<?php BotStormRadar_Provider_Report::render_panel(); ?>
-		<?php // github-build-only:end ?>
+		<?php // github-build-only:end. ?>
 
 		<h2><?php esc_html_e( 'Bans', 'bot-storm-radar' ); ?></h2>
 		<?php if ( empty( $rows ) ) : ?>
@@ -1272,10 +1344,10 @@ class BotStormRadar_Admin {
 							<?php if ( $r['active'] ) : ?>
 								<a class="button button-small" href="<?php echo esc_url( self::action_url( 'unban', [ 'ip' => $r['ip_text'], 'prefix' => (int) $r['prefix_len'] ] ) ); ?>"><?php esc_html_e( 'Unban', 'bot-storm-radar' ); ?></a>
 							<?php endif; ?>
-							<?php // github-build-only:start ?>
+							<?php // github-build-only:start. ?>
 							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
 							<?php BotStormRadar_Provider_Report::render_link( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
-							<?php // github-build-only:end ?>
+							<?php // github-build-only:end. ?>
 						</td>
 					</tr>
 				<?php endforeach; ?>
@@ -1296,9 +1368,9 @@ class BotStormRadar_Admin {
 					<th><?php esc_html_e( 'First', 'bot-storm-radar' ); ?></th>
 					<th><?php esc_html_e( 'Last', 'bot-storm-radar' ); ?></th>
 					<th><?php esc_html_e( 'Evidence', 'bot-storm-radar' ); ?></th>
-					<?php // github-build-only:start ?>
+					<?php // github-build-only:start. ?>
 					<th></th>
-					<?php // github-build-only:end ?>
+					<?php // github-build-only:end. ?>
 				</tr></thead>
 				<tbody>
 				<?php foreach ( $would as $ip => $w ) : ?>
@@ -1309,12 +1381,12 @@ class BotStormRadar_Admin {
 						<td><?php echo esc_html( wp_date( $fmt, (int) $w['first'] ) ); ?></td>
 						<td><?php echo esc_html( wp_date( $fmt, (int) $w['last'] ) ); ?></td>
 						<td><?php self::render_evidence( (array) $w['evidence'] ); ?></td>
-						<?php // github-build-only:start ?>
+						<?php // github-build-only:start. ?>
 						<td>
 							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?>
 							<?php BotStormRadar_Provider_Report::render_link( BotStormRadar_AbuseIPDB::from_would( (string) $ip, $w ), 'would' ); ?>
 						</td>
-						<?php // github-build-only:end ?>
+						<?php // github-build-only:end. ?>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -1352,7 +1424,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param string $reason
+	 * Return a readable label for a ban reason.
+	 *
+	 * @param string $reason Ban reason: probe or 404.
 	 * @return string
 	 */
 	private static function reason_label( $reason ) {
@@ -1366,7 +1440,7 @@ class BotStormRadar_Admin {
 	/**
 	 * Bounded evidence as a compact list.
 	 *
-	 * @param array $ev
+	 * @param array $ev Evidence stored with the ban.
 	 */
 	private static function render_evidence( array $ev ) {
 		if ( empty( $ev ) ) {
@@ -1380,7 +1454,7 @@ class BotStormRadar_Admin {
 		echo '<small class="bsr-evidence">' . wp_kses( implode( '<br />', $parts ), [ 'strong' => [], 'br' => [] ] ) . '</small>';
 	}
 
-	// github-build-only:start
+	// github-build-only:start.
 	/**
 	 * Settings tab: how the gate is loaded, and early protection on or off.
 	 */
@@ -1480,8 +1554,11 @@ class BotStormRadar_Admin {
 		</p>
 		<?php
 	}
-	// github-build-only:end
+	// github-build-only:end.
 
+	/**
+	 * Render the table of defined log sources.
+	 */
 	private static function render_log_sources_table() {
 		$all = BotStormRadar_Sources::log_sources();
 		echo '<h2>' . esc_html__( 'Log sources', 'bot-storm-radar' ) . '</h2>';
@@ -1516,7 +1593,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array $lr BotStormRadar_Sources::log_state()
+	 * Tell whether a log source has not been read for more than five minutes.
+	 *
+	 * @param array $lr BotStormRadar_Sources::log_state().
 	 * @return bool
 	 */
 	private static function ingest_is_late( array $lr ) {
@@ -1525,6 +1604,11 @@ class BotStormRadar_Admin {
 
 	// ── Small helpers ───────────────────────────────────────────────
 
+	/**
+	 * Return the labels of the storm states, keyed by state.
+	 *
+	 * @return array State labels, keyed by state.
+	 */
 	private static function state_labels() {
 		return [
 			'calm'    => __( 'Calm', 'bot-storm-radar' ),
@@ -1535,7 +1619,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param array $b
+	 * Describe the learned baseline in a sentence.
+	 *
+	 * @param array $b Baseline, as BotStormRadar_Baseline::effective() returns it.
 	 * @return string
 	 */
 	private static function baseline_sentence( array $b ) {
@@ -1553,8 +1639,10 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param mixed $v
-	 * @param int   $d
+	 * Format a number, or say that nothing is learned yet when it is null.
+	 *
+	 * @param mixed $v Number to format, or null.
+	 * @param int   $d Number of decimals.
 	 * @return string
 	 */
 	private static function fmt_or_dash( $v, $d = 2 ) {
@@ -1562,7 +1650,9 @@ class BotStormRadar_Admin {
 	}
 
 	/**
-	 * @param int $ts
+	 * Format a Unix time as a relative phrase, such as "5 mins ago" or "in 2 mins".
+	 *
+	 * @param int $ts Unix timestamp.
 	 * @return string
 	 */
 	private static function ago( $ts ) {
@@ -1579,6 +1669,11 @@ class BotStormRadar_Admin {
 		return sprintf( __( '%s ago', 'bot-storm-radar' ), human_time_diff( $ts, $now ) );
 	}
 
+	/**
+	 * Return the stylesheet of the admin screens.
+	 *
+	 * @return string The stylesheet.
+	 */
 	private static function css() {
 		return '
 .bsr-header{display:flex;align-items:center;gap:12px;margin:12px 0 8px}

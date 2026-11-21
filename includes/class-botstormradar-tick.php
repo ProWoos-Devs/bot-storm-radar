@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The minute tick: scores the finished minute, advances the state machine and does the housekeeping.
+ */
 class BotStormRadar_Tick {
 
 	const HOOK       = 'botstormradar_tick';
@@ -22,10 +25,15 @@ class BotStormRadar_Tick {
 	const LATE_AFTER = 90;
 
 	/**
+	 * Whether this request ran the tick inline.
+	 *
 	 * @var bool Whether this request ran the tick inline.
 	 */
 	private static $ran_inline = false;
 
+	/**
+	 * Register the tick hooks.
+	 */
 	public static function init() {
 		add_action( self::HOOK, [ __CLASS__, 'run' ] );
 		// 0 arguments: do_action( 'init' ) passes '', which would read as "not allowed".
@@ -55,12 +63,18 @@ class BotStormRadar_Tick {
 		return (bool) wp_next_scheduled( self::HOOK );
 	}
 
+	/**
+	 * Schedule the per-minute tick, unless it is scheduled already.
+	 */
 	public static function schedule() {
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
 			wp_schedule_event( time() + 60, 'botstormradar_minute', self::HOOK );
 		}
 	}
 
+	/**
+	 * Remove every scheduled tick.
+	 */
 	public static function unschedule() {
 		$ts = wp_next_scheduled( self::HOOK );
 		while ( $ts ) {
@@ -70,6 +84,8 @@ class BotStormRadar_Tick {
 	}
 
 	/**
+	 * Return when the tick last ran and what ran it.
+	 *
 	 * @return array last_minute, last_run, source
 	 */
 	public static function status() {
@@ -78,10 +94,9 @@ class BotStormRadar_Tick {
 	}
 
 	/**
-	 * Process every finished minute since the last run (bounded). Returns
-	 * the rows computed, or false when another tick holds the lock.
+	 * Process every finished minute since the last run (bounded). Returns the rows computed, or false when another tick holds the lock.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return array|false
 	 */
 	public static function run( $now = null ) {
@@ -107,7 +122,7 @@ class BotStormRadar_Tick {
 			$target--;
 		}
 		BotStormRadar_Channel_Drain::run( $now, $last > 0 ? $last : null );
-		// github-build-only:end
+		// github-build-only:end.
 		$from    = $last > 0 ? max( $last + 1, $target - self::MAX_BACK + 1 ) : $target;
 		$rows    = [];
 

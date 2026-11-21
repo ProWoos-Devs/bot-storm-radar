@@ -42,6 +42,9 @@
 // Loadable inside WordPress or by the gate, which defines BOTSTORMRADAR_GATE first.
 defined( 'BOTSTORMRADAR_GATE' ) || defined( 'ABSPATH' ) || exit;
 
+/**
+ * Probe classes: the requests only scanners make, recognized from the path alone.
+ */
 class BotStormRadar_Probe {
 
 	const ARCHIVE_EXTENSIONS = 'zip|tar|tgz|gz|bz2|tbz2|tbz|xz|zst|lz4|rar|7z|sql|bak|old|orig|save|swp';
@@ -133,10 +136,9 @@ class BotStormRadar_Probe {
 	}
 
 	/**
-	 * Owner patterns (one per line, `*` wildcard) as anchored regular
-	 * expressions for the state file.
+	 * Owner patterns (one per line, `*` wildcard) as anchored regular expressions for the state file.
 	 *
-	 * @param string|array $lines
+	 * @param string|array $lines Patterns as text, one per line, or as an array.
 	 * @return string[]
 	 */
 	public static function compile( $lines ) {
@@ -155,8 +157,10 @@ class BotStormRadar_Probe {
 	}
 
 	/**
-	 * @param string $re
-	 * @param string $rel
+	 * Match a pattern against a path, counting an invalid pattern as no match.
+	 *
+	 * @param string $re  Regular expression.
+	 * @param string $rel Path relative to the site.
 	 * @return bool
 	 */
 	private static function pattern_matches( $re, $rel ) {

@@ -32,6 +32,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Decides which addresses may be banned and keeps the record of recent administrators.
+ */
 class BotStormRadar_Guard {
 
 	const ADMINS_OPTION = 'botstormradar_admin_addresses';
@@ -57,6 +60,9 @@ class BotStormRadar_Guard {
 	 */
 	public static $lists_override = null;
 
+	/**
+	 * Register the hook that notes administrator activity.
+	 */
 	public static function init() {
 		// Zero accepted arguments: do_action() passes an empty string otherwise,
 		// which note_admin() would take as its time.
@@ -64,7 +70,9 @@ class BotStormRadar_Guard {
 	}
 
 	/**
-	 * @param string   $ip
+	 * Tell whether an address may be banned.
+	 *
+	 * @param string   $ip         IP address.
 	 * @param int|null $prefix_len Null for a single address.
 	 * @return bool
 	 */
@@ -75,8 +83,8 @@ class BotStormRadar_Guard {
 	/**
 	 * Why a ban is refused, '' when it is allowed.
 	 *
-	 * @param string   $ip
-	 * @param int|null $prefix_len
+	 * @param string   $ip         IP address.
+	 * @param int|null $prefix_len Prefix length of the range, or null for a single address.
 	 * @return string invalid | too-wide | private | cloudflare | proxy | allowlist | admin | bot | ''
 	 */
 	public static function refusal( $ip, $prefix_len = null ) {
@@ -127,11 +135,10 @@ class BotStormRadar_Guard {
 	}
 
 	/**
-	 * Whether two CIDR ranges (or addresses) share any address: same family,
-	 * and one contains the other's network address.
+	 * Whether two CIDR ranges (or addresses) share any address: same family, and one contains the other's network address.
 	 *
-	 * @param string $a
-	 * @param string $b
+	 * @param string $a First CIDR range or address.
+	 * @param string $b Second CIDR range or address.
 	 * @return bool
 	 */
 	public static function overlaps( $a, $b ) {
@@ -181,6 +188,8 @@ class BotStormRadar_Guard {
 	}
 
 	/**
+	 * Return the stored records of when administrators were last seen.
+	 *
 	 * @return array ip => last seen
 	 */
 	public static function admin_records() {
@@ -191,7 +200,7 @@ class BotStormRadar_Guard {
 	/**
 	 * Administrator addresses seen in the last 24 hours.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return string[]
 	 */
 	public static function admin_addresses( $now = null ) {
@@ -210,7 +219,7 @@ class BotStormRadar_Guard {
 	/**
 	 * Addresses with a verified search-bot verdict still in force.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return string[]
 	 */
 	public static function verified_bots( $now = null ) {
@@ -225,7 +234,9 @@ class BotStormRadar_Guard {
 	}
 
 	/**
-	 * @param string $ip
+	 * Tell whether an address was verified as a search bot.
+	 *
+	 * @param string $ip IP address.
 	 * @return bool
 	 */
 	public static function is_verified_bot( $ip ) {

@@ -12,6 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Offers updates from GitHub releases through WordPress's own plugin updater.
+ */
 class BotStormRadar_GitHub_Updater {
 
 	const SLUG         = 'bot-storm-radar';
@@ -27,6 +30,9 @@ class BotStormRadar_GitHub_Updater {
 	 */
 	private $plugin_basename;
 
+	/**
+	 * Register the update hooks.
+	 */
 	public function __construct() {
 		$this->plugin_basename = BOTSTORMRADAR_PLUGIN_BASENAME;
 

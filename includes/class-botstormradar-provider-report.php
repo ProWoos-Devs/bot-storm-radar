@@ -27,6 +27,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Prepares an abuse report to the network that a probing address belongs to.
+ */
 class BotStormRadar_Provider_Report {
 
 	/**
@@ -54,10 +57,9 @@ class BotStormRadar_Provider_Report {
 	// ── Lookup ───────────────────────────────────────────────────────
 
 	/**
-	 * The abuse contacts of the network an address belongs to, from the
-	 * cache or RIPEstat.
+	 * The abuse contacts of the network an address belongs to, from the cache or RIPEstat.
 	 *
-	 * @param string $ip
+	 * @param string $ip    IP address.
 	 * @param bool   $fetch false: the cache only, null when nothing is cached.
 	 * @return array|null ok, contacts (e-mail addresses), rir, error, t
 	 */
@@ -95,7 +97,7 @@ class BotStormRadar_Provider_Report {
 	/**
 	 * The lookup result from a RIPEstat response.
 	 *
-	 * @param array|WP_Error $response
+	 * @param array|WP_Error $response HTTP response, as wp_remote_get() returns it.
 	 * @return array ok, contacts, rir, error
 	 */
 	public static function parse( $response ) {
@@ -125,6 +127,8 @@ class BotStormRadar_Provider_Report {
 	// ── The report ───────────────────────────────────────────────────
 
 	/**
+	 * Build the subject line of an abuse report.
+	 *
 	 * @param array $c A candidate (BotStormRadar_AbuseIPDB::from_ban/from_would).
 	 * @return string
 	 */
@@ -135,7 +139,7 @@ class BotStormRadar_Provider_Report {
 	/**
 	 * The plain-text body, in English, the language abuse desks read.
 	 *
-	 * @param array  $c
+	 * @param array  $c      Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
 	 * @param string $sender Signature line.
 	 * @return string
 	 */
@@ -173,11 +177,10 @@ class BotStormRadar_Provider_Report {
 	}
 
 	/**
-	 * "on 2026-10-10 at 06:56 UTC", "on 2026-10-10 between 06:56 and 06:57
-	 * UTC", or "between 2026-10-09 23:58 and 2026-10-10 00:02 UTC".
+	 * "on 2026-10-10 at 06:56 UTC", "on 2026-10-10 between 06:56 and 06:57 UTC", or "between 2026-10-09 23:58 and 2026-10-10 00:02 UTC".
 	 *
-	 * @param int $first
-	 * @param int $last
+	 * @param int $first Unix time of the first probe.
+	 * @param int $last  Unix time of the last probe.
 	 * @return string
 	 */
 	public static function when( $first, $last ) {
@@ -199,8 +202,8 @@ class BotStormRadar_Provider_Report {
 	/**
 	 * The candidate for an address's current ban or would-be ban, or null.
 	 *
-	 * @param string $ip
-	 * @param string $kind ban | would
+	 * @param string $ip   IP address.
+	 * @param string $kind ban | would.
 	 * @return array|null
 	 */
 	public static function candidate( $ip, $kind ) {
@@ -215,8 +218,8 @@ class BotStormRadar_Provider_Report {
 	/**
 	 * The "Provider report" link of a ban or would-be ban row.
 	 *
-	 * @param array  $c
-	 * @param string $kind ban | would
+	 * @param array  $c    Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
+	 * @param string $kind ban | would.
 	 */
 	public static function render_link( array $c, $kind ) {
 		if ( '' !== BotStormRadar_AbuseIPDB::reportable( $c ) ) {
@@ -231,11 +234,10 @@ class BotStormRadar_Provider_Report {
 	}
 
 	/**
-	 * The admin action: look the contact up, then show the panel. Returns
-	 * the notice key, or '' when the panel opens.
+	 * The admin action: look the contact up, then show the panel. Returns the notice key, or '' when the panel opens.
 	 *
-	 * @param string $ip
-	 * @param string $kind
+	 * @param string $ip   IP address.
+	 * @param string $kind ban for a ban, or would for a ban that observe mode only listed.
 	 * @return string
 	 */
 	public static function handle_action( $ip, $kind ) {

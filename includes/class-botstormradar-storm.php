@@ -34,6 +34,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The storm state machine: calm, warning, storm and cooling.
+ */
 class BotStormRadar_Storm {
 
 	const STATE_OPTION         = 'botstormradar_state';
@@ -41,11 +44,15 @@ class BotStormRadar_Storm {
 	const MAX_RUNG             = 3;
 
 	/**
+	 * The handlers that are told about state changes.
+	 *
 	 * @var BotStormRadar_Actions[]|null
 	 */
 	private static $actions = null;
 
 	/**
+	 * Return the state of a radar that has seen nothing yet.
+	 *
 	 * @return array
 	 */
 	public static function initial_state() {
@@ -67,7 +74,9 @@ class BotStormRadar_Storm {
 	}
 
 	/**
-	 * @param string $source
+	 * Return a source's stored state, with defaults for what is missing.
+	 *
+	 * @param string $source Source id; the site itself by default.
 	 * @return array
 	 */
 	public static function get_state( $source = BotStormRadar_Sources::SITE ) {
@@ -76,8 +85,10 @@ class BotStormRadar_Storm {
 	}
 
 	/**
-	 * @param array  $state
-	 * @param string $source
+	 * Store a source's state.
+	 *
+	 * @param array  $state  Storm state.
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function save_state( array $state, $source = BotStormRadar_Sources::SITE ) {
 		// Only the site's state is read on every request (dashboard widget,
@@ -88,13 +99,15 @@ class BotStormRadar_Storm {
 	/**
 	 * Reset to calm (admin action, tests).
 	 *
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function reset( $source = BotStormRadar_Sources::SITE ) {
 		self::save_state( self::initial_state(), $source );
 	}
 
 	/**
+	 * Return the handlers that are told about state changes.
+	 *
 	 * @return BotStormRadar_Actions[]
 	 */
 	public static function actions() {
@@ -112,7 +125,7 @@ class BotStormRadar_Storm {
 	 *
 	 * @param array      $row    Scored minute row.
 	 * @param array|null $opts   Options (defaults to stored).
-	 * @param string     $source
+	 * @param string     $source Source id; the site itself by default.
 	 * @return array
 	 */
 	public static function step( array $row, $opts = null, $source = BotStormRadar_Sources::SITE ) {
@@ -224,12 +237,14 @@ class BotStormRadar_Storm {
 	}
 
 	/**
-	 * @param string $from
-	 * @param string $to
-	 * @param array  $row
-	 * @param int    $minute
-	 * @param string $note
-	 * @param string $source
+	 * Build the context that handlers receive on a state change.
+	 *
+	 * @param string $from   State before the change.
+	 * @param string $to     State after the change.
+	 * @param array  $row    Minute row.
+	 * @param int    $minute Minute number (Unix time divided by 60).
+	 * @param string $note   Optional note about the change.
+	 * @param string $source Source id; the site itself by default.
 	 * @return array
 	 */
 	private static function context( $from, $to, array $row, $minute, $note = '', $source = BotStormRadar_Sources::SITE ) {
@@ -251,11 +266,11 @@ class BotStormRadar_Storm {
 	/**
 	 * Move to a new state, notify the actions, log.
 	 *
-	 * @param array  $state
-	 * @param string $next
-	 * @param int    $minute
-	 * @param array  $row
-	 * @param array  $ctx
+	 * @param array  $state  Storm state.
+	 * @param string $next   State to move to.
+	 * @param int    $minute Minute number (Unix time divided by 60).
+	 * @param array  $row    Minute row.
+	 * @param array  $ctx    Context of the state change.
 	 * @return array
 	 */
 	private static function apply( array $state, $next, $minute, array $row, array $ctx ) {

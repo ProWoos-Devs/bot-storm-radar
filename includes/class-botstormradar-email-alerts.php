@@ -9,9 +9,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Plain-text alert mails: state changes, error bursts and the hourly ban digest.
+ */
 class BotStormRadar_Email_Alerts {
 
 	/**
+	 * Mail the alert recipients about a storm state change.
+	 *
 	 * @param array $ctx from, to, at, minute, score, explanation, metrics.
 	 * @return bool
 	 */
@@ -144,11 +149,10 @@ class BotStormRadar_Email_Alerts {
 	}
 
 	/**
-	 * One mail when more than BotStormRadar_Trips::DIGEST_COUNT addresses were banned
-	 * within an hour (never one mail per trip).
+	 * One mail when more than BotStormRadar_Trips::DIGEST_COUNT addresses were banned within an hour (never one mail per trip).
 	 *
-	 * @param array $recent ip => [t, reason]
-	 * @param int   $now
+	 * @param array $recent ip => [t, reason].
+	 * @param int   $now    Unix timestamp.
 	 * @return bool
 	 */
 	public static function send_trip_digest( array $recent, $now ) {
@@ -183,9 +187,9 @@ class BotStormRadar_Email_Alerts {
 	/**
 	 * Append the footer and send the plain-text mail to every recipient.
 	 *
-	 * @param array  $addresses
-	 * @param string $subject
-	 * @param array  $body Lines.
+	 * @param array  $addresses Recipient email addresses.
+	 * @param string $subject   Subject line.
+	 * @param array  $body      Lines.
 	 * @return bool
 	 */
 	private static function deliver( array $addresses, $subject, array $body ) {
@@ -210,7 +214,9 @@ class BotStormRadar_Email_Alerts {
 	}
 
 	/**
-	 * @param float $v
+	 * Format a ratio as a whole percentage.
+	 *
+	 * @param float $v Ratio between 0 and 1.
 	 * @return string
 	 */
 	private static function pct( $v ) {
