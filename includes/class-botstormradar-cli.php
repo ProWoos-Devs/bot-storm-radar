@@ -50,26 +50,28 @@ class BotStormRadar_CLI {
 				$failed = true;
 				continue;
 			}
-			foreach ( $sum['transitions'] ?? [] as $t ) {
+			foreach ( $sum['transitions'] ?? array() as $t ) {
 				WP_CLI::log( sprintf( '%s: %s -> %s at %s UTC, score %d. %s', $id, $t['from'], $t['to'], gmdate( 'Y-m-d H:i', $t['minute'] * 60 ), $t['score'], $t['explanation'] ) );
 			}
 			if ( 'ok' === $sum['status'] && ! empty( $assoc['quiet-ok'] ) && empty( $sum['events'] ) ) {
 				continue;
 			}
-			WP_CLI::log( sprintf(
-				'%s: %s, %d minutes, %d lines, %s read, %d late, %d unparsed, %d refused%s%s, %d ms.',
-				$id,
-				$sum['status'],
-				(int) ( $sum['minutes'] ?? 0 ),
-				(int) ( $sum['lines'] ?? 0 ),
-				size_format( (int) ( $sum['bytes'] ?? 0 ) ),
-				(int) ( $sum['late'] ?? 0 ),
-				(int) ( $sum['bad'] ?? 0 ),
-				(int) ( $sum['refused'] ?? 0 ),
-				empty( $sum['events'] ) ? '' : ', files: ' . self::events( $sum['events'] ),
-				empty( $sum['stopped'] ) ? '' : ', stopped at the read budget',
-				$ms
-			) );
+			WP_CLI::log(
+				sprintf(
+					'%s: %s, %d minutes, %d lines, %s read, %d late, %d unparsed, %d refused%s%s, %d ms.',
+					$id,
+					$sum['status'],
+					(int) ( $sum['minutes'] ?? 0 ),
+					(int) ( $sum['lines'] ?? 0 ),
+					size_format( (int) ( $sum['bytes'] ?? 0 ) ),
+					(int) ( $sum['late'] ?? 0 ),
+					(int) ( $sum['bad'] ?? 0 ),
+					(int) ( $sum['refused'] ?? 0 ),
+					empty( $sum['events'] ) ? '' : ', files: ' . self::events( $sum['events'] ),
+					empty( $sum['stopped'] ) ? '' : ', stopped at the read budget',
+					$ms
+				)
+			);
 		}
 		if ( $failed ) {
 			WP_CLI::halt( 1 );
@@ -150,7 +152,7 @@ class BotStormRadar_CLI {
 		if ( empty( $assoc['profile'] ) ) {
 			WP_CLI::error( 'Give --profile=mediawiki|wordpress, or --gate.' );
 		}
-		$baseline = isset( $assoc['baseline-ips'] ) ? [ 'ips_median' => (float) $assoc['baseline-ips'] ] : null;
+		$baseline = isset( $assoc['baseline-ips'] ) ? array( 'ips_median' => (float) $assoc['baseline-ips'] ) : null;
 		$t0       = microtime( true );
 		$sum      = BotStormRadar_Log_Source::replay( BotStormRadar_Sources::REPLAY, $assoc['profile'], $args, $baseline );
 		$ms       = (int) round( ( microtime( true ) - $t0 ) * 1000 );
@@ -175,9 +177,12 @@ class BotStormRadar_CLI {
 		}
 
 		$scores = $sum['scores'];
-		uasort( $scores, function ( $a, $b ) {
-			return $b[0] <=> $a[0] ?: $b[1] <=> $a[1];
-		} );
+		uasort(
+			$scores,
+			function ( $a, $b ) {
+				return $b[0] <=> $a[0] ?: $b[1] <=> $a[1];
+			}
+		);
 		WP_CLI::log( '' );
 		WP_CLI::log( 'Highest-scoring minutes (UTC, score, addresses, requests):' );
 		foreach ( array_slice( $scores, 0, max( 1, (int) $assoc['top'] ), true ) as $m => $s ) {
@@ -199,11 +204,14 @@ class BotStormRadar_CLI {
 	 */
 	private function replay_gate( $args, $assoc ) {
 		$t0  = microtime( true );
-		$s   = BotStormRadar_Gate_Replay::run( $args, [
-			'root'        => $assoc['root'] ?? '',
-			'home'        => $assoc['home'] ?? '',
-			'verify_bots' => ! empty( $assoc['verify-bots'] ),
-		] );
+		$s   = BotStormRadar_Gate_Replay::run(
+			$args,
+			array(
+				'root'        => $assoc['root'] ?? '',
+				'home'        => $assoc['home'] ?? '',
+				'verify_bots' => ! empty( $assoc['verify-bots'] ),
+			)
+		);
 		$ms  = (int) round( ( microtime( true ) - $t0 ) * 1000 );
 		$set = BotStormRadar_Trips::settings();
 		$pct = function ( $a, $b ) {
@@ -215,7 +223,7 @@ class BotStormRadar_CLI {
 		WP_CLI::log( sprintf( 'Refused by the web server already (403, 429, 444): %d, of which %d probes. The gate never sees these.', $s['server_refused'], $s['server_probes'] ) );
 		WP_CLI::log( sprintf( 'Static files served by the web server: %d.', $s['static'] ) );
 		WP_CLI::log( sprintf( 'Reached PHP: %d.', $s['php'] ) );
-		$cls = [];
+		$cls = array();
 		foreach ( $s['probe_classes'] as $c => $n ) {
 			$cls[] = $c . ' ' . $n;
 		}
@@ -239,7 +247,7 @@ class BotStormRadar_CLI {
 	 * @return string
 	 */
 	private static function events( array $events ) {
-		$out = [];
+		$out = array();
 		foreach ( $events as $path => $e ) {
 			$out[] = basename( $path ) . ' ' . $e;
 		}
@@ -318,13 +326,16 @@ class BotStormRadar_CLI_Source {
 			}
 			$alert_to = implode( ', ', $valid );
 		}
-		BotStormRadar_Log_Source::save( $id, [
-			'label'    => $assoc['label'] ?? ( $existing['label'] ?? ucfirst( $id ) ),
-			'profile'  => $assoc['profile'],
-			'logs'     => $logs,
-			'alert_to' => $alert_to,
-			'created'  => $existing['created'] ?? time(),
-		] );
+		BotStormRadar_Log_Source::save(
+			$id,
+			array(
+				'label'    => $assoc['label'] ?? ( $existing['label'] ?? ucfirst( $id ) ),
+				'profile'  => $assoc['profile'],
+				'logs'     => $logs,
+				'alert_to' => $alert_to,
+				'created'  => $existing['created'] ?? time(),
+			)
+		);
 		WP_CLI::success( sprintf( '%s source "%s" with %d log file(s).', null === $existing ? 'Added' : 'Updated', $id, count( $logs ) ) );
 	}
 
@@ -337,11 +348,11 @@ class BotStormRadar_CLI_Source {
 	 * @param array $assoc
 	 */
 	public function list_( $args, $assoc ) {
-		$rows = [];
+		$rows = array();
 		foreach ( BotStormRadar_Log_Source::all() as $id => $def ) {
 			$st     = BotStormRadar_Log_Source::state( $id );
 			$storm  = BotStormRadar_Storm::get_state( $id );
-			$rows[] = [
+			$rows[] = array(
 				'id'       => $id,
 				'label'    => $def['label'],
 				'profile'  => $def['profile'],
@@ -350,9 +361,9 @@ class BotStormRadar_CLI_Source {
 				'last_run' => $st['last_run'] ? gmdate( 'Y-m-d H:i:s', $st['last_run'] ) . ' UTC' : 'never',
 				'alert_to' => implode( ', ', BotStormRadar_Sources::alert_recipients( $id ) ) . ( '' === (string) ( $def['alert_to'] ?? '' ) ? ' (site default)' : '' ),
 				'alerts'   => BotStormRadar_Sources::alerts_ready( $id ) ? 'on' : 'after the first full day',
-			];
+			);
 		}
-		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, [ 'id', 'label', 'profile', 'logs', 'state', 'last_run', 'alert_to', 'alerts' ] );
+		WP_CLI\Utils\format_items( $assoc['format'] ?? 'table', $rows, array( 'id', 'label', 'profile', 'logs', 'state', 'last_run', 'alert_to', 'alerts' ) );
 	}
 
 	/**

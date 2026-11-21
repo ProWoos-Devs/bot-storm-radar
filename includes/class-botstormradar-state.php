@@ -41,7 +41,7 @@ class BotStormRadar_State {
 	 * prepend setting may still point at it, the marker that keeps it from
 	 * running anything, and the two files that keep the directory closed.
 	 */
-	const LEFT_BEHIND = [ 'loader.php', 'disabled', 'index.php', '.htaccess' ];
+	const LEFT_BEHIND = array( 'loader.php', 'disabled', 'index.php', '.htaccess' );
 
 	/**
 	 * Last rebuild error, for the Status tab and tests.
@@ -51,7 +51,7 @@ class BotStormRadar_State {
 	private static $error = '';
 
 	public static function init() {
-		BotStormRadar_Projection::on_change( [ __CLASS__, 'rebuild' ] );
+		BotStormRadar_Projection::on_change( array( __CLASS__, 'rebuild' ) );
 	}
 
 	// ── Data directory ────────────────────────────────────────────────
@@ -237,7 +237,15 @@ class BotStormRadar_State {
 			return false;
 		}
 		self::strip( $old );
-		update_option( self::MOVED_OPTION, [ 'from' => $old, 'at' => null === $now ? time() : (int) $now, 'seen' => 0 ], false );
+		update_option(
+			self::MOVED_OPTION,
+			array(
+				'from' => $old,
+				'at'   => null === $now ? time() : (int) $now,
+				'seen' => 0,
+			),
+			false
+		);
 		return true;
 	}
 
@@ -251,7 +259,11 @@ class BotStormRadar_State {
 		if ( ! is_array( $moved ) || empty( $moved['from'] ) || ! is_dir( (string) $moved['from'] ) ) {
 			return null;
 		}
-		return [ 'from' => (string) $moved['from'], 'at' => (int) ( $moved['at'] ?? 0 ), 'seen' => (int) ( $moved['seen'] ?? 0 ) ];
+		return array(
+			'from' => (string) $moved['from'],
+			'at'   => (int) ( $moved['at'] ?? 0 ),
+			'seen' => (int) ( $moved['seen'] ?? 0 ),
+		);
 	}
 
 	/**
@@ -338,7 +350,7 @@ class BotStormRadar_State {
 	public static function uninstall() {
 		$suffix = (string) get_option( self::DIR_OPTION, '' );
 		if ( preg_match( '/^[a-f0-9]{16}$/', $suffix ) ) {
-			foreach ( array_filter( [ self::location( $suffix ), self::legacy_dir() ] ) as $left ) {
+			foreach ( array_filter( array( self::location( $suffix ), self::legacy_dir() ) ) as $left ) {
 				if ( is_dir( $left ) ) {
 					file_put_contents( $left . 'disabled', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 					self::strip( $left );

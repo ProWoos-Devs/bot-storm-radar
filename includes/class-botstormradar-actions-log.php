@@ -45,17 +45,17 @@ class BotStormRadar_Actions_Log implements BotStormRadar_Actions {
 
 	public function on_calm( array $ctx ) {
 		$this->log( $ctx );
-		if ( $this->mails( $ctx ) && 'calm' === $ctx['to'] && in_array( $ctx['from'], [ 'cooling', 'storm' ], true ) && BotStormRadar_Helpers::opt( 'alert_on_calm', 1 ) ) {
+		if ( $this->mails( $ctx ) && 'calm' === $ctx['to'] && in_array( $ctx['from'], array( 'cooling', 'storm' ), true ) && BotStormRadar_Helpers::opt( 'alert_on_calm', 1 ) ) {
 			BotStormRadar_Email_Alerts::send_transition( $ctx );
 		}
 	}
 
 	public function escalate( $rung, array $ctx ) {
-		$this->log( $ctx + [ 'note' => 'escalate rung ' . (int) $rung . ' (stubbed: nothing enforced in v0.1)' ] );
+		$this->log( $ctx + array( 'note' => 'escalate rung ' . (int) $rung . ' (stubbed: nothing enforced in v0.1)' ) );
 	}
 
 	public function deescalate( array $ctx ) {
-		$this->log( $ctx + [ 'note' => 'de-escalate (stubbed: nothing enforced in v0.1)' ] );
+		$this->log( $ctx + array( 'note' => 'de-escalate (stubbed: nothing enforced in v0.1)' ) );
 	}
 
 	/**

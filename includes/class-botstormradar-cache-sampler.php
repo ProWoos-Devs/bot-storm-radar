@@ -72,10 +72,10 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * @var array host => public address to connect to, '' for the normal route.
 	 */
-	private static $routes = [];
+	private static $routes = array();
 
 	public static function init() {
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'daily' ], 60, 0 );
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, array( __CLASS__, 'daily' ), 60, 0 );
 	}
 
 	/**
@@ -163,16 +163,16 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	public static function sample( $budget = self::BUDGET ) {
 		$deadline     = microtime( true ) + $budget;
-		self::$routes = [];
+		self::$routes = array();
 		/**
 		 * Readers for cache headers the plugin does not know.
 		 *
 		 * @param array $readers header name => callable( string $value ): string, one of the BotStormRadar_Cache_Check states.
 		 */
-		$custom  = (array) apply_filters( 'botstormradar_cache_check_readers', [] );
-		$samples = [];
-		$seen    = [];
-		$cookies = [];
+		$custom  = (array) apply_filters( 'botstormradar_cache_check_readers', array() );
+		$samples = array();
+		$seen    = array();
+		$cookies = array();
 
 		foreach ( self::pick_pages() as $kind => $url ) {
 			if ( microtime( true ) >= $deadline ) {
@@ -196,7 +196,7 @@ class BotStormRadar_Cache_Sampler {
 	 * @return array
 	 */
 	public static function pick_pages() {
-		$pages = [ 'home' => home_url( '/' ) ];
+		$pages = array( 'home' => home_url( '/' ) );
 
 		if ( function_exists( 'wc_get_page_permalink' ) && function_exists( 'wc_get_page_id' ) && wc_get_page_id( 'shop' ) > 0 ) {
 			$pages['shop'] = wc_get_page_permalink( 'shop' );
@@ -215,7 +215,7 @@ class BotStormRadar_Cache_Sampler {
 		 */
 		$pages = (array) apply_filters( 'botstormradar_cache_check_pages', $pages );
 
-		$out = [];
+		$out = array();
 		foreach ( $pages as $kind => $url ) {
 			if ( is_string( $url ) && '' !== $url && self::same_site( $url ) ) {
 				$out[ (string) $kind ] = $url;
@@ -230,13 +230,13 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	private static function latest_permalink( $post_type ) {
 		$ids = get_posts(
-			[
+			array(
 				'post_type'    => $post_type,
 				'post_status'  => 'publish',
 				'has_password' => false,
 				'numberposts'  => 1,
 				'fields'       => 'ids',
-			]
+			)
 		);
 		return $ids ? (string) get_permalink( (int) $ids[0] ) : '';
 	}
@@ -247,13 +247,13 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	private static function busiest_term_link( $taxonomy ) {
 		$terms = get_terms(
-			[
+			array(
 				'taxonomy'   => $taxonomy,
 				'hide_empty' => true,
 				'number'     => 1,
 				'orderby'    => 'count',
 				'order'      => 'DESC',
-			]
+			)
 		);
 		if ( is_wp_error( $terms ) || ! $terms ) {
 			return '';
@@ -281,19 +281,19 @@ class BotStormRadar_Cache_Sampler {
 		}
 		$seen[ $final ] = true;
 
-		$sample   = [
+		$sample   = array(
 			'kind'      => $kind,
 			'url'       => $final,
 			'has_nonce' => false,
-			'requests'  => [],
-		];
+			'requests'  => array(),
+		);
 		$response = $followed['response'];
 
 		for ( $i = 1; $i <= self::MAX_REQUESTS; $i++ ) {
 			if ( self::out_of_time( $response ) ) {
 				// One response that is no hit proves nothing about the cache.
 				if ( 2 === $i ) {
-					$sample['requests'] = [];
+					$sample['requests'] = array();
 				}
 				return $sample;
 			}
@@ -315,11 +315,11 @@ class BotStormRadar_Cache_Sampler {
 			if ( ! self::wait_for_retry( $deadline ) ) {
 				// One response that is no hit proves nothing about the cache.
 				if ( 1 === $i ) {
-					$sample['requests'] = [];
+					$sample['requests'] = array();
 				}
 				return $sample;
 			}
-			$response = self::get( $final, [], $deadline );
+			$response = self::get( $final, array(), $deadline );
 		}
 		return $sample;
 	}
@@ -364,11 +364,11 @@ class BotStormRadar_Cache_Sampler {
 				}
 				$request = self::to_request( $response );
 			}
-			return [
+			return array(
 				'kind'     => $page['kind'],
 				'cookies'  => array_keys( $send ),
 				'response' => $request,
-			];
+			);
 		}
 		return null;
 	}
@@ -397,7 +397,7 @@ class BotStormRadar_Cache_Sampler {
 	 * @return array url, response
 	 */
 	private static function follow( $url, $deadline ) {
-		$response = self::get( $url, [], $deadline );
+		$response = self::get( $url, array(), $deadline );
 		for ( $hop = 0; $hop < self::MAX_REDIRECTS; $hop++ ) {
 			$code = (int) wp_remote_retrieve_response_code( $response );
 			if ( is_wp_error( $response ) || $code < 300 || $code >= 400 ) {
@@ -413,12 +413,12 @@ class BotStormRadar_Cache_Sampler {
 				break;
 			}
 			$url      = $next;
-			$response = self::get( $url, [], $deadline );
+			$response = self::get( $url, array(), $deadline );
 		}
-		return [
+		return array(
 			'url'      => $url,
 			'response' => $response,
-		];
+		);
 	}
 
 	/**
@@ -444,7 +444,7 @@ class BotStormRadar_Cache_Sampler {
 			$port    = wp_parse_url( $url, PHP_URL_PORT );
 			$port    = $port ? (int) $port : ( 'http' === wp_parse_url( $url, PHP_URL_SCHEME ) ? 80 : 443 );
 			$connect = static function ( $handle ) use ( $host, $port, $address ) {
-				curl_setopt( $handle, CURLOPT_RESOLVE, [ $host . ':' . $port . ':' . $address ] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- http_api_curl hands over the handle, and the HTTP API has no way to choose the address.
+				curl_setopt( $handle, CURLOPT_RESOLVE, array( $host . ':' . $port . ':' . $address ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- http_api_curl hands over the handle, and the HTTP API has no way to choose the address.
 			};
 			add_action( 'http_api_curl', $connect );
 		}
@@ -480,11 +480,11 @@ class BotStormRadar_Cache_Sampler {
 		if ( self::$lookup ) {
 			$found = call_user_func( self::$lookup, $host );
 		} else {
-			$records = function_exists( 'dns_get_record' ) ? @dns_get_record( $host, DNS_A ) : []; // phpcs:ignore WordPress.PHP.NoSilencedErrors -- a failed lookup only means the normal route.
-			$found   = [
+			$records = function_exists( 'dns_get_record' ) ? @dns_get_record( $host, DNS_A ) : array(); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- a failed lookup only means the normal route.
+			$found   = array(
 				'system' => gethostbyname( $host ),
-				'dns'    => is_array( $records ) ? array_column( $records, 'ip' ) : [],
-			];
+				'dns'    => is_array( $records ) ? array_column( $records, 'ip' ) : array(),
+			);
 		}
 		$address = '';
 		if ( $found['dns'] && ! in_array( $found['system'], $found['dns'], true ) && BotStormRadar_Helpers::is_public_ip( $found['dns'][0] ) ) {
@@ -516,14 +516,14 @@ class BotStormRadar_Cache_Sampler {
 		}
 		return wp_safe_remote_get(
 			$url,
-			[
+			array(
 				'timeout'             => min( self::TIMEOUT, $left ),
 				'redirection'         => 0,
 				'sslverify'           => $verify,
 				'limit_response_size' => self::MAX_BODY,
-				'headers'             => [ 'Accept' => 'text/html' ],
+				'headers'             => array( 'Accept' => 'text/html' ),
 				'cookies'             => $cookies,
-			]
+			)
 		);
 	}
 
@@ -533,13 +533,13 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	private static function to_request( $response ) {
 		if ( is_wp_error( $response ) ) {
-			return [ 'error' => $response->get_error_code() ];
+			return array( 'error' => $response->get_error_code() );
 		}
 		$headers = wp_remote_retrieve_headers( $response );
-		return [
+		return array(
 			'status'  => (int) wp_remote_retrieve_response_code( $response ),
 			'headers' => is_object( $headers ) && method_exists( $headers, 'getAll' ) ? $headers->getAll() : (array) $headers,
-		];
+		);
 	}
 
 	/**
@@ -559,13 +559,13 @@ class BotStormRadar_Cache_Sampler {
 			}
 			$domain = isset( $cookie->domain ) && '' !== (string) $cookie->domain ? ltrim( strtolower( (string) $cookie->domain ), '.' ) : '';
 			$path   = isset( $cookie->path ) && 0 === strpos( (string) $cookie->path, '/' ) ? (string) $cookie->path : '/';
-			$entry  = [
+			$entry  = array(
 				'name'      => (string) $cookie->name,
 				'value'     => (string) $cookie->value,
 				'domain'    => '' === $domain ? $host : $domain,
 				'host_only' => '' === $domain || ! empty( $cookie->host_only ),
 				'path'      => $path,
-			];
+			);
 			$key    = $entry['name'] . '|' . $entry['domain'] . '|' . $entry['path'];
 			$gone   = '' === $entry['value'] || 'deleted' === $entry['value'] || ( ! empty( $cookie->expires ) && (int) $cookie->expires <= time() );
 			if ( $gone ) {
@@ -589,8 +589,8 @@ class BotStormRadar_Cache_Sampler {
 		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
 		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
 		$path = '' === $path ? '/' : $path;
-		$send = [];
-		$best = [];
+		$send = array();
+		$best = array();
 		foreach ( $cookies as $c ) {
 			$domain_ok = $c['host_only'] ? $host === $c['domain'] : ( $host === $c['domain'] || substr( $host, -strlen( '.' . $c['domain'] ) ) === '.' . $c['domain'] );
 			$path_ok   = $path === $c['path'] || ( 0 === strpos( $path, $c['path'] ) && ( '/' === substr( $c['path'], -1 ) || '/' === substr( $path, strlen( $c['path'] ), 1 ) ) );

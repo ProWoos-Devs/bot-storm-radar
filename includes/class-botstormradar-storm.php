@@ -49,7 +49,7 @@ class BotStormRadar_Storm {
 	 * @return array
 	 */
 	public static function initial_state() {
-		return [
+		return array(
 			'state'        => 'calm',
 			'since'        => time(),
 			'since_minute' => BotStormRadar_Helpers::minute(),
@@ -63,7 +63,7 @@ class BotStormRadar_Storm {
 			'storms'       => 0,
 			'last_storm'   => null,
 			'current'      => null,
-		];
+		);
 	}
 
 	/**
@@ -71,8 +71,8 @@ class BotStormRadar_Storm {
 	 * @return array
 	 */
 	public static function get_state( $source = BotStormRadar_Sources::SITE ) {
-		$s = get_option( BotStormRadar_Sources::option( self::STATE_OPTION, $source ), [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], self::initial_state() );
+		$s = get_option( BotStormRadar_Sources::option( self::STATE_OPTION, $source ), array() );
+		return wp_parse_args( is_array( $s ) ? $s : array(), self::initial_state() );
 	}
 
 	/**
@@ -99,10 +99,15 @@ class BotStormRadar_Storm {
 	 */
 	public static function actions() {
 		if ( null === self::$actions ) {
-			$list = apply_filters( 'botstormradar_actions', [ new BotStormRadar_Actions_Log() ] );
-			self::$actions = array_values( array_filter( is_array( $list ) ? $list : [], function ( $a ) {
-				return $a instanceof BotStormRadar_Actions;
-			} ) );
+			$list          = apply_filters( 'botstormradar_actions', array( new BotStormRadar_Actions_Log() ) );
+			self::$actions = array_values(
+				array_filter(
+					is_array( $list ) ? $list : array(),
+					function ( $a ) {
+						return $a instanceof BotStormRadar_Actions;
+					}
+				)
+			);
 		}
 		return self::$actions;
 	}
@@ -118,16 +123,16 @@ class BotStormRadar_Storm {
 	public static function step( array $row, $opts = null, $source = BotStormRadar_Sources::SITE ) {
 		$opts  = null === $opts ? BotStormRadar_Helpers::get_options() : $opts;
 		$state = self::get_state( $source );
-		$made  = [];
+		$made  = array();
 
 		$score  = (int) ( $row['score'] ?? 0 );
 		$ep     = (float) ( $row['ep'] ?? 0 );
 		$minute = (int) ( $row['m'] ?? BotStormRadar_Helpers::minute() - 1 );
 
-		$warn_t   = (int) ( $opts['warning_threshold'] ?? 40 );
-		$storm_t  = (int) ( $opts['storm_threshold'] ?? 60 );
-		$ep_t     = (float) ( $opts['error_pressure_storm'] ?? 0.5 );
-		$warn_min = max( 1, (int) ( $opts['warning_minutes'] ?? 1 ) );
+		$warn_t    = (int) ( $opts['warning_threshold'] ?? 40 );
+		$storm_t   = (int) ( $opts['storm_threshold'] ?? 60 );
+		$ep_t      = (float) ( $opts['error_pressure_storm'] ?? 0.5 );
+		$warn_min  = max( 1, (int) ( $opts['warning_minutes'] ?? 1 ) );
 		$storm_min = max( 1, (int) ( $opts['storm_minutes'] ?? 1 ) );
 		$clear_min = max( 1, (int) ( $opts['warning_clear_minutes'] ?? 5 ) );
 		$hold_min  = max( 1, (int) ( $opts['storm_hold_minutes'] ?? 15 ) );
@@ -144,7 +149,7 @@ class BotStormRadar_Storm {
 		// minute, whatever its score: counting it as below let storm move to
 		// cooling and straight back to storm in the same tick, every
 		// `storm_hold_minutes`, with an alert each time.
-		$state['s_below'] = ( $above_warn || $above_storm ) ? 0 : $state['s_below'] + 1;
+		$state['s_below']     = ( $above_warn || $above_storm ) ? 0 : $state['s_below'] + 1;
 		$state['last_score']  = $score;
 		$state['last_minute'] = $minute;
 
@@ -181,7 +186,7 @@ class BotStormRadar_Storm {
 					if ( $state['s_below'] >= $hold_min ) {
 						$next = 'cooling';
 					} elseif ( $state['rung'] > 0 && $state['rung'] < self::MAX_RUNG && $state['s_storm'] >= 1 && ( $minute - (int) $state['rung_minute'] ) >= self::RUNG_PERSIST_MINUTES ) {
-						$state['rung']++;
+						++$state['rung'];
 						$state['rung_minute'] = $minute;
 						/* translators: 1: number of the rung that is engaged, 2: number of the rung that was requested */
 						$ctx = self::context( 'storm', 'storm', $row, $minute, sprintf( __( 'storm persisted with rung %1$d engaged, rung %2$d requested', 'bot-storm-radar' ), $state['rung'] - 1, $state['rung'] ), $source );
@@ -215,7 +220,7 @@ class BotStormRadar_Storm {
 			} elseif ( $through && 'storm' === $next ) {
 				$ctx['started_from'] = 'calm';
 			}
-			$state = self::apply( $state, $next, $minute, $row, $ctx );
+			$state  = self::apply( $state, $next, $minute, $row, $ctx );
 			$made[] = $ctx;
 		}
 
@@ -235,7 +240,7 @@ class BotStormRadar_Storm {
 	private static function context( $from, $to, array $row, $minute, $note = '', $source = BotStormRadar_Sources::SITE ) {
 		$light = $row;
 		unset( $light['hot'], $light['ua_top'] );
-		return [
+		return array(
 			'source'      => $source,
 			'from'        => $from,
 			'to'          => $to,
@@ -245,7 +250,7 @@ class BotStormRadar_Storm {
 			'explanation' => BotStormRadar_Metrics::explain( $row, BotStormRadar_Baseline::effective( $source ) ) . ( '' !== $note ? ' (' . $note . ')' : '' ),
 			'note'        => $note,
 			'metrics'     => $light,
-		];
+		);
 	}
 
 	/**
@@ -259,7 +264,7 @@ class BotStormRadar_Storm {
 	 * @return array
 	 */
 	private static function apply( array $state, $next, $minute, array $row, array $ctx ) {
-		$prev = $state['state'];
+		$prev                  = $state['state'];
 		$state['state']        = $next;
 		$state['since']        = time();
 		$state['since_minute'] = $minute;
@@ -274,8 +279,8 @@ class BotStormRadar_Storm {
 
 		if ( 'storm' === $next ) {
 			if ( ! is_array( $state['current'] ) ) {
-				$state['storms']++;
-				$state['current'] = [
+				++$state['storms'];
+				$state['current'] = array(
 					'started'        => time(),
 					'started_minute' => $minute,
 					'peak_score'     => (int) ( $row['score'] ?? 0 ),
@@ -284,7 +289,7 @@ class BotStormRadar_Storm {
 					'peak_total'     => (int) ( $row['total'] ?? 0 ),
 					'explanation'    => $ctx['explanation'],
 					'max_rung'       => 1,
-				];
+				);
 			}
 			if ( $state['rung'] < 1 ) {
 				$state['rung']        = 1;

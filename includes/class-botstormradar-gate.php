@@ -56,7 +56,7 @@ class BotStormRadar_Gate {
 			return;
 		}
 		define( 'BOTSTORMRADAR_GATE_RAN', true );
-		register_shutdown_function( [ __CLASS__, 'observe' ] );
+		register_shutdown_function( array( __CLASS__, 'observe' ) );
 		// The plugin's loopback check asks how the gate was loaded.
 		if ( isset( $_SERVER['HTTP_X_BSR_GATE_CHECK'] ) && ! headers_sent() ) {
 			header( 'X-BSR-Gate: ' . ( defined( 'BOTSTORMRADAR_GATE_EARLY' ) || defined( 'BSR_GATE_EARLY' ) ? 'early' : 'mu' ) ); // BSR_GATE_EARLY: a loader written before 0.3.
@@ -68,9 +68,14 @@ class BotStormRadar_Gate {
 		}
 		$dir = dirname( $state_path ) . '/';
 		$now = time();
-		$d   = BotStormRadar_Decision::decide( $_SERVER, $state, $now, function ( $ip ) use ( $dir ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
-			return BotStormRadar_Channel::ban_get( $dir, $ip );
-		} );
+		$d   = BotStormRadar_Decision::decide(
+			$_SERVER,
+			$state,
+			$now,
+			function ( $ip ) use ( $dir ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- the resolver validates every address; the path is only matched.
+				return BotStormRadar_Channel::ban_get( $dir, $ip );
+			}
+		);
 		if ( 'ban' === $d['action'] || 'probe' === $d['action'] ) {
 			// The radar learns about it through the channel (drained by the tick).
 			BotStormRadar_Channel::write( $dir, $d['action'], 'probe' === $d['action'] ? $d['why'] : '', (string) $d['ip'] );
@@ -111,7 +116,7 @@ class BotStormRadar_Gate {
 		}
 		$ttl = max( 60, (int) ( $cfg['ttl'] ?? 3600 ) );
 		$gen = (int) ( $state['generation'] ?? 0 );
-		foreach ( (array) ( $cfg['claims'] ?? [] ) as $name => $pattern ) {
+		foreach ( (array) ( $cfg['claims'] ?? array() ) as $name => $pattern ) {
 			if ( '' !== $ua && is_string( $pattern ) && 1 === @preg_match( $pattern, $ua ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
 				BotStormRadar_Channel::write( $dir, 'claimtrip', 'probe-' . $gen . '-' . $ttl . '-' . $name, $ip, $now );
 				return 'claimtrip';

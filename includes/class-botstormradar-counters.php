@@ -65,8 +65,8 @@ class BotStormRadar_Counters {
 	 *
 	 * @var array
 	 */
-	private static $t_groups = [];
-	private static $t_dirty  = [];
+	private static $t_groups           = array();
+	private static $t_dirty            = array();
 	private static $t_flush_registered = false;
 
 	/**
@@ -74,15 +74,15 @@ class BotStormRadar_Counters {
 	 *
 	 * @var array
 	 */
-	private static $mem     = [];
-	private static $mem_exp = [];
+	private static $mem     = array();
+	private static $mem_exp = array();
 
 	/**
 	 * Transient backend locks this process holds: key => owner token.
 	 *
 	 * @var array
 	 */
-	private static $claims = [];
+	private static $claims = array();
 
 	// ── Backend selection ───────────────────────────────────────────
 
@@ -97,7 +97,7 @@ class BotStormRadar_Counters {
 		if ( null === $forced && defined( 'BOTSTORMRADAR_COUNTER_BACKEND' ) ) {
 			$forced = (string) BOTSTORMRADAR_COUNTER_BACKEND;
 		}
-		if ( in_array( $forced, [ 'object_cache', 'apcu', 'transient', 'memory' ], true ) ) {
+		if ( in_array( $forced, array( 'object_cache', 'apcu', 'transient', 'memory' ), true ) ) {
 			self::$backend = $forced;
 		} elseif ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() && function_exists( 'wp_cache_incr' ) ) {
 			self::$backend = 'object_cache';
@@ -128,8 +128,8 @@ class BotStormRadar_Counters {
 		self::flush();
 		self::$forced   = $backend;
 		self::$backend  = null;
-		self::$t_groups = [];
-		self::$t_dirty  = [];
+		self::$t_groups = array();
+		self::$t_dirty  = array();
 		self::backend();
 	}
 
@@ -222,7 +222,7 @@ class BotStormRadar_Counters {
 	 * @return array key => int
 	 */
 	public static function get_multi( array $keys ) {
-		$out = [];
+		$out = array();
 		if ( empty( $keys ) ) {
 			return $out;
 		}
@@ -240,12 +240,12 @@ class BotStormRadar_Counters {
 				}
 				return $out;
 			case 'apcu':
-				$pref = [];
+				$pref = array();
 				foreach ( $keys as $k ) {
 					$pref[] = self::$apcu_prefix . $k;
 				}
 				$vals = apcu_fetch( $pref );
-				$vals = is_array( $vals ) ? $vals : [];
+				$vals = is_array( $vals ) ? $vals : array();
 				foreach ( $keys as $k ) {
 					$out[ $k ] = isset( $vals[ self::$apcu_prefix . $k ] ) ? (int) $vals[ self::$apcu_prefix . $k ] : 0;
 				}
@@ -395,7 +395,7 @@ class BotStormRadar_Counters {
 	 * Run from the upgrade; the keys are the two locks those versions took.
 	 */
 	public static function drop_option_locks() {
-		foreach ( [ 'g:tick_lock', 'g:cache_check_lock' ] as $key ) {
+		foreach ( array( 'g:tick_lock', 'g:cache_check_lock' ) as $key ) {
 			delete_option( 'botstormradar_lock_' . self::lock_name( $key ) );
 		}
 	}
@@ -441,8 +441,8 @@ class BotStormRadar_Counters {
 	 * @return bool True when added.
 	 */
 	public static function registry_add( $key, $entry_key, $entry_value, $cap, $ttl = self::TTL_MINUTE ) {
-		$reg = self::get_value( $key, [] );
-		$reg = is_array( $reg ) ? $reg : [];
+		$reg = self::get_value( $key, array() );
+		$reg = is_array( $reg ) ? $reg : array();
 		if ( isset( $reg[ $entry_key ] ) ) {
 			return false;
 		}
@@ -466,7 +466,7 @@ class BotStormRadar_Counters {
 			if ( ! $dirty ) {
 				continue;
 			}
-			$data = self::$t_groups[ $g ] ?? [];
+			$data = self::$t_groups[ $g ] ?? array();
 			$ttl  = isset( $data['_ttl'] ) ? (int) $data['_ttl'] : self::TTL_MINUTE;
 			set_transient( self::t_name( $g ), $data, $ttl );
 			self::$t_dirty[ $g ] = false;
@@ -502,7 +502,7 @@ class BotStormRadar_Counters {
 		foreach ( array_keys( self::$mem ) as $k ) {
 			if ( 0 === strncmp( $k, $prefix, $len ) ) {
 				unset( self::$mem[ $k ], self::$mem_exp[ $k ] );
-				$n++;
+				++$n;
 			}
 		}
 		return $n;
@@ -516,11 +516,11 @@ class BotStormRadar_Counters {
 	 * @return array key => [ value, expiry ]
 	 */
 	public static function memory_export( $prefix ) {
-		$out = [];
+		$out = array();
 		$len = strlen( $prefix );
 		foreach ( array_keys( self::$mem ) as $k ) {
 			if ( 0 === strncmp( $k, $prefix, $len ) && self::m_live( $k ) ) {
-				$out[ $k ] = [ self::$mem[ $k ], self::$mem_exp[ $k ] ];
+				$out[ $k ] = array( self::$mem[ $k ], self::$mem_exp[ $k ] );
 			}
 		}
 		return $out;
@@ -545,8 +545,8 @@ class BotStormRadar_Counters {
 	 * Empty the memory backend.
 	 */
 	public static function memory_reset() {
-		self::$mem     = [];
-		self::$mem_exp = [];
+		self::$mem     = array();
+		self::$mem_exp = array();
 	}
 
 	// ── Transient backend internals ─────────────────────────────────
@@ -557,7 +557,7 @@ class BotStormRadar_Counters {
 	 */
 	private static function t_group_of( $key ) {
 		$parts = explode( ':', $key, 3 );
-		if ( count( $parts ) >= 3 && in_array( $parts[0], [ 'm', 't' ], true ) ) {
+		if ( count( $parts ) >= 3 && in_array( $parts[0], array( 'm', 't' ), true ) ) {
 			return $parts[0] . ':' . $parts[1];
 		}
 		return 'g:' . $key;
@@ -577,12 +577,12 @@ class BotStormRadar_Counters {
 	 */
 	private static function t_load( $group ) {
 		if ( ! isset( self::$t_groups[ $group ] ) ) {
-			$data = get_transient( self::t_name( $group ) );
-			self::$t_groups[ $group ] = is_array( $data ) ? $data : [];
+			$data                     = get_transient( self::t_name( $group ) );
+			self::$t_groups[ $group ] = is_array( $data ) ? $data : array();
 			self::$t_dirty[ $group ]  = false;
 			if ( ! self::$t_flush_registered ) {
 				self::$t_flush_registered = true;
-				register_shutdown_function( [ __CLASS__, 'flush' ] );
+				register_shutdown_function( array( __CLASS__, 'flush' ) );
 			}
 		}
 		return self::$t_groups[ $group ];
@@ -597,7 +597,7 @@ class BotStormRadar_Counters {
 		$g = self::t_group_of( $key );
 		self::t_load( $g );
 		if ( 0 === strpos( $g, 'g:' ) ) {
-			$cur = isset( self::$t_groups[ $g ]['_v'] ) ? (int) self::$t_groups[ $g ]['_v'] : 0;
+			$cur                          = isset( self::$t_groups[ $g ]['_v'] ) ? (int) self::$t_groups[ $g ]['_v'] : 0;
 			self::$t_groups[ $g ]['_v']   = $cur + $by;
 			self::$t_groups[ $g ]['_ttl'] = $ttl;
 			self::$t_dirty[ $g ]          = true;

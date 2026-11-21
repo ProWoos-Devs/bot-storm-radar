@@ -54,19 +54,19 @@ class BotStormRadar_Trips {
 	public static function settings() {
 		$o   = BotStormRadar_Helpers::get_options();
 		$ttl = max( 1, (int) ( $o['trip_ban_minutes'] ?? 60 ) ) * MINUTE_IN_SECONDS;
-		return [
+		return array(
 			'mode'       => 'enforce' === ( $o['ban_mode'] ?? 'observe' ) ? 'enforce' : 'observe',
-			'probe'      => [
+			'probe'      => array(
 				'count'  => max( 0, (int) ( $o['trip_probe_count'] ?? 3 ) ),
 				'window' => $o['trip_probe_window_minutes'] * MINUTE_IN_SECONDS,
 				'ttl'    => $ttl,
-			],
-			'404'        => [
+			),
+			'404'        => array(
 				'count' => max( 0, (int) ( $o['trip_404_count'] ?? 20 ) ),
 				'ttl'   => $ttl,
-			],
+			),
 			'ttl_repeat' => max( 1, (int) ( $o['trip_ban_repeat_hours'] ?? 24 ) ) * HOUR_IN_SECONDS,
-		];
+		);
 	}
 
 	/**
@@ -77,13 +77,13 @@ class BotStormRadar_Trips {
 	 */
 	public static function state_config() {
 		$s      = self::settings();
-		$claims = [];
+		$claims = array();
 		foreach ( BotStormRadar_Good_Bots::bots() as $name => $bot ) {
 			$claims[ $name ] = $bot['pattern'];
 		}
-		return [
-			'probe' => $s['probe']['count'] > 0 ? array_merge( $s['probe'], [ 'claims' => $claims ] ) : [],
-		];
+		return array(
+			'probe' => $s['probe']['count'] > 0 ? array_merge( $s['probe'], array( 'claims' => $claims ) ) : array(),
+		);
 	}
 
 	/**
@@ -108,7 +108,7 @@ class BotStormRadar_Trips {
 				return 'verified-bot';
 			}
 			if ( 'pending' === $verdict || 'unchecked' === $verdict ) {
-				self::hold( $ip, $reason, $evidence + [ 'claims' => $claim ], $origin, $claim, $now );
+				self::hold( $ip, $reason, $evidence + array( 'claims' => $claim ), $origin, $claim, $now );
 				return 'pending';
 			}
 			$evidence['claims'] = $claim . ' (fake)';
@@ -141,10 +141,19 @@ class BotStormRadar_Trips {
 	 */
 	private static function hold( $ip, $reason, array $evidence, $origin, $claim, $now ) {
 		$list        = self::pending();
-		$list[ $ip ] = [ 'reason' => $reason, 'evidence' => BotStormRadar_Bans::bound_evidence( $evidence ), 'origin' => $origin, 'claim' => $claim, 'at' => (int) ( $list[ $ip ]['at'] ?? $now ) ];
-		uasort( $list, function ( $a, $b ) {
-			return $b['at'] <=> $a['at'];
-		} );
+		$list[ $ip ] = array(
+			'reason'   => $reason,
+			'evidence' => BotStormRadar_Bans::bound_evidence( $evidence ),
+			'origin'   => $origin,
+			'claim'    => $claim,
+			'at'       => (int) ( $list[ $ip ]['at'] ?? $now ),
+		);
+		uasort(
+			$list,
+			function ( $a, $b ) {
+				return $b['at'] <=> $a['at'];
+			}
+		);
 		update_option( self::PENDING_OPTION, array_slice( $list, 0, self::PENDING_CAP, true ), false );
 	}
 
@@ -152,8 +161,8 @@ class BotStormRadar_Trips {
 	 * @return array ip => reason, evidence, origin, claim, at
 	 */
 	public static function pending() {
-		$p = get_option( self::PENDING_OPTION, [] );
-		return is_array( $p ) ? $p : [];
+		$p = get_option( self::PENDING_OPTION, array() );
+		return is_array( $p ) ? $p : array();
 	}
 
 	/**
@@ -169,9 +178,9 @@ class BotStormRadar_Trips {
 		$now  = null === $now ? time() : (int) $now;
 		$list = self::pending();
 		if ( empty( $list ) ) {
-			return [];
+			return array();
 		}
-		$done = [];
+		$done = array();
 		foreach ( $list as $ip => $p ) {
 			$cached = BotStormRadar_Counters::get_value( 'g:bot:' . $ip );
 			$v      = is_array( $cached ) ? (string) ( $cached['v'] ?? '' ) : '';
@@ -210,12 +219,18 @@ class BotStormRadar_Trips {
 	 * @return bool Whether a digest was sent.
 	 */
 	public static function note_for_digest( $ip, $reason, $now ) {
-		$d       = get_option( self::DIGEST_OPTION, [] );
-		$d       = is_array( $d ) ? $d : [];
-		$recent  = array_filter( (array) ( $d['recent'] ?? [] ), function ( $r ) use ( $now ) {
-			return (int) $r['t'] > $now - self::DIGEST_WINDOW;
-		} );
-		$recent[ $ip ] = [ 't' => (int) $now, 'reason' => (string) $reason ];
+		$d             = get_option( self::DIGEST_OPTION, array() );
+		$d             = is_array( $d ) ? $d : array();
+		$recent        = array_filter(
+			(array) ( $d['recent'] ?? array() ),
+			function ( $r ) use ( $now ) {
+				return (int) $r['t'] > $now - self::DIGEST_WINDOW;
+			}
+		);
+		$recent[ $ip ] = array(
+			't'      => (int) $now,
+			'reason' => (string) $reason,
+		);
 		$d['recent']   = $recent;
 		$sent          = false;
 		if ( count( $recent ) > self::DIGEST_COUNT && (int) ( $d['mailed'] ?? 0 ) <= $now - self::DIGEST_WINDOW ) {

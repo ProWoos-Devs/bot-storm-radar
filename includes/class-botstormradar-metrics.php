@@ -28,15 +28,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Metrics {
 
-	const SENSITIVE_CLASSES = [ 'search', 'xmlrpc', 'rest', 'login', 'register', 'comment', 'cart', 'checkout', '404', 'admin-ajax', 'wc-ajax', 'special', 'revision' ];
+	const SENSITIVE_CLASSES = array( 'search', 'xmlrpc', 'rest', 'login', 'register', 'comment', 'cart', 'checkout', '404', 'admin-ajax', 'wc-ajax', 'special', 'revision' );
 
-	const WEIGHTS = [
+	const WEIGHTS = array(
 		'single_hit'    => 0.35,
 		'asset_gap'     => 0.35,
 		'ua_evenness'   => 0.10,
 		'error'         => 0.10,
 		'concentration' => 0.10,
-	];
+	);
 
 	/**
 	 * Fewer HTML-serving addresses than this and the asset ratio says nothing.
@@ -54,8 +54,8 @@ class BotStormRadar_Metrics {
 	public static function compute_minute( $minute, $opts = null, $baseline = null ) {
 		$minute = (int) $minute;
 		$p      = 'm:' . $minute . ':';
-		$base   = [ 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow', 'refused', 'gate_probe', 'gate_ban' ];
-		$keys   = [];
+		$base   = array( 'total', 'ips', 'multi', 'nets', 'uas', 'sessions', 'html_ips', 'beacon_ips', 'err5', 'slow', 'refused', 'gate_probe', 'gate_ban' );
+		$keys   = array();
 		foreach ( $base as $k ) {
 			$keys[] = $p . $k;
 		}
@@ -65,29 +65,29 @@ class BotStormRadar_Metrics {
 		}
 		$bots = array_keys( BotStormRadar_Good_Bots::bots() );
 		foreach ( $bots as $b ) {
-			foreach ( [ 'verified', 'fake', 'pending', 'unchecked' ] as $v ) {
+			foreach ( array( 'verified', 'fake', 'pending', 'unchecked' ) as $v ) {
 				$keys[] = $p . 'bot:' . $b . ':' . $v;
 			}
 		}
 		$vals = BotStormRadar_Counters::get_multi( $keys );
 
-		$row = [ 'm' => $minute ];
+		$row = array( 'm' => $minute );
 		foreach ( $base as $k ) {
 			$row[ $k ] = (int) ( $vals[ $p . $k ] ?? 0 );
 		}
 		$row['single'] = max( 0, $row['ips'] - $row['multi'] );
 
-		$row['classes'] = [];
+		$row['classes'] = array();
 		foreach ( $classes as $c ) {
 			$n = (int) ( $vals[ $p . 'c:' . $c ] ?? 0 );
 			if ( $n > 0 ) {
 				$row['classes'][ $c ] = $n;
 			}
 		}
-		$row['bots'] = [];
+		$row['bots'] = array();
 		foreach ( $bots as $b ) {
-			$set = [];
-			foreach ( [ 'verified', 'fake', 'pending', 'unchecked' ] as $v ) {
+			$set = array();
+			foreach ( array( 'verified', 'fake', 'pending', 'unchecked' ) as $v ) {
 				$n = (int) ( $vals[ $p . 'bot:' . $b . ':' . $v ] ?? 0 );
 				if ( $n > 0 ) {
 					$set[ $v ] = $n;
@@ -99,16 +99,16 @@ class BotStormRadar_Metrics {
 		}
 
 		// User-agent distribution from the bounded registry.
-		$row['ua_top']  = [];
+		$row['ua_top']  = array();
 		$row['ua_even'] = 0.0;
-		$reg = BotStormRadar_Counters::get_value( $p . 'ua_reg', [] );
+		$reg            = BotStormRadar_Counters::get_value( $p . 'ua_reg', array() );
 		if ( is_array( $reg ) && ! empty( $reg ) ) {
-			$ua_keys = [];
+			$ua_keys = array();
 			foreach ( array_keys( $reg ) as $h ) {
 				$ua_keys[] = $p . 'ua:' . $h;
 			}
 			$counts = BotStormRadar_Counters::get_multi( $ua_keys );
-			$dist   = [];
+			$dist   = array();
 			foreach ( $reg as $h => $sample ) {
 				$n = (int) ( $counts[ $p . 'ua:' . $h ] ?? 0 );
 				if ( $n > 0 ) {
@@ -117,22 +117,22 @@ class BotStormRadar_Metrics {
 			}
 			arsort( $dist );
 			foreach ( array_slice( $dist, 0, 5, true ) as $h => $n ) {
-				$row['ua_top'][] = [ (string) $reg[ $h ], $n ];
+				$row['ua_top'][] = array( (string) $reg[ $h ], $n );
 			}
 			$row['ua_even'] = self::normalized_entropy( array_values( $dist ) );
 		}
 
 		// Hot keys for the dashboard (present only when something got hot).
-		$row['hot'] = [];
-		foreach ( [ 'ips', 'nets' ] as $kind ) {
-			$hot = BotStormRadar_Counters::get_value( $p . 'hot_' . $kind, [] );
+		$row['hot'] = array();
+		foreach ( array( 'ips', 'nets' ) as $kind ) {
+			$hot = BotStormRadar_Counters::get_value( $p . 'hot_' . $kind, array() );
 			if ( is_array( $hot ) && ! empty( $hot ) ) {
-				$hk = [];
+				$hk = array();
 				foreach ( array_keys( $hot ) as $k ) {
 					$hk[] = $p . ( 'ips' === $kind ? 'ip:' : 'net:' ) . $k;
 				}
 				$hc  = BotStormRadar_Counters::get_multi( $hk );
-				$out = [];
+				$out = array();
 				foreach ( array_keys( $hot ) as $k ) {
 					$out[ $k ] = (int) ( $hc[ $p . ( 'ips' === $kind ? 'ip:' : 'net:' ) . $k ] ?? 0 );
 				}
@@ -187,20 +187,20 @@ class BotStormRadar_Metrics {
 		$ua_flat      = round( (float) ( $row['ua_even'] ?? 0 ) * $share_factor, 4 );
 
 		// Volume gate against the baseline.
-		$min_ips = max( 1, (int) ( $opts['min_distinct_ips'] ?? 30 ) );
-		$spike   = max( 1.5, (float) ( $opts['spike_factor'] ?? 4 ) );
-		$ref     = ! empty( $baseline['ips_median'] ) ? max( (float) $baseline['ips_median'], 1.0 ) : (float) $min_ips;
+		$min_ips     = max( 1, (int) ( $opts['min_distinct_ips'] ?? 30 ) );
+		$spike       = max( 1.5, (float) ( $opts['spike_factor'] ?? 4 ) );
+		$ref         = ! empty( $baseline['ips_median'] ) ? max( (float) $baseline['ips_median'], 1.0 ) : (float) $min_ips;
 		$row['vol']  = round( $ips / $ref, 3 );
 		$row['gate'] = $ips < $min_ips ? 0.0 : round( BotStormRadar_Helpers::clamp( ( $row['vol'] - 1 ) / ( $spike - 1 ), 0, 1 ), 4 );
 
-		$ep_storm = max( 0.01, (float) ( $opts['error_pressure_storm'] ?? 0.5 ) );
-		$terms    = [
+		$ep_storm     = max( 0.01, (float) ( $opts['error_pressure_storm'] ?? 0.5 ) );
+		$terms        = array(
 			'single_hit'    => round( self::WEIGHTS['single_hit'] * $row['shr'], 4 ),
 			'asset_gap'     => ( null !== $row['asset_ratio'] && $html_ips >= self::MIN_HTML_IPS_FOR_ASSET ) ? round( self::WEIGHTS['asset_gap'] * ( 1 - $row['asset_ratio'] ), 4 ) : 0.0,
 			'ua_evenness'   => round( self::WEIGHTS['ua_evenness'] * $ua_flat, 4 ),
 			'error'         => round( self::WEIGHTS['error'] * BotStormRadar_Helpers::clamp( $row['ep'] / $ep_storm, 0, 1 ), 4 ),
 			'concentration' => round( self::WEIGHTS['concentration'] * $row['conc'], 4 ),
-		];
+		);
 		$row['terms'] = $terms;
 		$row['raw']   = round( array_sum( $terms ), 4 );
 		$row['score'] = (int) round( 100 * $row['gate'] * $row['raw'] );
@@ -212,15 +212,15 @@ class BotStormRadar_Metrics {
 	 * Plain-words explanation of a row, naming the signals in descending
 	 * order of contribution.
 	 *
-	 * @param array $row
+	 * @param array      $row
 	 * @param array|null $baseline
 	 * @return string
 	 */
 	public static function explain( array $row, $baseline = null ) {
 		$baseline = null === $baseline ? BotStormRadar_Baseline::effective() : $baseline;
-		$terms    = is_array( $row['terms'] ?? null ) ? $row['terms'] : [];
+		$terms    = is_array( $row['terms'] ?? null ) ? $row['terms'] : array();
 		arsort( $terms );
-		$parts = [];
+		$parts = array();
 		foreach ( $terms as $name => $contrib ) {
 			if ( $contrib <= 0 ) {
 				continue;
@@ -279,10 +279,15 @@ class BotStormRadar_Metrics {
 	 * @return float
 	 */
 	public static function normalized_entropy( array $counts ) {
-		$counts = array_values( array_filter( array_map( 'intval', $counts ), function ( $c ) {
-			return $c > 0;
-		} ) );
-		$n = count( $counts );
+		$counts = array_values(
+			array_filter(
+				array_map( 'intval', $counts ),
+				function ( $c ) {
+					return $c > 0;
+				}
+			)
+		);
+		$n      = count( $counts );
 		if ( $n < 2 ) {
 			return 0.0;
 		}

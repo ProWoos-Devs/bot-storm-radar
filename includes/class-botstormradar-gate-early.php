@@ -49,7 +49,7 @@ class BotStormRadar_Gate_Early {
 	 */
 	public static function method( $sapi = null ) {
 		$sapi = null === $sapi ? PHP_SAPI : (string) $sapi;
-		if ( in_array( $sapi, [ 'fpm-fcgi', 'cgi-fcgi' ], true ) ) {
+		if ( in_array( $sapi, array( 'fpm-fcgi', 'cgi-fcgi' ), true ) ) {
 			return '' !== (string) ini_get( 'user_ini.filename' ) ? 'user_ini' : '';
 		}
 		return 'apache2handler' === $sapi ? 'htaccess' : '';
@@ -135,7 +135,18 @@ class BotStormRadar_Gate_Early {
 		if ( ! self::write_block( $target, $method, self::block( $method, $loader ) ) ) {
 			return false;
 		}
-		update_option( self::OPTION, [ 'method' => $method, 'target' => $target, 'loader' => $loader, 'at' => time(), 'result' => 'pending', 'checked' => 0 ], false );
+		update_option(
+			self::OPTION,
+			array(
+				'method'  => $method,
+				'target'  => $target,
+				'loader'  => $loader,
+				'at'      => time(),
+				'result'  => 'pending',
+				'checked' => 0,
+			),
+			false
+		);
 		return true;
 	}
 
@@ -148,7 +159,7 @@ class BotStormRadar_Gate_Early {
 	 * @return bool
 	 */
 	public static function repoint() {
-		$state = get_option( self::OPTION, [] );
+		$state = get_option( self::OPTION, array() );
 		if ( ! is_array( $state ) || empty( $state['method'] ) ) {
 			return true;
 		}
@@ -161,7 +172,16 @@ class BotStormRadar_Gate_Early {
 		if ( ! self::write_block( $target, $method, self::block( $method, $loader ) ) ) {
 			return false;
 		}
-		update_option( self::OPTION, [ 'loader' => $loader, 'at' => time(), 'result' => 'pending', 'checked' => 0 ] + $state, false );
+		update_option(
+			self::OPTION,
+			array(
+				'loader'  => $loader,
+				'at'      => time(),
+				'result'  => 'pending',
+				'checked' => 0,
+			) + $state,
+			false
+		);
 		return true;
 	}
 
@@ -175,9 +195,12 @@ class BotStormRadar_Gate_Early {
 	public static function disable() {
 		self::$error = '';
 		$ok          = true;
-		$stored      = get_option( self::OPTION, [] );
-		foreach ( [ 'user_ini' => '.user.ini', 'htaccess' => '.htaccess' ] as $method => $default ) {
-			$targets = [ ABSPATH . $default, self::target( $method ) ];
+		$stored      = get_option( self::OPTION, array() );
+		foreach ( array(
+			'user_ini' => '.user.ini',
+			'htaccess' => '.htaccess',
+		) as $method => $default ) {
+			$targets = array( ABSPATH . $default, self::target( $method ) );
 			if ( is_array( $stored ) && $method === ( $stored['method'] ?? '' ) && ! empty( $stored['target'] ) ) {
 				$targets[] = (string) $stored['target'];
 			}
@@ -197,19 +220,22 @@ class BotStormRadar_Gate_Early {
 	 * @return string
 	 */
 	public static function verify() {
-		$r = wp_remote_get( admin_url( 'admin-ajax.php?action=botstormradar_gate_check&_=' . wp_rand() ), [
-			'timeout'     => 10,
-			'redirection' => 3,
-			'sslverify'   => apply_filters( 'https_local_ssl_verify', false ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals -- core filter.
-			'headers'     => [ self::CHECK_HEADER => '1' ],
-		] );
+		$r = wp_remote_get(
+			admin_url( 'admin-ajax.php?action=botstormradar_gate_check&_=' . wp_rand() ),
+			array(
+				'timeout'     => 10,
+				'redirection' => 3,
+				'sslverify'   => apply_filters( 'https_local_ssl_verify', false ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals -- core filter.
+			'headers'         => array( self::CHECK_HEADER => '1' ),
+			)
+		);
 		if ( is_wp_error( $r ) ) {
 			$result = 'error: ' . $r->get_error_message();
 		} else {
 			$h      = strtolower( (string) wp_remote_retrieve_header( $r, 'x-bsr-gate' ) );
-			$result = in_array( $h, [ 'early', 'mu' ], true ) ? $h : 'none';
+			$result = in_array( $h, array( 'early', 'mu' ), true ) ? $h : 'none';
 		}
-		$state = get_option( self::OPTION, [] );
+		$state = get_option( self::OPTION, array() );
 		if ( is_array( $state ) && ! empty( $state ) ) {
 			$state['result']  = $result;
 			$state['checked'] = time();
@@ -225,8 +251,8 @@ class BotStormRadar_Gate_Early {
 	 */
 	public static function status() {
 		$method = self::method();
-		$state  = get_option( self::OPTION, [] );
-		return [
+		$state  = get_option( self::OPTION, array() );
+		return array(
 			'method'    => $method,
 			'target'    => self::target( $method ),
 			'cache_ttl' => 'user_ini' === $method ? (int) ini_get( 'user_ini.cache_ttl' ) : 0,
@@ -237,7 +263,7 @@ class BotStormRadar_Gate_Early {
 			'current'   => (string) ini_get( 'auto_prepend_file' ),
 			'conflict'  => '' === $method ? '' : self::conflict( $method ),
 			'loader'    => self::loader_path(),
-		];
+		);
 	}
 
 	/**
@@ -261,7 +287,7 @@ class BotStormRadar_Gate_Early {
 			return 'auto_prepend_file = "' . $loader . "\"\n";
 		}
 		$lines = '';
-		foreach ( [ 'php_module', 'mod_php7.c', 'mod_php.c' ] as $mod ) {
+		foreach ( array( 'php_module', 'mod_php7.c', 'mod_php.c' ) as $mod ) {
 			$lines .= "<IfModule {$mod}>\n\tphp_value auto_prepend_file \"{$loader}\"\n</IfModule>\n";
 		}
 		return $lines;

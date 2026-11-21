@@ -59,7 +59,7 @@ class BotStormRadar_Bans {
 	/**
 	 * Export statuses that keep an expired row alive (removal still owed).
 	 */
-	const OPEN_EXPORT_STATUSES = [ 'pending', 'failed' ];
+	const OPEN_EXPORT_STATUSES = array( 'pending', 'failed' );
 
 	/**
 	 * @return string
@@ -90,17 +90,17 @@ class BotStormRadar_Bans {
 	/**
 	 * Settings whose change voids provisional bans decided before it.
 	 */
-	const GENERATION_SETTINGS = [ 'ban_mode', 'probe_refusal', 'probe_extra', 'probe_allow', 'allowlist', 'trusted_proxies', 'trust_all_forwarding' ];
+	const GENERATION_SETTINGS = array( 'ban_mode', 'probe_refusal', 'probe_extra', 'probe_allow', 'allowlist', 'trusted_proxies', 'trust_all_forwarding' );
 
 	const WOULD_OPTION       = 'botstormradar_would_bans';
 	const HAND_UNBANS_OPTION = 'botstormradar_hand_unbans';
-	const WOULD_CAP    = 200;
+	const WOULD_CAP          = 200;
 
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'cleanup' ], 30, 0 );
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, array( __CLASS__, 'cleanup' ), 30, 0 );
 		// Before the state rebuild (priority 10), so the file carries the new number.
-		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'settings_changed' ], 5, 2 );
+		add_action( 'update_option_' . Bot_Storm_Radar::OPTION_KEY, array( __CLASS__, 'settings_changed' ), 5, 2 );
 	}
 
 	/**
@@ -111,8 +111,8 @@ class BotStormRadar_Bans {
 	 * @param mixed $new
 	 */
 	public static function settings_changed( $old, $new ) {
-		$old  = is_array( $old ) ? $old : [];
-		$new  = is_array( $new ) ? $new : [];
+		$old  = is_array( $old ) ? $old : array();
+		$new  = is_array( $new ) ? $new : array();
 		$keys = self::GENERATION_SETTINGS;
 		foreach ( array_merge( array_keys( $old ), array_keys( $new ) ) as $k ) {
 			if ( 0 === strpos( (string) $k, 'trip_' ) ) {
@@ -120,7 +120,7 @@ class BotStormRadar_Bans {
 			}
 		}
 		foreach ( array_unique( $keys ) as $k ) {
-			if ( ( $old[ $k ] ?? null ) != ( $new[ $k ] ?? null ) ) { // phpcs:ignore WordPress.PHP.StrictComparisons -- '1' and 1 are the same setting.
+			if ( ( $old[ $k ] ?? null ) != ( $new[ $k ] ?? null ) ) { // phpcs:ignore WordPress.PHP.StrictComparisons, Universal.Operators.StrictComparisons -- '1' and 1 are the same setting.
 				self::bump_generation();
 				return;
 			}
@@ -143,17 +143,22 @@ class BotStormRadar_Bans {
 		if ( ! BotStormRadar_Guard::may_ban( $ip ) ) {
 			return false;
 		}
-		$list = get_option( self::WOULD_OPTION, [] );
-		$list = is_array( $list ) ? $list : [];
-		$cur  = $list[ $ip ] ?? [ 'first' => (int) $at, 'count' => 0 ];
+		$list = get_option( self::WOULD_OPTION, array() );
+		$list = is_array( $list ) ? $list : array();
+		$cur  = $list[ $ip ] ?? array(
+			'first' => (int) $at,
+			'count' => 0,
+		);
 		unset( $list[ $ip ] );
-		$list = [ $ip => [
-			'reason'   => substr( sanitize_key( (string) $reason ), 0, 40 ),
-			'first'    => (int) $cur['first'],
-			'last'     => (int) $at,
-			'count'    => (int) $cur['count'] + 1,
-			'evidence' => self::bound_evidence( $evidence ),
-		] ] + $list;
+		$list = array(
+			$ip => array(
+				'reason'   => substr( sanitize_key( (string) $reason ), 0, 40 ),
+				'first'    => (int) $cur['first'],
+				'last'     => (int) $at,
+				'count'    => (int) $cur['count'] + 1,
+				'evidence' => self::bound_evidence( $evidence ),
+			),
+		) + $list;
 		update_option( self::WOULD_OPTION, array_slice( $list, 0, self::WOULD_CAP, true ), false );
 		return true;
 	}
@@ -162,8 +167,8 @@ class BotStormRadar_Bans {
 	 * @return array ip => reason, first, last, count, evidence (newest first)
 	 */
 	public static function would_bans() {
-		$l = get_option( self::WOULD_OPTION, [] );
-		return is_array( $l ) ? $l : [];
+		$l = get_option( self::WOULD_OPTION, array() );
+		return is_array( $l ) ? $l : array();
 	}
 
 	// ── Schema ────────────────────────────────────────────────────────
@@ -189,7 +194,8 @@ class BotStormRadar_Bans {
 		$exports = self::exports_table();
 
 		// dbDelta wants two spaces after PRIMARY KEY and one field per line.
-		dbDelta( "CREATE TABLE {$bans} (
+		dbDelta(
+			"CREATE TABLE {$bans} (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   address varbinary(16) NOT NULL,
   prefix_len tinyint(3) unsigned NOT NULL,
@@ -207,9 +213,11 @@ class BotStormRadar_Bans {
   UNIQUE KEY address_prefix (address,prefix_len),
   KEY expires_at (expires_at),
   KEY unbanned_at (unbanned_at)
-) {$charset};" );
+) {$charset};"
+		);
 
-		dbDelta( "CREATE TABLE {$exports} (
+		dbDelta(
+			"CREATE TABLE {$exports} (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   ban_id bigint(20) unsigned NOT NULL,
   layer varchar(20) NOT NULL,
@@ -221,15 +229,18 @@ class BotStormRadar_Bans {
   PRIMARY KEY  (id),
   UNIQUE KEY ban_layer (ban_id,layer),
   KEY status (status)
-) {$charset};" );
+) {$charset};"
+		);
 
 		$locks = self::locks_table();
-		dbDelta( "CREATE TABLE {$locks} (
+		dbDelta(
+			"CREATE TABLE {$locks} (
   name varchar(64) NOT NULL,
   expires_at int(10) unsigned NOT NULL,
   owner char(16) NOT NULL,
   PRIMARY KEY  (name)
-) {$charset};" );
+) {$charset};"
+		);
 
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION, true );
 		if ( false === get_option( self::GENERATION_OPTION, false ) ) {
@@ -247,7 +258,7 @@ class BotStormRadar_Bans {
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		// The tables of 0.2.x, where the plugin was never loaded after the
 		// update (its settings are still under the old name, so they are ours).
-		foreach ( BotStormRadar_Migration::is_old_install() ? array_keys( BotStormRadar_Migration::TABLES ) : [] as $old ) {
+		foreach ( BotStormRadar_Migration::is_old_install() ? array_keys( BotStormRadar_Migration::TABLES ) : array() as $old ) {
 			$wpdb->query( 'DROP TABLE IF EXISTS `' . $wpdb->prefix . $old . '`' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix and a constant.
 		}
 		delete_option( self::DB_VERSION_OPTION );
@@ -282,14 +293,14 @@ class BotStormRadar_Bans {
 		$out  = substr( $bin, 0, $full );
 		if ( $rest > 0 ) {
 			$out .= chr( ord( $bin[ $full ] ) & ( ( 0xFF << ( 8 - $rest ) ) & 0xFF ) );
-			$full++;
+			++$full;
 		}
 		$out .= str_repeat( "\0", strlen( $bin ) - $full );
-		return [
+		return array(
 			'address'    => $out,
 			'prefix_len' => $len,
 			'ip_text'    => inet_ntop( $out ),
-		];
+		);
 	}
 
 	// ── Changes (each one statement) ─────────────────────────────────
@@ -307,7 +318,7 @@ class BotStormRadar_Bans {
 	 * @param int|null $now        Tests.
 	 * @return int
 	 */
-	public static function trip( $ip, $ttl, $reason, array $evidence = [], $origin = '', $prefix_len = null, $now = null ) {
+	public static function trip( $ip, $ttl, $reason, array $evidence = array(), $origin = '', $prefix_len = null, $now = null ) {
 		global $wpdb;
 		$key = self::key( $ip, $prefix_len );
 		if ( null === $key || (int) $ttl <= 0 ) {
@@ -478,7 +489,7 @@ class BotStormRadar_Bans {
 			),
 			ARRAY_A
 		);
-		return is_array( $rows ) ? $rows : [];
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -503,7 +514,7 @@ class BotStormRadar_Bans {
 			),
 			ARRAY_A
 		);
-		$rows = is_array( $rows ) ? $rows : [];
+		$rows  = is_array( $rows ) ? $rows : array();
 		foreach ( $rows as &$r ) {
 			$r['evidence'] = json_decode( (string) $r['evidence'], true );
 			$r['active']   = (int) $r['expires_at'] > $now && 0 === (int) $r['unbanned_at'];
@@ -538,7 +549,7 @@ class BotStormRadar_Bans {
 			),
 			ARRAY_A
 		);
-		return is_array( $rows ) ? $rows : [];
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -578,14 +589,14 @@ class BotStormRadar_Bans {
 	 * @return array
 	 */
 	public static function bound_evidence( array $evidence ) {
-		$out = [];
+		$out = array();
 		foreach ( $evidence as $k => $v ) {
 			$k = substr( sanitize_key( (string) $k ), 0, 40 );
 			if ( '' === $k ) {
 				continue;
 			}
 			if ( is_array( $v ) ) {
-				$list = [];
+				$list = array();
 				foreach ( array_slice( array_values( $v ), -self::EVIDENCE_ENTRIES ) as $item ) {
 					if ( is_scalar( $item ) ) {
 						$list[] = mb_substr( (string) $item, 0, self::EVIDENCE_CHARS );

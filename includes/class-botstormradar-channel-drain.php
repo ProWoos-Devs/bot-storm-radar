@@ -74,24 +74,27 @@ class BotStormRadar_Channel_Drain {
 		$now = null === $now ? time() : (int) $now;
 		$dir = BotStormRadar_State::dir();
 		if ( '' === $dir ) {
-			return [];
+			return array();
 		}
 		self::$now = $now;
 		self::load_evidence(); // Expires old records even on a tick without new evidence.
 		$st   = self::status();
 		$lost = BotStormRadar_Channel::sweep_interrupted( $dir, 600, $now );
-		$out  = [];
+		$out  = array();
 		foreach ( BotStormRadar_Channel::closed_minutes( $dir, $now ) as $m ) {
 			$full   = false;
 			$events = BotStormRadar_Channel::take( $dir, $m, $full );
 			if ( $full ) {
-				$st['full']++;
+				++$st['full'];
 			}
 			if ( empty( $events ) ) {
 				continue;
 			}
 			self::spool_evidence( $events, $m );
-			$tot = [ 'probe' => 0, 'ban' => 0 ];
+			$tot = array(
+				'probe' => 0,
+				'ban'   => 0,
+			);
 			foreach ( $events as $line => $n ) {
 				list( $kind, $detail, $ip ) = array_pad( explode( "\t", $line ), 3, '' );
 				if ( isset( $tot[ $kind ] ) ) {
@@ -108,7 +111,7 @@ class BotStormRadar_Channel_Drain {
 			$p = 'm:' . $m . ':';
 			foreach ( $events as $line => $n ) {
 				list( $kind, $detail, $ip ) = array_pad( explode( "\t", $line ), 3, '' );
-				$n = (int) $n;
+				$n                          = (int) $n;
 				if ( 'probe' === $kind ) {
 					BotStormRadar_Counters::incr( $p . 'gate_probe', BotStormRadar_Counters::TTL_MINUTE, $n );
 					if ( '' !== $detail ) {
@@ -125,13 +128,13 @@ class BotStormRadar_Channel_Drain {
 			if ( ! BotStormRadar_Channel::apcu() ) {
 				self::radar_probe_trips( $m, $events, $st );
 			}
-			$st['minutes']++;
+			++$st['minutes'];
 			$st['events'] += $tot['probe'] + $tot['ban'];
 			$out[ $m ]     = $tot;
 		}
 		BotStormRadar_Counters::flush();
 		self::save_evidence();
-		self::$now = null;
+		self::$now        = null;
 		$st['lost']      += count( $lost );
 		$st['last_drain'] = $now;
 		$st['channel']    = BotStormRadar_Channel::apcu() ? 'apcu' : ( 'cli' === PHP_SAPI ? 'spool (APCu not visible from the command line)' : 'spool' );
@@ -157,7 +160,10 @@ class BotStormRadar_Channel_Drain {
 		if ( '' === $ip || '' === $reason ) {
 			return;
 		}
-		$evidence = [ 'by' => 'gate', 'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC' ];
+		$evidence = array(
+			'by'     => 'gate',
+			'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',
+		);
 		foreach ( $events as $line => $n ) {
 			list( $k, $class, $addr ) = array_pad( explode( "\t", $line ), 3, '' );
 			if ( 'probe' === $k && $addr === $ip ) {
@@ -167,9 +173,9 @@ class BotStormRadar_Channel_Drain {
 		$evidence += self::probe_evidence( $ip );
 		if ( 'wouldban' === $kind ) {
 			if ( BotStormRadar_Bans::would_ban( $ip, $reason, $evidence, $minute * 60 ) ) {
-				$st['wouldban']++;
+				++$st['wouldban'];
 			} else {
-				$st['guarded']++;
+				++$st['guarded'];
 			}
 			return;
 		}
@@ -180,7 +186,7 @@ class BotStormRadar_Channel_Drain {
 			}
 		}
 		if ( $overridden ) {
-			$st['overridden']++;
+			++$st['overridden'];
 			return;
 		}
 		// The one trip path: mode, repeat length, bot claims, guard.
@@ -193,8 +199,14 @@ class BotStormRadar_Channel_Drain {
 	 * @param array  $st Status, updated.
 	 */
 	private static function count_result( $r, array &$st ) {
-		$map = [ 'banned' => 'trips', 'would' => 'wouldban', 'pending' => 'pending', 'guarded' => 'guarded', 'verified-bot' => 'guarded' ];
-		$k   = $map[ $r ] ?? 'guarded';
+		$map      = array(
+			'banned'       => 'trips',
+			'would'        => 'wouldban',
+			'pending'      => 'pending',
+			'guarded'      => 'guarded',
+			'verified-bot' => 'guarded',
+		);
+		$k        = $map[ $r ] ?? 'guarded';
 		$st[ $k ] = (int) ( $st[ $k ] ?? 0 ) + 1;
 	}
 
@@ -212,11 +224,11 @@ class BotStormRadar_Channel_Drain {
 		if ( $s['count'] <= 0 ) {
 			return;
 		}
-		$per = [];
+		$per = array();
 		foreach ( $events as $line => $n ) {
 			list( $kind, $class, $ip ) = array_pad( explode( "\t", $line ), 3, '' );
 			if ( 'probe' === $kind && '' !== $ip ) {
-				$per[ $ip ]['n']                    = ( $per[ $ip ]['n'] ?? 0 ) + (int) $n;
+				$per[ $ip ]['n']                  = ( $per[ $ip ]['n'] ?? 0 ) + (int) $n;
 				$per[ $ip ][ 'probes_' . $class ] = ( $per[ $ip ][ 'probes_' . $class ] ?? 0 ) + (int) $n;
 			}
 		}
@@ -227,7 +239,11 @@ class BotStormRadar_Channel_Drain {
 				$before += BotStormRadar_Counters::get( 'm:' . $k . ':gprobe:' . $ip );
 			}
 			if ( $before < $s['count'] && $before + $p['n'] >= $s['count'] ) {
-				$ev = array_diff_key( $p, [ 'n' => 1 ] ) + [ 'by' => 'radar', 'window_probes' => $before + $p['n'], 'minute' => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC' ] + self::probe_evidence( $ip );
+				$ev = array_diff_key( $p, array( 'n' => 1 ) ) + array(
+					'by'            => 'radar',
+					'window_probes' => $before + $p['n'],
+					'minute'        => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',
+				) + self::probe_evidence( $ip );
 				self::count_result( BotStormRadar_Trips::trip( $ip, 'probe', $ev, 'radar' ), $st );
 			}
 		}
@@ -240,7 +256,7 @@ class BotStormRadar_Channel_Drain {
 	 * @param int   $minute
 	 */
 	private static function spool_evidence( array $events, $minute ) {
-		$per = [];
+		$per = array();
 		foreach ( $events as $line => $n ) {
 			if ( 0 !== strpos( (string) $line, "pev\t" ) ) {
 				continue;
@@ -249,7 +265,7 @@ class BotStormRadar_Channel_Drain {
 			if ( null === $v ) {
 				continue;
 			}
-			$ip = $v['ip'];
+			$ip                = $v['ip'];
 			$per[ $ip ]['p'][] = $v['p'];
 			$per[ $ip ]['u'][] = $v['u'];
 			$per[ $ip ]['n']   = ( $per[ $ip ]['n'] ?? 0 ) + (int) $n;
@@ -259,7 +275,7 @@ class BotStormRadar_Channel_Drain {
 		}
 		self::load_evidence();
 		foreach ( $per as $ip => $e ) {
-			self::$store[ $ip ] = BotStormRadar_Channel::evidence_merge( self::$store[ $ip ] ?? [], $e['p'], $e['u'], $e['n'], $minute * 60 );
+			self::$store[ $ip ] = BotStormRadar_Channel::evidence_merge( self::$store[ $ip ] ?? array(), $e['p'], $e['u'], $e['n'], $minute * 60 );
 		}
 		self::$store_dirty = true;
 	}
@@ -278,16 +294,18 @@ class BotStormRadar_Channel_Drain {
 		$a   = '' === $dir ? null : BotStormRadar_Channel::evidence_get( $dir, $ip );
 		$b   = self::$store[ $ip ] ?? null;
 		if ( null === $a && null === $b ) {
-			return [];
+			return array();
 		}
-		$v = is_array( $b ) ? $b : [];
+		$v = is_array( $b ) ? $b : array();
 		if ( is_array( $a ) ) {
-			$v = BotStormRadar_Channel::evidence_merge( $v, (array) ( $a['paths'] ?? [] ), (array) ( $a['user_agents'] ?? [] ), 0, (int) ( $a['last'] ?? time() ) );
+			$v = BotStormRadar_Channel::evidence_merge( $v, (array) ( $a['paths'] ?? array() ), (array) ( $a['user_agents'] ?? array() ), 0, (int) ( $a['last'] ?? time() ) );
 		}
-		return array_filter( [
-			'paths'       => array_values( (array) ( $v['paths'] ?? [] ) ),
-			'user_agents' => array_values( (array) ( $v['user_agents'] ?? [] ) ),
-		] );
+		return array_filter(
+			array(
+				'paths'       => array_values( (array) ( $v['paths'] ?? array() ) ),
+				'user_agents' => array_values( (array) ( $v['user_agents'] ?? array() ) ),
+			)
+		);
 	}
 
 	/**
@@ -296,13 +314,16 @@ class BotStormRadar_Channel_Drain {
 	 */
 	private static function load_evidence() {
 		if ( null === self::$store ) {
-			$s           = get_option( self::EVIDENCE_OPTION, [] );
-			self::$store = is_array( $s ) ? $s : [];
+			$s           = get_option( self::EVIDENCE_OPTION, array() );
+			self::$store = is_array( $s ) ? $s : array();
 		}
 		$now  = null === self::$now ? time() : self::$now;
-		$keep = array_filter( self::$store, function ( $v ) use ( $now ) {
-			return is_array( $v ) && (int) ( $v['last'] ?? 0 ) >= $now - self::EVIDENCE_KEEP;
-		} );
+		$keep = array_filter(
+			self::$store,
+			function ( $v ) use ( $now ) {
+				return is_array( $v ) && (int) ( $v['last'] ?? 0 ) >= $now - self::EVIDENCE_KEEP;
+			}
+		);
 		if ( count( $keep ) !== count( self::$store ) ) {
 			self::$store       = $keep;
 			self::$store_dirty = true;
@@ -317,9 +338,12 @@ class BotStormRadar_Channel_Drain {
 		if ( ! self::$store_dirty || null === self::$store ) {
 			return;
 		}
-		uasort( self::$store, function ( $a, $b ) {
-			return (int) $b['last'] <=> (int) $a['last'];
-		} );
+		uasort(
+			self::$store,
+			function ( $a, $b ) {
+				return (int) $b['last'] <=> (int) $a['last'];
+			}
+		);
 		self::$store       = array_slice( self::$store, 0, self::EVIDENCE_CAP, true );
 		self::$store_dirty = false;
 		update_option( self::EVIDENCE_OPTION, self::$store, false );
@@ -358,20 +382,23 @@ class BotStormRadar_Channel_Drain {
 	 *               administrative change), guarded (refused by the guard)
 	 */
 	public static function status() {
-		$s = get_option( self::STATUS_OPTION, [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], [
-			'last_drain' => 0,
-			'minutes'    => 0,
-			'events'     => 0,
-			'late'       => 0,
-			'lost'       => 0,
-			'full'       => 0,
-			'channel'    => '',
-			'trips'      => 0,
-			'wouldban'   => 0,
-			'overridden' => 0,
-			'guarded'    => 0,
-			'pending'    => 0,
-		] );
+		$s = get_option( self::STATUS_OPTION, array() );
+		return wp_parse_args(
+			is_array( $s ) ? $s : array(),
+			array(
+				'last_drain' => 0,
+				'minutes'    => 0,
+				'events'     => 0,
+				'late'       => 0,
+				'lost'       => 0,
+				'full'       => 0,
+				'channel'    => '',
+				'trips'      => 0,
+				'wouldban'   => 0,
+				'overridden' => 0,
+				'guarded'    => 0,
+				'pending'    => 0,
+			)
+		);
 	}
 }

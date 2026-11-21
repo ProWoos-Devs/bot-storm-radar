@@ -32,8 +32,8 @@ class BotStormRadar_Beacon {
 	const HANDLE = 'botstormradar-beacon';
 
 	public static function init() {
-		add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
-		add_action( 'wp_footer', [ __CLASS__, 'emit' ], 1 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
+		add_action( 'wp_footer', array( __CLASS__, 'emit' ), 1 );
 	}
 
 	/**
@@ -53,7 +53,7 @@ class BotStormRadar_Beacon {
 		if ( ! self::wanted() ) {
 			return;
 		}
-		wp_register_script( self::HANDLE, false, [], BOTSTORMRADAR_VERSION, true );
+		wp_register_script( self::HANDLE, false, array(), BOTSTORMRADAR_VERSION, true );
 		wp_enqueue_script( self::HANDLE );
 		wp_add_inline_script( self::HANDLE, '(function(){try{var i=new Image();i.src=' . wp_json_encode( self::url_base() ) . '+"j"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}catch(e){}})();' );
 	}

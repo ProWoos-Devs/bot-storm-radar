@@ -29,15 +29,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Gate_Replay {
 
-	const REFUSED_STATUSES = [ 403, 429, 444 ];
+	const REFUSED_STATUSES = array( 403, 429, 444 );
 
 	/**
 	 * @param string[] $files
 	 * @param array    $opts root, home, verify_bots, list
 	 * @return array Summary.
 	 */
-	public static function run( array $files, array $opts = [] ) {
-		$cfg = BotStormRadar_Projection::probe_config();
+	public static function run( array $files, array $opts = array() ) {
+		$cfg         = BotStormRadar_Projection::probe_config();
 		$cfg['root'] = isset( $opts['root'] ) ? (string) $opts['root'] : '';
 		$cfg['home'] = isset( $opts['home'] ) ? rtrim( (string) $opts['home'], '/' ) : '';
 		if ( isset( $opts['home'] ) ) {
@@ -50,7 +50,7 @@ class BotStormRadar_Gate_Replay {
 		$trips     = BotStormRadar_Trips::settings();
 		$verify    = ! empty( $opts['verify_bots'] );
 
-		$sum = [
+		$sum       = array(
 			'lines'          => 0,
 			'bad'            => 0,
 			'server_refused' => 0,
@@ -58,35 +58,35 @@ class BotStormRadar_Gate_Replay {
 			'static'         => 0,
 			'php'            => 0,
 			'probes'         => 0,
-			'probe_classes'  => [],
+			'probe_classes'  => array(),
 			'banned_hits'    => 0,
-			'trips'          => [],
-			'pending'        => [],
+			'trips'          => array(),
+			'pending'        => array(),
 			'protected_skip' => 0,
 			'first'          => 0,
 			'last'           => 0,
-		];
-		$bans      = [];   // ip => expires
-		$last_ban  = [];   // ip => time of the last simulated ban
-		$probe_ts  = [];   // ip => [timestamps]
-		$p404      = [];   // ip => [minute, count]
-		$evidence  = [];   // ip => [paths]
-		$bot_cache = [];
+		);
+		$bans      = array();   // ip => expires
+		$last_ban  = array();   // ip => time of the last simulated ban
+		$probe_ts  = array();   // ip => [timestamps]
+		$p404      = array();   // ip => [minute, count]
+		$evidence  = array();   // ip => [paths]
+		$bot_cache = array();
 
 		foreach ( self::lines( $files ) as $p ) {
 			if ( null === $p ) {
-				$sum['bad']++;
+				++$sum['bad'];
 				continue;
 			}
-			$sum['lines']++;
+			++$sum['lines'];
 			$sum['first'] = $sum['first'] ?: $p['ts'];
 			$sum['last']  = $p['ts'];
 			$ip           = $p['ip'];
 			$probe        = BotStormRadar_Probe::classify( $p['target'], $cfg );
 			if ( in_array( $p['status'], self::REFUSED_STATUSES, true ) ) {
-				$sum['server_refused']++;
+				++$sum['server_refused'];
 				if ( '' !== $probe ) {
-					$sum['server_probes']++;
+					++$sum['server_probes'];
 				}
 				continue;
 			}
@@ -96,24 +96,29 @@ class BotStormRadar_Gate_Replay {
 			$ext   = (string) pathinfo( $path, PATHINFO_EXTENSION );
 			$class = in_array( $ext, BotStormRadar_Classifier::ASSET_EXTENSIONS, true ) ? 'asset' : ( 404 === $p['status'] ? '404' : 'page' );
 			if ( 'asset' === $class && 404 !== $p['status'] && '' === $probe ) {
-				$sum['static']++;
+				++$sum['static'];
 				continue;
 			}
-			$sum['php']++;
+			++$sum['php'];
 			if ( isset( $bans[ $ip ] ) && $bans[ $ip ] > $p['ts'] ) {
-				$sum['banned_hits']++;
+				++$sum['banned_hits'];
 				continue;
 			}
 			$reason = '';
 			if ( '' !== $probe ) {
-				$sum['probes']++;
+				++$sum['probes'];
 				$sum['probe_classes'][ $probe ] = ( $sum['probe_classes'][ $probe ] ?? 0 ) + 1;
 				self::note( $evidence, $ip, $p['target'] );
 				if ( $trips['probe']['count'] > 0 ) {
-					$w   = $p['ts'] - (int) $trips['probe']['window'];
-					$lst = array_values( array_filter( $probe_ts[ $ip ] ?? [], function ( $t ) use ( $w ) {
-						return $t > $w;
-					} ) );
+					$w               = $p['ts'] - (int) $trips['probe']['window'];
+					$lst             = array_values(
+						array_filter(
+							$probe_ts[ $ip ] ?? array(),
+							function ( $t ) use ( $w ) {
+								return $t > $w;
+							}
+						)
+					);
 					$lst[]           = $p['ts'];
 					$probe_ts[ $ip ] = $lst;
 					if ( count( $lst ) === (int) $trips['probe']['count'] ) {
@@ -122,8 +127,8 @@ class BotStormRadar_Gate_Replay {
 				}
 			} elseif ( '404' === $class && $trips['404']['count'] > 0 ) {
 				self::note( $evidence, $ip, $p['target'] );
-				$cur          = $p404[ $ip ] ?? [ 0, 0 ];
-				$p404[ $ip ]  = $cur[0] === $p['minute'] ? [ $cur[0], $cur[1] + 1 ] : [ $p['minute'], 1 ];
+				$cur         = $p404[ $ip ] ?? array( 0, 0 );
+				$p404[ $ip ] = $cur[0] === $p['minute'] ? array( $cur[0], $cur[1] + 1 ) : array( $p['minute'], 1 );
 				if ( $p404[ $ip ][1] === (int) $trips['404']['count'] ) {
 					$reason = '404';
 				}
@@ -133,7 +138,7 @@ class BotStormRadar_Gate_Replay {
 			}
 			// A trip.
 			if ( ! BotStormRadar_Guard::may_ban( $ip ) ) {
-				$sum['protected_skip']++;
+				++$sum['protected_skip'];
 				continue;
 			}
 			$claim = BotStormRadar_Good_Bots::claimed( $p['ua'] );
@@ -156,15 +161,15 @@ class BotStormRadar_Gate_Replay {
 			}
 			$bans[ $ip ]     = $p['ts'] + $ttl;
 			$last_ban[ $ip ] = $p['ts'];
-			$sum['trips'][]  = [
+			$sum['trips'][]  = array(
 				'ip'     => $ip,
 				'reason' => $reason,
 				'at'     => $p['ts'],
 				'until'  => $p['ts'] + $ttl,
 				'claim'  => '' === $claim ? '' : $claim . ' (fake)',
 				'ua'     => substr( (string) $p['ua'], 0, 120 ),
-				'paths'  => $evidence[ $ip ] ?? [],
-			];
+				'paths'  => $evidence[ $ip ] ?? array(),
+			);
 		}
 		$sum['trip_addresses'] = count( array_unique( array_column( $sum['trips'], 'ip' ) ) );
 		$sum['saved']          = $sum['probes'] + $sum['banned_hits'];
@@ -193,8 +198,8 @@ class BotStormRadar_Gate_Replay {
 	 * @return Generator
 	 */
 	public static function lines( array $files ) {
-		$hs  = [];
-		$cur = [];
+		$hs  = array();
+		$cur = array();
 		foreach ( array_values( $files ) as $i => $f ) {
 			$h = @fopen( '.gz' === substr( $f, -3 ) ? 'compress.zlib://' . $f : $f, 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
 			if ( false !== $h ) {

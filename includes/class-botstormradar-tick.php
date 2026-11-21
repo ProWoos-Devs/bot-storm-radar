@@ -27,9 +27,9 @@ class BotStormRadar_Tick {
 	private static $ran_inline = false;
 
 	public static function init() {
-		add_action( self::HOOK, [ __CLASS__, 'run' ] );
+		add_action( self::HOOK, array( __CLASS__, 'run' ) );
 		// 0 arguments: do_action( 'init' ) passes '', which would read as "not allowed".
-		add_action( 'init', [ __CLASS__, 'restore' ], 10, 0 );
+		add_action( 'init', array( __CLASS__, 'restore' ), 10, 0 );
 	}
 
 	/**
@@ -73,8 +73,15 @@ class BotStormRadar_Tick {
 	 * @return array last_minute, last_run, source
 	 */
 	public static function status() {
-		$s = get_option( self::OPTION, [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], [ 'last_minute' => 0, 'last_run' => 0, 'source' => '' ] );
+		$s = get_option( self::OPTION, array() );
+		return wp_parse_args(
+			is_array( $s ) ? $s : array(),
+			array(
+				'last_minute' => 0,
+				'last_run'    => 0,
+				'source'      => '',
+			)
+		);
 	}
 
 	/**
@@ -93,23 +100,23 @@ class BotStormRadar_Tick {
 		}
 		self::refresh_options();
 		$switched = self::switch_to_site_locale();
-		$now     = null === $now ? time() : (int) $now;
-		$status  = self::status();
-		$current = BotStormRadar_Helpers::minute( $now );
-		$target  = $current - 1;
-		$last    = (int) $status['last_minute'];
+		$now      = null === $now ? time() : (int) $now;
+		$status   = self::status();
+		$current  = BotStormRadar_Helpers::minute( $now );
+		$target   = $current - 1;
+		$last     = (int) $status['last_minute'];
 		// github-build-only:start
 		// What the early gate refused comes in through its channel. A minute is
 		// drained once it ended at least BotStormRadar_Channel::GRACE seconds ago; a tick
 		// inside that grace leaves the last minute for the next tick, so its
 		// row includes the gate's count.
 		if ( $now - $current * 60 < BotStormRadar_Channel::GRACE ) {
-			$target--;
+			--$target;
 		}
 		BotStormRadar_Channel_Drain::run( $now, $last > 0 ? $last : null );
 		// github-build-only:end
-		$from    = $last > 0 ? max( $last + 1, $target - self::MAX_BACK + 1 ) : $target;
-		$rows    = [];
+		$from = $last > 0 ? max( $last + 1, $target - self::MAX_BACK + 1 ) : $target;
+		$rows = array();
 
 		for ( $m = $from; $m <= $target; $m++ ) {
 			$row = BotStormRadar_Metrics::compute_minute( $m );
@@ -122,11 +129,15 @@ class BotStormRadar_Tick {
 		BotStormRadar_Good_Bots::verify_pending();
 		BotStormRadar_Trips::process_pending( $now );
 
-		update_option( self::OPTION, [
-			'last_minute' => max( $target, $last ),
-			'last_run'    => $now,
-			'source'      => self::$ran_inline ? 'inline' : ( wp_doing_cron() ? 'cron' : 'direct' ),
-		], true );
+		update_option(
+			self::OPTION,
+			array(
+				'last_minute' => max( $target, $last ),
+				'last_run'    => $now,
+				'source'      => self::$ran_inline ? 'inline' : ( wp_doing_cron() ? 'cron' : 'direct' ),
+			),
+			true
+		);
 
 		BotStormRadar_Counters::delete( self::LOCK );
 		if ( $switched ) {
@@ -148,7 +159,7 @@ class BotStormRadar_Tick {
 	 */
 	private static function refresh_options() {
 		wp_cache_delete( 'alloptions', 'options' );
-		foreach ( [ self::OPTION, BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Storage::TRANSITIONS, BotStormRadar_Storage::CHUNK_INDEX, Bot_Storm_Radar::OPTION_KEY ] as $name ) {
+		foreach ( array( self::OPTION, BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Storage::TRANSITIONS, BotStormRadar_Storage::CHUNK_INDEX, Bot_Storm_Radar::OPTION_KEY ) as $name ) {
 			wp_cache_delete( $name, 'options' );
 		}
 		BotStormRadar_Helpers::flush_options();

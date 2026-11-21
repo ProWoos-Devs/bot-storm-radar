@@ -39,7 +39,7 @@ class BotStormRadar_Sources {
 	 * source definitions live in `botstormradar_log_sources`, and `replay`, the scratch
 	 * source `wp bot-storm-radar replay` purges.
 	 */
-	const RESERVED = [ 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update', 'log', 'replay' ];
+	const RESERVED = array( 'site', 'min', 'tick', 'state', 'baseline', 'transitions', 'version', 'options', 'update', 'log', 'replay' );
 
 	/**
 	 * The scratch source `wp bot-storm-radar replay` writes and purges. It
@@ -78,8 +78,8 @@ class BotStormRadar_Sources {
 	 * @return array id => definition
 	 */
 	public static function log_sources() {
-		$all = get_option( self::LOG_OPTION, [] );
-		return is_array( $all ) ? $all : [];
+		$all = get_option( self::LOG_OPTION, array() );
+		return is_array( $all ) ? $all : array();
 	}
 
 	/**
@@ -111,8 +111,16 @@ class BotStormRadar_Sources {
 	 * @return array
 	 */
 	public static function log_state( $source ) {
-		$s = get_option( self::option( 'botstormradar_log_state', $source ), [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], [ 'last_minute' => 0, 'last_run' => 0, 'files' => [], 'stats' => [] ] );
+		$s = get_option( self::option( 'botstormradar_log_state', $source ), array() );
+		return wp_parse_args(
+			is_array( $s ) ? $s : array(),
+			array(
+				'last_minute' => 0,
+				'last_run'    => 0,
+				'files'       => array(),
+				'stats'       => array(),
+			)
+		);
 	}
 
 	/**

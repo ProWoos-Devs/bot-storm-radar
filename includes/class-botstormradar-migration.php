@@ -25,15 +25,15 @@ class BotStormRadar_Migration {
 	/**
 	 * Tables of 0.2.x and their new names, without the WordPress prefix.
 	 */
-	const TABLES = [
+	const TABLES = array(
 		'bsr_bans'        => 'botstormradar_bans',
 		'bsr_ban_exports' => 'botstormradar_ban_exports',
-	];
+	);
 
 	/**
 	 * Cron hooks of 0.2.x. The new ones are scheduled again by the upgrade.
 	 */
-	const CRON_HOOKS = [ 'bsr_tick', 'bsr_refresh_cloudflare_ips' ];
+	const CRON_HOOKS = array( 'bsr_tick', 'bsr_refresh_cloudflare_ips' );
 
 	/**
 	 * Whether the last prefix() call moved anything (tests).
@@ -115,7 +115,7 @@ class BotStormRadar_Migration {
 		// the hourly minute chunks included), autoload flag kept. An option
 		// already written under the new name by this request loses to the
 		// stored one: the old name holds the data.
-		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OLD_PREFIX ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$names      = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OLD_PREFIX ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$suppressed = $wpdb->suppress_errors();
 		foreach ( $names as $old ) {
 			$new = self::NEW_PREFIX . substr( $old, strlen( self::OLD_PREFIX ) );
@@ -124,7 +124,7 @@ class BotStormRadar_Migration {
 			// before the move) is removed and the rename done again.
 			$sql = $wpdb->prepare( "UPDATE {$wpdb->options} SET option_name = %s WHERE option_name = %s", $new, $old );
 			if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared above.
-				$wpdb->delete( $wpdb->options, [ 'option_name' => $new ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->delete( $wpdb->options, array( 'option_name' => $new ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared above.
 			}
 			wp_cache_delete( $old, 'options' );
@@ -175,8 +175,8 @@ class BotStormRadar_Migration {
 		$fixed = 0;
 		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::NEW_PREFIX ) . '%' . $wpdb->esc_like( 'min_chunks' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		foreach ( $names as $index_name ) {
-			$index = get_option( $index_name, [] );
-			$index = is_array( $index ) ? array_map( 'strval', $index ) : [];
+			$index = get_option( $index_name, array() );
+			$index = is_array( $index ) ? array_map( 'strval', $index ) : array();
 			$old   = array_filter(
 				$index,
 				function ( $n ) {

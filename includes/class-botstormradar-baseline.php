@@ -32,14 +32,17 @@ class BotStormRadar_Baseline {
 	 * @return array
 	 */
 	public static function get( $source = BotStormRadar_Sources::SITE ) {
-		$b = get_option( self::option_name( $source ), [] );
-		$b = is_array( $b ) ? $b : [];
-		return wp_parse_args( $b, [
-			'started'  => 0,
-			'days'     => [],
-			'learned'  => null,
-			'last_day' => '',
-		] );
+		$b = get_option( self::option_name( $source ), array() );
+		$b = is_array( $b ) ? $b : array();
+		return wp_parse_args(
+			$b,
+			array(
+				'started'  => 0,
+				'days'     => array(),
+				'learned'  => null,
+				'last_day' => '',
+			)
+		);
 	}
 
 	/**
@@ -59,7 +62,16 @@ class BotStormRadar_Baseline {
 	 * @param string $source
 	 */
 	public static function reset( $source = BotStormRadar_Sources::SITE ) {
-		update_option( self::option_name( $source ), [ 'started' => time(), 'days' => [], 'learned' => null, 'last_day' => '' ], false );
+		update_option(
+			self::option_name( $source ),
+			array(
+				'started'  => time(),
+				'days'     => array(),
+				'learned'  => null,
+				'last_day' => '',
+			),
+			false
+		);
 	}
 
 	/**
@@ -82,20 +94,20 @@ class BotStormRadar_Baseline {
 			update_option( self::option_name( $source ), $b, false );
 			return;
 		}
-		$ips   = [];
-		$asset = [];
+		$ips   = array();
+		$asset = array();
 		foreach ( $rows as $r ) {
 			$ips[] = (int) ( $r['ips'] ?? 0 );
 			if ( (int) ( $r['html_ips'] ?? 0 ) >= 5 ) {
 				$asset[] = (float) ( $r['asset_ratio'] ?? 0 );
 			}
 		}
-		$b['days'][ $yesterday ] = [
+		$b['days'][ $yesterday ] = array(
 			'ips_median'   => self::median( $ips ),
 			'ips_p90'      => self::percentile( $ips, 0.9 ),
 			'asset_median' => empty( $asset ) ? null : self::median( $asset ),
 			'minutes'      => count( $rows ),
-		];
+		);
 		ksort( $b['days'] );
 		while ( count( $b['days'] ) > self::KEEP_DAYS ) {
 			array_shift( $b['days'] );
@@ -103,7 +115,7 @@ class BotStormRadar_Baseline {
 		$b['last_day'] = $yesterday;
 
 		if ( null === $b['learned'] && count( $b['days'] ) >= self::LEARN_DAYS ) {
-			$b['learned'] = self::summarize( array_slice( $b['days'], -self::LEARN_DAYS, null, true ) );
+			$b['learned']               = self::summarize( array_slice( $b['days'], -self::LEARN_DAYS, null, true ) );
 			$b['learned']['learned_at'] = $now;
 		}
 		update_option( self::option_name( $source ), $b, false );
@@ -114,9 +126,9 @@ class BotStormRadar_Baseline {
 	 * @return array
 	 */
 	private static function summarize( array $days ) {
-		$ips = [];
-		$p90 = [];
-		$ast = [];
+		$ips = array();
+		$p90 = array();
+		$ast = array();
 		foreach ( $days as $d ) {
 			$ips[] = (float) $d['ips_median'];
 			$p90[] = (float) $d['ips_p90'];
@@ -124,12 +136,12 @@ class BotStormRadar_Baseline {
 				$ast[] = (float) $d['asset_median'];
 			}
 		}
-		return [
+		return array(
 			'ips_median'   => self::median( $ips ),
 			'ips_p90'      => self::median( $p90 ),
 			'asset_median' => empty( $ast ) ? null : self::median( $ast ),
 			'days'         => count( $days ),
-		];
+		);
 	}
 
 	/**
@@ -143,12 +155,18 @@ class BotStormRadar_Baseline {
 	public static function effective( $source = BotStormRadar_Sources::SITE ) {
 		$b = self::get( $source );
 		if ( is_array( $b['learned'] ) ) {
-			return $b['learned'] + [ 'status' => 'learned' ];
+			return $b['learned'] + array( 'status' => 'learned' );
 		}
 		if ( ! empty( $b['days'] ) ) {
-			return self::summarize( $b['days'] ) + [ 'status' => 'learning' ];
+			return self::summarize( $b['days'] ) + array( 'status' => 'learning' );
 		}
-		return [ 'ips_median' => null, 'ips_p90' => null, 'asset_median' => null, 'days' => 0, 'status' => 'learning' ];
+		return array(
+			'ips_median'   => null,
+			'ips_p90'      => null,
+			'asset_median' => null,
+			'days'         => 0,
+			'status'       => 'learning',
+		);
 	}
 
 	/**

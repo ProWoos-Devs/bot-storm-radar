@@ -69,7 +69,7 @@ class BotStormRadar_Cache_Check {
 	/**
 	 * Headers that hold a cache status word, and the layer they name.
 	 */
-	const STATUS_HEADERS = [
+	const STATUS_HEADERS = array(
 		'cf-cache-status'        => 'cloudflare',
 		'x-cache'                => 'x-cache',
 		'x-litespeed-cache'      => 'litespeed',
@@ -82,7 +82,7 @@ class BotStormRadar_Cache_Check {
 		'x-fastcgi-cache'        => 'fastcgi',
 		'x-cacheable'            => 'x-cacheable',
 		'x-wp-spc-disk-cache'    => 'super-page-cache',
-	];
+	);
 
 	/**
 	 * Headers with lower-case names. wp_remote_retrieve_headers() gives a
@@ -92,7 +92,7 @@ class BotStormRadar_Cache_Check {
 	 * @return array
 	 */
 	public static function normalize_headers( array $headers ) {
-		$out = [];
+		$out = array();
 		foreach ( $headers as $name => $value ) {
 			$out[ strtolower( (string) $name ) ] = $value;
 		}
@@ -107,7 +107,7 @@ class BotStormRadar_Cache_Check {
 	 * @return string
 	 */
 	public static function status_word_state( $value ) {
-		$found = [];
+		$found = array();
 		foreach ( explode( ',', strtolower( (string) $value ) ) as $entry ) {
 			if ( ! preg_match( '/^\s*([a-z]+)/', $entry, $m ) ) {
 				continue;
@@ -133,7 +133,7 @@ class BotStormRadar_Cache_Check {
 					break;
 			}
 		}
-		foreach ( [ self::HIT, self::BYPASS, self::DYNAMIC, self::MISS ] as $state ) {
+		foreach ( array( self::HIT, self::BYPASS, self::DYNAMIC, self::MISS ) as $state ) {
 			if ( isset( $found[ $state ] ) ) {
 				return $state;
 			}
@@ -148,9 +148,9 @@ class BotStormRadar_Cache_Check {
 	 * @param array $custom  Extra headers, name => callable( string $value ): string state. The caller applies its filter.
 	 * @return array state (hit, bypass, dynamic, miss, unknown or none), layers [ layer, header, value, state ]
 	 */
-	public static function read_response( array $headers, array $custom = [] ) {
+	public static function read_response( array $headers, array $custom = array() ) {
 		$headers = self::normalize_headers( $headers );
-		$layers  = [];
+		$layers  = array();
 
 		foreach ( self::STATUS_HEADERS as $name => $layer ) {
 			if ( ! isset( $headers[ $name ] ) ) {
@@ -160,22 +160,22 @@ class BotStormRadar_Cache_Check {
 			if ( 'x-cache' === $name && false !== stripos( $value, 'cloudfront' ) ) {
 				$layer = 'cloudfront';
 			}
-			$layers[] = [
+			$layers[] = array(
 				'layer'  => $layer,
 				'header' => $name,
 				'value'  => $value,
 				'state'  => self::status_word_state( $value ),
-			];
+			);
 		}
 
 		if ( isset( $headers['x-varnish'] ) ) {
 			$value    = self::flat( $headers['x-varnish'] );
-			$layers[] = [
+			$layers[] = array(
 				'layer'  => 'varnish',
 				'header' => 'x-varnish',
 				'value'  => $value,
 				'state'  => preg_match( '/^\s*\d+\s+\d+/', $value ) ? self::HIT : self::MISS,
-			];
+			);
 		}
 
 		foreach ( $custom as $name => $reader ) {
@@ -185,36 +185,36 @@ class BotStormRadar_Cache_Check {
 			}
 			$value    = self::flat( $headers[ $name ] );
 			$state    = (string) call_user_func( $reader, $value );
-			$layers[] = [
+			$layers[] = array(
 				'layer'  => $name,
 				'header' => $name,
 				'value'  => $value,
-				'state'  => in_array( $state, [ self::HIT, self::MISS, self::DYNAMIC, self::BYPASS ], true ) ? $state : self::UNKNOWN,
-			];
+				'state'  => in_array( $state, array( self::HIT, self::MISS, self::DYNAMIC, self::BYPASS ), true ) ? $state : self::UNKNOWN,
+			);
 		}
 
 		// A positive Age means some cache answered, whatever it calls itself.
 		if ( isset( $headers['age'] ) && is_numeric( self::flat( $headers['age'] ) ) && (int) self::flat( $headers['age'] ) > 0 ) {
-			$layers[] = [
+			$layers[] = array(
 				'layer'  => 'age',
 				'header' => 'age',
 				'value'  => self::flat( $headers['age'] ),
 				'state'  => self::HIT,
-			];
+			);
 		}
 
 		$state = $layers ? self::UNKNOWN : self::NONE;
-		foreach ( [ self::HIT, self::BYPASS, self::DYNAMIC, self::MISS ] as $candidate ) {
+		foreach ( array( self::HIT, self::BYPASS, self::DYNAMIC, self::MISS ) as $candidate ) {
 			if ( in_array( $candidate, array_column( $layers, 'state' ), true ) ) {
 				$state = $candidate;
 				break;
 			}
 		}
 
-		return [
+		return array(
 			'state'  => $state,
 			'layers' => $layers,
-		];
+		);
 	}
 
 	/**
@@ -232,11 +232,11 @@ class BotStormRadar_Cache_Check {
 		$public  = (bool) preg_match( '/(?:^|[\s,])public(?:[\s,]|$)/', $cc );
 		$ttl     = null !== $shared ? $shared : ( $public && null !== $max ? $max : 0 );
 
-		return [
+		return array(
 			'asks'     => ! $forbids && $ttl > 0,
 			'forbids'  => $forbids,
 			'edge_ttl' => $forbids ? 0 : $ttl,
-		];
+		);
 	}
 
 	/**
@@ -248,9 +248,9 @@ class BotStormRadar_Cache_Check {
 	public static function cookie_names( array $headers ) {
 		$headers = self::normalize_headers( $headers );
 		if ( ! isset( $headers['set-cookie'] ) ) {
-			return [];
+			return array();
 		}
-		$names = [];
+		$names = array();
 		foreach ( (array) $headers['set-cookie'] as $line ) {
 			if ( preg_match( '/^\s*([^=;\s]+)=/', (string) $line, $m ) ) {
 				$names[ $m[1] ] = true;
@@ -279,23 +279,23 @@ class BotStormRadar_Cache_Check {
 	 * @param array $custom See read_response().
 	 * @return array kind, url, outcome, cookies, layers, edge_ttl, has_nonce, passed_by (layers that did not store a page another layer answered)
 	 */
-	public static function analyze_page( array $sample, array $custom = [] ) {
-		$requests = isset( $sample['requests'] ) ? (array) $sample['requests'] : [];
-		$result   = [
+	public static function analyze_page( array $sample, array $custom = array() ) {
+		$requests = isset( $sample['requests'] ) ? (array) $sample['requests'] : array();
+		$result   = array(
 			'kind'      => isset( $sample['kind'] ) ? (string) $sample['kind'] : '',
 			'url'       => isset( $sample['url'] ) ? (string) $sample['url'] : '',
 			'outcome'   => self::PAGE_NO_ANSWER,
-			'cookies'   => [],
-			'layers'    => [],
+			'cookies'   => array(),
+			'layers'    => array(),
 			'edge_ttl'  => 0,
 			'has_nonce' => ! empty( $sample['has_nonce'] ),
-			'passed_by' => [],
-		];
+			'passed_by' => array(),
+		);
 
 		if ( ! $requests ) {
 			return $result;
 		}
-		$states  = [];
+		$states  = array();
 		$forbids = false;
 		$asks    = false;
 		foreach ( $requests as $request ) {
@@ -303,7 +303,7 @@ class BotStormRadar_Cache_Check {
 			if ( ! empty( $request['error'] ) || ! isset( $request['status'] ) || 200 !== (int) $request['status'] ) {
 				return $result;
 			}
-			$headers            = isset( $request['headers'] ) ? (array) $request['headers'] : [];
+			$headers            = isset( $request['headers'] ) ? (array) $request['headers'] : array();
 			$read               = self::read_response( $headers, $custom );
 			$intent             = self::origin_intent( $headers );
 			$states[]           = $read['state'];
@@ -318,12 +318,12 @@ class BotStormRadar_Cache_Check {
 			$result['outcome'] = self::PAGE_CACHED;
 			// One cache answers and another, asked to store the page, does not.
 			// A plain miss proves nothing here: a cache behind a hit also misses.
-			foreach ( $asks ? $read['layers'] : [] as $layer ) {
-				if ( in_array( $layer['state'], [ self::DYNAMIC, self::BYPASS ], true ) ) {
+			foreach ( $asks ? $read['layers'] : array() as $layer ) {
+				if ( in_array( $layer['state'], array( self::DYNAMIC, self::BYPASS ), true ) ) {
 					$result['passed_by'][] = $layer['layer'];
 				}
 			}
-		} elseif ( ! array_diff( $states, [ self::NONE, self::UNKNOWN ] ) ) {
+		} elseif ( ! array_diff( $states, array( self::NONE, self::UNKNOWN ) ) ) {
 			$result['outcome'] = self::PAGE_NO_SIGNAL;
 		} elseif ( $forbids ) {
 			// Uncached on purpose, and a cookie on such a page is no fault.
@@ -344,20 +344,20 @@ class BotStormRadar_Cache_Check {
 	 * @param array      $custom  See read_response().
 	 * @return array verdict, pages, findings [ code, severity, pages (kinds), cookies ]
 	 */
-	public static function analyze_site( array $samples, $replay = null, array $custom = [] ) {
-		$pages = [];
+	public static function analyze_site( array $samples, $replay = null, array $custom = array() ) {
+		$pages = array();
 		foreach ( $samples as $sample ) {
 			$pages[] = self::analyze_page( (array) $sample, $custom );
 		}
 
-		$by_outcome = [];
+		$by_outcome = array();
 		foreach ( $pages as $page ) {
 			$by_outcome[ $page['outcome'] ][] = $page;
 		}
 		$usable = array_filter(
 			$pages,
 			static function ( $page ) {
-				return ! in_array( $page['outcome'], [ self::PAGE_NO_SIGNAL, self::PAGE_NO_ANSWER ], true );
+				return ! in_array( $page['outcome'], array( self::PAGE_NO_SIGNAL, self::PAGE_NO_ANSWER ), true );
 			}
 		);
 		$cached = isset( $by_outcome[ self::PAGE_CACHED ] ) ? count( $by_outcome[ self::PAGE_CACHED ] ) : 0;
@@ -370,29 +370,29 @@ class BotStormRadar_Cache_Check {
 			$verdict = $cached > 0 ? self::SITE_PARTLY : self::SITE_NOT_CACHED;
 		}
 
-		$severities = [
+		$severities = array(
 			self::PAGE_COOKIE_BLOCKS  => self::FAULT,
 			self::PAGE_NOT_STORED     => self::FAULT,
 			self::PAGE_ORIGIN_FORBIDS => self::INFO,
 			self::PAGE_ORIGIN_SILENT  => self::INFO,
 			self::PAGE_NO_SIGNAL      => self::INFO,
 			self::PAGE_NO_ANSWER      => self::INFO,
-		];
-		$findings   = [];
+		);
+		$findings   = array();
 		foreach ( $severities as $outcome => $severity ) {
 			if ( empty( $by_outcome[ $outcome ] ) ) {
 				continue;
 			}
-			$cookies = [];
+			$cookies = array();
 			foreach ( $by_outcome[ $outcome ] as $page ) {
 				$cookies = array_merge( $cookies, $page['cookies'] );
 			}
-			$findings[] = [
+			$findings[] = array(
 				'code'     => $outcome,
 				'severity' => $severity,
 				'pages'    => array_column( $by_outcome[ $outcome ], 'kind' ),
-				'cookies'  => self::PAGE_COOKIE_BLOCKS === $outcome ? array_values( array_unique( $cookies ) ) : [],
-			];
+				'cookies'  => self::PAGE_COOKIE_BLOCKS === $outcome ? array_values( array_unique( $cookies ) ) : array(),
+			);
 		}
 
 		$lost = self::replay_finding( $replay, $custom, $cached > 0 );
@@ -407,36 +407,36 @@ class BotStormRadar_Cache_Check {
 			}
 		);
 		if ( $passed ) {
-			$findings[] = [
+			$findings[] = array(
 				'code'     => 'layer_not_storing',
 				'severity' => self::INFO,
 				'pages'    => array_column( $passed, 'kind' ),
-				'cookies'  => [],
+				'cookies'  => array(),
 				'layers'   => array_values( array_unique( array_merge( ...array_column( $passed, 'passed_by' ) ) ) ),
-			];
+			);
 		}
 
 		$old_nonces = array_filter(
 			$pages,
 			static function ( $page ) {
 				return $page['has_nonce'] && $page['edge_ttl'] > self::NONCE_SAFE_TTL
-					&& in_array( $page['outcome'], [ self::PAGE_CACHED, self::PAGE_COOKIE_BLOCKS, self::PAGE_NOT_STORED ], true );
+					&& in_array( $page['outcome'], array( self::PAGE_CACHED, self::PAGE_COOKIE_BLOCKS, self::PAGE_NOT_STORED ), true );
 			}
 		);
 		if ( $old_nonces ) {
-			$findings[] = [
+			$findings[] = array(
 				'code'     => 'ttl_outlives_nonces',
 				'severity' => self::INFO,
 				'pages'    => array_column( $old_nonces, 'kind' ),
-				'cookies'  => [],
-			];
+				'cookies'  => array(),
+			);
 		}
 
-		return [
+		return array(
 			'verdict'  => $verdict,
 			'pages'    => $pages,
 			'findings' => $findings,
-		];
+		);
 	}
 
 	/**
@@ -457,16 +457,16 @@ class BotStormRadar_Cache_Check {
 		if ( ! empty( $response['error'] ) || ! isset( $response['status'] ) || 200 !== (int) $response['status'] ) {
 			return null;
 		}
-		$read = self::read_response( isset( $response['headers'] ) ? (array) $response['headers'] : [], $custom );
-		if ( ! in_array( $read['state'], [ self::MISS, self::DYNAMIC, self::BYPASS ], true ) ) {
+		$read = self::read_response( isset( $response['headers'] ) ? (array) $response['headers'] : array(), $custom );
+		if ( ! in_array( $read['state'], array( self::MISS, self::DYNAMIC, self::BYPASS ), true ) ) {
 			return null;
 		}
-		return [
+		return array(
 			'code'     => 'cookie_leaves_cache',
 			'severity' => self::FAULT,
-			'pages'    => [ isset( $replay['kind'] ) ? (string) $replay['kind'] : '' ],
+			'pages'    => array( isset( $replay['kind'] ) ? (string) $replay['kind'] : '' ),
 			'cookies'  => array_values( (array) $replay['cookies'] ),
-		];
+		);
 	}
 
 	/**
