@@ -376,16 +376,26 @@ class BotStormRadar_Counters {
 		if ( ! $got ) {
 			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}botstormradar_locks SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
 		}
-		if ( $got ) {
-			self::$claims[ $key ] = $token;
+		if ( ! $got ) {
+			return false;
 		}
-		return $got;
+		self::$claims[ $key ] = $token;
+		// The table has just come back and another process still holds this
+		// lock from the time it was missing: its claim stands until it lets
+		// go or its lifetime ends.
+		if ( self::fallback_held( $key, $now ) ) {
+			self::db_release( $key );
+			return false;
+		}
+		return true;
 	}
 
 	/**
 	 * The lock while its table cannot be created: a transient, read then
 	 * written, so two processes starting together can both get it, as before
-	 * 0.7.1. Better a rare double tick than no tick at all.
+	 * 0.7.1. Better a rare double tick than no tick at all. Once the table is
+	 * back, the two kinds of claim respect each other: this one gives way to
+	 * a live row, and db_claim() gives way to a live transient.
 	 *
 	 * @param string $key
 	 * @param int    $ttl
@@ -393,13 +403,48 @@ class BotStormRadar_Counters {
 	 * @return bool
 	 */
 	private static function fallback_claim( $key, $ttl, $token ) {
-		$name = 'botstormradar_lockfb_' . md5( $key );
-		if ( false !== get_transient( $name ) ) {
+		global $wpdb;
+		$now = time();
+		if ( self::fallback_held( $key, $now ) ) {
 			return false;
 		}
+		$name = self::fallback_name( $key );
 		set_transient( $name, $token, max( 1, (int) $ttl ) );
+		// Written first, checked after: a process that got the row meanwhile
+		// checks for this transient after its insert, so one of the two sees
+		// the other.
+		$quiet = $wpdb->suppress_errors();
+		$row   = $wpdb->get_var( $wpdb->prepare( "SELECT owner FROM {$wpdb->prefix}botstormradar_locks WHERE name = %s AND expires_at > %d", self::lock_name( $key ), $now ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
+		$wpdb->suppress_errors( $quiet );
+		if ( null !== $row ) {
+			delete_transient( $name );
+			return false;
+		}
 		self::$claims[ $key ] = 'fb:' . $token;
 		return true;
+	}
+
+	/**
+	 * @param string $key
+	 * @return string Name of the transient that stands in for a lock row.
+	 */
+	private static function fallback_name( $key ) {
+		return 'botstormradar_lockfb_' . md5( $key );
+	}
+
+	/**
+	 * Whether a process holds the stand-in lock. Read from the database, not
+	 * through get_transient(): a long request's option cache can be minutes
+	 * old, and another process may have claimed or released since.
+	 *
+	 * @param string $key
+	 * @param int    $now
+	 * @return bool
+	 */
+	private static function fallback_held( $key, $now ) {
+		global $wpdb;
+		$until = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", '_transient_timeout_' . self::fallback_name( $key ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a fresh read is the point, see above.
+		return null !== $until && (int) $until > $now;
 	}
 
 	/**
@@ -411,8 +456,9 @@ class BotStormRadar_Counters {
 	private static function db_release( $key ) {
 		global $wpdb;
 		if ( 0 === strpos( self::$claims[ $key ], 'fb:' ) ) {
-			$name = 'botstormradar_lockfb_' . md5( $key );
-			if ( get_transient( $name ) === substr( self::$claims[ $key ], 3 ) ) {
+			$name = self::fallback_name( $key );
+			$held = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", '_transient_' . $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a fresh read, see fallback_held().
+			if ( substr( self::$claims[ $key ], 3 ) === $held ) {
 				delete_transient( $name );
 			}
 			unset( self::$claims[ $key ] );
