@@ -352,20 +352,54 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_claim( $key, $ttl ) {
 		global $wpdb;
-		$name  = self::lock_name( $key );
-		$now   = time();
-		$token = bin2hex( random_bytes( 8 ) );
-		$until = $now + max( 1, (int) $ttl );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
-		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->prefix}botstormradar_locks (name, expires_at, owner) VALUES (%s, %d, %s)", $name, $until, $token ) );
-		if ( ! $got ) {
-			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}botstormradar_locks SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) );
+		$name     = self::lock_name( $key );
+		$now      = time();
+		$token    = bin2hex( random_bytes( 8 ) );
+		$until    = $now + max( 1, (int) $ttl );
+		$insert   = function () use ( $wpdb, $name, $until, $token ) {
+			$quiet = $wpdb->suppress_errors();
+			$r     = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->prefix}botstormradar_locks (name, expires_at, owner) VALUES (%s, %d, %s)", $name, $until, $token ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
+			$wpdb->suppress_errors( $quiet );
+			return $r;
+		};
+		$inserted = $insert();
+		// The query failed outright: the table is missing, as after an upgrade
+		// whose CREATE was refused (#120). Install again, at most every few
+		// minutes, and keep the radar running on a transient meanwhile.
+		if ( false === $inserted && BotStormRadar_Bans::repair( $now ) ) {
+			$inserted = $insert();
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( false === $inserted ) {
+			return self::fallback_claim( $key, $ttl, $token );
+		}
+		$got = $inserted > 0;
+		if ( ! $got ) {
+			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}botstormradar_locks SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
+		}
 		if ( $got ) {
 			self::$claims[ $key ] = $token;
 		}
 		return $got;
+	}
+
+	/**
+	 * The lock while its table cannot be created: a transient, read then
+	 * written, so two processes starting together can both get it, as before
+	 * 0.7.1. Better a rare double tick than no tick at all.
+	 *
+	 * @param string $key
+	 * @param int    $ttl
+	 * @param string $token
+	 * @return bool
+	 */
+	private static function fallback_claim( $key, $ttl, $token ) {
+		$name = 'botstormradar_lockfb_' . md5( $key );
+		if ( false !== get_transient( $name ) ) {
+			return false;
+		}
+		set_transient( $name, $token, max( 1, (int) $ttl ) );
+		self::$claims[ $key ] = 'fb:' . $token;
+		return true;
 	}
 
 	/**
@@ -376,6 +410,14 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_release( $key ) {
 		global $wpdb;
+		if ( 0 === strpos( self::$claims[ $key ], 'fb:' ) ) {
+			$name = 'botstormradar_lockfb_' . md5( $key );
+			if ( get_transient( $name ) === substr( self::$claims[ $key ], 3 ) ) {
+				delete_transient( $name );
+			}
+			unset( self::$claims[ $key ] );
+			return;
+		}
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}botstormradar_locks WHERE name = %s AND owner = %s", self::lock_name( $key ), self::$claims[ $key ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix.
 		unset( self::$claims[ $key ] );
 	}

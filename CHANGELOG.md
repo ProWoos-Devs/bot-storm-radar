@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Lock table install (#120). The schema version was stored even when the database refused to create a table, so a site upgraded while its database user lacked CREATE kept no lock table and never retried; on sites without an object cache or APCu every lock claim failed and the minute tick and the page cache check stopped. The version is now stored only once all three tables exist, a failed install is retried at most every 5 minutes, a claim that finds the table missing repairs it, and until then the lock falls back to a transient so the radar keeps running.
+
 ## [0.7.4] - 2026-11-21
 
 ### Fixed
