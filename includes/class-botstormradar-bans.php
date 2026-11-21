@@ -107,20 +107,21 @@ class BotStormRadar_Bans {
 	 * Raise the generation when a setting that affects bans changed (any
 	 * `trip_*` key too).
 	 *
-	 * @param mixed $old
-	 * @param mixed $new
+	 * @param mixed $old_value Settings before the update.
+	 * @param mixed $new_value Settings after the update.
+	 * @return void
 	 */
-	public static function settings_changed( $old, $new ) {
-		$old  = is_array( $old ) ? $old : [];
-		$new  = is_array( $new ) ? $new : [];
+	public static function settings_changed( $old_value, $new_value ) {
+		$old_value  = is_array( $old_value ) ? $old_value : [];
+		$new_value  = is_array( $new_value ) ? $new_value : [];
 		$keys = self::GENERATION_SETTINGS;
-		foreach ( array_merge( array_keys( $old ), array_keys( $new ) ) as $k ) {
+		foreach ( array_merge( array_keys( $old_value ), array_keys( $new_value ) ) as $k ) {
 			if ( 0 === strpos( (string) $k, 'trip_' ) ) {
 				$keys[] = $k;
 			}
 		}
 		foreach ( array_unique( $keys ) as $k ) {
-			if ( ( $old[ $k ] ?? null ) != ( $new[ $k ] ?? null ) ) { // phpcs:ignore WordPress.PHP.StrictComparisons -- '1' and 1 are the same setting.
+			if ( ( $old_value[ $k ] ?? null ) != ( $new_value[ $k ] ?? null ) ) { // phpcs:ignore WordPress.PHP.StrictComparisons, Universal.Operators.StrictComparisons -- '1' and 1 are the same setting.
 				self::bump_generation();
 				return;
 			}
@@ -147,13 +148,14 @@ class BotStormRadar_Bans {
 		$list = is_array( $list ) ? $list : [];
 		$cur  = $list[ $ip ] ?? [ 'first' => (int) $at, 'count' => 0 ];
 		unset( $list[ $ip ] );
-		$list = [ $ip => [
+		$entry = [
 			'reason'   => substr( sanitize_key( (string) $reason ), 0, 40 ),
 			'first'    => (int) $cur['first'],
 			'last'     => (int) $at,
 			'count'    => (int) $cur['count'] + 1,
 			'evidence' => self::bound_evidence( $evidence ),
-		] ] + $list;
+		];
+		$list  = [ $ip => $entry ] + $list;
 		update_option( self::WOULD_OPTION, array_slice( $list, 0, self::WOULD_CAP, true ), false );
 		return true;
 	}

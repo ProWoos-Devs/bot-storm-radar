@@ -17,7 +17,7 @@ class BotStormRadar_WooCommerce {
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			return;
 		}
-		add_filter( 'botstormradar_request_class', [ __CLASS__, 'classify' ], 10, 4 );
+		add_filter( 'botstormradar_request_class', [ __CLASS__, 'classify' ], 10, 3 );
 	}
 
 	/**
@@ -28,13 +28,14 @@ class BotStormRadar_WooCommerce {
 	}
 
 	/**
-	 * @param array  $result
-	 * @param string $path
-	 * @param array  $query
-	 * @param array  $server
-	 * @return array
+	 * Name WooCommerce checkout and cart requests as request classes of their own.
+	 *
+	 * @param array  $result Class and detail resolved so far.
+	 * @param string $path   Request path.
+	 * @param array  $query  Query arguments of the request.
+	 * @return array The class and detail for the request.
 	 */
-	public static function classify( $result, $path, $query, $server ) {
+	public static function classify( $result, $path, $query ) {
 		if ( isset( $query['wc-ajax'] ) ) {
 			$action = substr( sanitize_key( (string) $query['wc-ajax'] ), 0, 40 );
 			if ( 'checkout' === $action ) {

@@ -501,15 +501,15 @@ class BotStormRadar_Cache_Sampler {
 	 * holding the site's certificate. The normal route is the site asking
 	 * itself, as core's loopback does, and follows core's filter for that.
 	 *
-	 * @param string $url
-	 * @param array  $cookies
-	 * @param bool   $public  Connecting to the public address.
-	 * @param float  $deadline The sampling deadline.
-	 * @return array|WP_Error
+	 * @param string $url          URL to request.
+	 * @param array  $cookies      Cookies to send, as wp_remote_get() takes them.
+	 * @param bool   $public_route Whether to connect to the public address, where the certificate is always checked.
+	 * @param float  $deadline     The sampling deadline, as a microtime() value.
+	 * @return array|WP_Error The response, or an error when no time is left or the request failed.
 	 */
-	private static function request( $url, array $cookies, $public, $deadline ) {
+	private static function request( $url, array $cookies, $public_route, $deadline ) {
 		/** This filter is documented in wp-includes/class-wp-http-streams.php */
-		$verify = $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
+		$verify = $public_route ? true : apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
 		$left   = $deadline - microtime( true );
 		if ( $left < self::MIN_LEFT ) {
 			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );

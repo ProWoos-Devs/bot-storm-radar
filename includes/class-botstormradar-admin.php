@@ -1247,7 +1247,7 @@ class BotStormRadar_Admin {
 				</tr></thead>
 				<tbody>
 				<?php foreach ( $rows as $r ) : ?>
-					<?php $single = (int) $r['prefix_len'] === ( false !== strpos( $r['ip_text'], ':' ) ? 128 : 32 ); ?>
+					<?php $single = ( false !== strpos( $r['ip_text'], ':' ) ? 128 : 32 ) === (int) $r['prefix_len']; ?>
 					<tr class="<?php echo $r['active'] ? '' : 'bsr-muted'; ?>">
 						<td><code><?php echo esc_html( $r['ip_text'] . ( $single ? '' : '/' . (int) $r['prefix_len'] ) ); ?></code></td>
 						<td><?php echo esc_html( self::reason_label( (string) $r['reason'] ) ); ?><br /><small><?php echo esc_html( 'gate' === $r['origin'] ? __( 'tripped in the gate', 'bot-storm-radar' ) : __( 'tripped in the radar', 'bot-storm-radar' ) ); ?></small></td>

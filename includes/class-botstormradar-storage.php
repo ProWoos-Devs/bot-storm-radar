@@ -57,7 +57,8 @@ class BotStormRadar_Storage {
 		if ( ! in_array( $name, $index, true ) ) {
 			$index[] = $name;
 			sort( $index );
-			while ( count( $index ) > self::CHUNK_HOURS ) {
+			$excess = count( $index ) - self::CHUNK_HOURS;
+			for ( $i = 0; $i < $excess; $i++ ) {
 				$old = array_shift( $index );
 				delete_option( $old );
 			}

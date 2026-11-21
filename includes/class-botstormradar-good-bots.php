@@ -103,7 +103,7 @@ class BotStormRadar_Good_Bots {
 	 * @return string
 	 */
 	public static function claimed( $ua ) {
-		if ( '' === $ua || false === stripos( $ua, 'bot' ) && false === stripos( $ua, 'google' ) && false === stripos( $ua, 'yandex' ) && false === stripos( $ua, 'preview' ) && false === stripos( $ua, 'duckduck' ) ) {
+		if ( '' === $ua || ( false === stripos( $ua, 'bot' ) && false === stripos( $ua, 'google' ) && false === stripos( $ua, 'yandex' ) && false === stripos( $ua, 'preview' ) && false === stripos( $ua, 'duckduck' ) ) ) {
 			return '';
 		}
 		foreach ( self::bots() as $name => $bot ) {

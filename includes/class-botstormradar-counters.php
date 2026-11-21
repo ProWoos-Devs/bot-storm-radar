@@ -288,23 +288,25 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
-	 * @param mixed  $default
-	 * @return mixed
+	 * Read a stored value from the active counter backend.
+	 *
+	 * @param string $key      Counter key.
+	 * @param mixed  $fallback Value to return when the key is absent or has expired.
+	 * @return mixed The stored value, or the fallback.
 	 */
-	public static function get_value( $key, $default = null ) {
+	public static function get_value( $key, $fallback = null ) {
 		switch ( self::backend() ) {
 			case 'object_cache':
 				$v = wp_cache_get( $key, self::GROUP );
-				return false === $v ? $default : $v;
+				return false === $v ? $fallback : $v;
 			case 'apcu':
 				$ok = false;
 				$v  = apcu_fetch( self::$apcu_prefix . $key, $ok );
-				return $ok ? $v : $default;
+				return $ok ? $v : $fallback;
 			case 'memory':
-				return self::m_live( $key ) ? self::$mem[ $key ] : $default;
+				return self::m_live( $key ) ? self::$mem[ $key ] : $fallback;
 			default:
-				return self::t_get( $key, $default );
+				return self::t_get( $key, $fallback );
 		}
 	}
 
@@ -618,17 +620,19 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
-	 * @param mixed  $default
-	 * @return mixed
+	 * Read a value from the transient backend's group for the key.
+	 *
+	 * @param string $key      Counter key.
+	 * @param mixed  $fallback Value to return when the key is absent.
+	 * @return mixed The stored value, or the fallback.
 	 */
-	private static function t_get( $key, $default ) {
+	private static function t_get( $key, $fallback ) {
 		$g    = self::t_group_of( $key );
 		$data = self::t_load( $g );
 		if ( 0 === strpos( $g, 'g:' ) ) {
-			return array_key_exists( '_v', $data ) ? $data['_v'] : $default;
+			return array_key_exists( '_v', $data ) ? $data['_v'] : $fallback;
 		}
-		return array_key_exists( $key, $data ) ? $data[ $key ] : $default;
+		return array_key_exists( $key, $data ) ? $data[ $key ] : $fallback;
 	}
 
 	/**

@@ -54,4 +54,13 @@ add_action(
 
 require_once BOTSTORMRADAR_PLUGIN_DIR . 'includes/class-bot-storm-radar.php';
 
+/**
+ * The plugin's single instance.
+ *
+ * @return Bot_Storm_Radar
+ */
+function bot_storm_radar() {
+	return Bot_Storm_Radar::get_instance();
+}
+
 bot_storm_radar();

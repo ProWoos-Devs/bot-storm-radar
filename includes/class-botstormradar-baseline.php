@@ -97,7 +97,8 @@ class BotStormRadar_Baseline {
 			'minutes'      => count( $rows ),
 		];
 		ksort( $b['days'] );
-		while ( count( $b['days'] ) > self::KEEP_DAYS ) {
+		$excess = count( $b['days'] ) - self::KEEP_DAYS;
+		for ( $i = 0; $i < $excess; $i++ ) {
 			array_shift( $b['days'] );
 		}
 		$b['last_day'] = $yesterday;
