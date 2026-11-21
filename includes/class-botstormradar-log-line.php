@@ -3,7 +3,7 @@
  * One web-server log line: parsing the nginx/Apache "combined" format and
  * classifying the request for a log source profile.
  *
- * combined = $remote_addr - $remote_user [$time_local] "$request" $status
+ * Combined format: $remote_addr - $remote_user [$time_local] "$request" $status
  *            $body_bytes_sent "$http_referer" "$http_user_agent"
  *
  * nginx escapes '"', '\' and bytes below 32 or above 126 as \xXX in the
@@ -25,6 +25,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * One web-server log line: parses the combined format and classifies the request for a log source profile.
+ */
 class BotStormRadar_Log_Line {
 
 	const PROFILES = [ 'mediawiki', 'wordpress' ];
@@ -48,6 +51,8 @@ class BotStormRadar_Log_Line {
 	const MW_REVISION_KEYS = [ 'oldid', 'diff', 'curid', 'undo', 'undoafter', 'direction', 'veaction', 'section', 'preload', 'rcid', 'printable' ];
 
 	/**
+	 * The last time string parsed, with its timestamp.
+	 *
 	 * @var array Last parsed $time_local string => timestamp (lines come in
 	 *            runs of the same second).
 	 */
@@ -56,7 +61,7 @@ class BotStormRadar_Log_Line {
 	/**
 	 * Parse one combined-format line.
 	 *
-	 * @param string $line
+	 * @param string $line Log line.
 	 * @return array|null ip, ts, minute, method, target, status, ua; null when
 	 *                    the line is not a combined line with a valid address.
 	 */
@@ -94,6 +99,8 @@ class BotStormRadar_Log_Line {
 	}
 
 	/**
+	 * Convert a log time such as 10/Oct/2026:13:55:36 +0000 to a Unix timestamp, or null when it does not parse.
+	 *
 	 * @param string $time_local e.g. "15/Sep/2026:18:08:57 +0000".
 	 * @return int|null
 	 */
@@ -113,7 +120,7 @@ class BotStormRadar_Log_Line {
 	 * Request class for a parsed line under a profile.
 	 *
 	 * @param array  $p       parse() result.
-	 * @param string $profile
+	 * @param string $profile Log profile name (see BotStormRadar_Log_Line).
 	 * @return string
 	 */
 	public static function classify( array $p, $profile ) {
@@ -140,9 +147,11 @@ class BotStormRadar_Log_Line {
 	}
 
 	/**
-	 * @param string $path  Raw path (still percent-encoded).
-	 * @param array  $query Decoded query variables.
-	 * @param int    $status
+	 * Classify a MediaWiki request from its path, query and response status.
+	 *
+	 * @param string $path   Raw path (still percent-encoded).
+	 * @param array  $query  Decoded query variables.
+	 * @param int    $status HTTP response status.
 	 * @return string
 	 */
 	public static function classify_mediawiki( $path, array $query, $status ) {

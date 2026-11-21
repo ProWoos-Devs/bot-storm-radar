@@ -29,6 +29,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Loads the gate before WordPress, through a block in .user.ini or .htaccess, and checks that it runs.
+ */
 class BotStormRadar_Gate_Early {
 
 	const OPTION       = 'botstormradar_gate_early';
@@ -36,6 +39,8 @@ class BotStormRadar_Gate_Early {
 	const CHECK_HEADER = 'X-BSR-Gate-Check';
 
 	/**
+	 * The last error message.
+	 *
 	 * @var string
 	 */
 	private static $error = '';
@@ -58,7 +63,7 @@ class BotStormRadar_Gate_Early {
 	/**
 	 * The file the block goes into for a method.
 	 *
-	 * @param string $method
+	 * @param string $method How the gate is loaded: user_ini or htaccess.
 	 * @return string
 	 */
 	public static function target( $method ) {
@@ -82,7 +87,7 @@ class BotStormRadar_Gate_Early {
 	/**
 	 * Another prepend that would be overwritten or chained, or '' when none.
 	 *
-	 * @param string      $method
+	 * @param string      $method  How the gate is loaded: user_ini or htaccess.
 	 * @param string|null $current auto_prepend_file in force for this request (tests).
 	 * @param string|null $file    Contents of the target file (tests).
 	 * @return string
@@ -241,6 +246,8 @@ class BotStormRadar_Gate_Early {
 	}
 
 	/**
+	 * Return the last error message.
+	 *
 	 * @return string
 	 */
 	public static function last_error() {
@@ -252,8 +259,8 @@ class BotStormRadar_Gate_Early {
 	/**
 	 * The lines between the markers for a method.
 	 *
-	 * @param string $method
-	 * @param string $loader
+	 * @param string $method How the gate is loaded: user_ini or htaccess.
+	 * @param string $loader Path of the loader file the block names.
 	 * @return string
 	 */
 	public static function block( $method, $loader ) {
@@ -268,7 +275,9 @@ class BotStormRadar_Gate_Early {
 	}
 
 	/**
-	 * @param string $method
+	 * Return the line that opens the plugin's block in a file.
+	 *
+	 * @param string $method How the gate is loaded: user_ini or htaccess.
 	 * @return string
 	 */
 	private static function begin( $method ) {
@@ -276,7 +285,9 @@ class BotStormRadar_Gate_Early {
 	}
 
 	/**
-	 * @param string $method
+	 * Return the line that closes the plugin's block in a file.
+	 *
+	 * @param string $method How the gate is loaded: user_ini or htaccess.
 	 * @return string
 	 */
 	private static function end( $method ) {
@@ -286,8 +297,8 @@ class BotStormRadar_Gate_Early {
 	/**
 	 * The file contents without our block.
 	 *
-	 * @param string $contents
-	 * @param string $method
+	 * @param string $contents Contents of the file.
+	 * @param string $method   How the gate is loaded: user_ini or htaccess.
 	 * @return string
 	 */
 	public static function strip_block( $contents, $method ) {
@@ -296,13 +307,11 @@ class BotStormRadar_Gate_Early {
 	}
 
 	/**
-	 * Replace our block in a file (or remove it with an empty body), keeping
-	 * everything else. The block goes first, so it applies whatever follows.
-	 * Written through a temporary and a rename.
+	 * Replace our block in a file (or remove it with an empty body), keeping everything else. The block goes first, so it applies whatever follows. Written through a temporary and a rename.
 	 *
-	 * @param string $target
-	 * @param string $method
-	 * @param string $body
+	 * @param string $target Path of the file to change.
+	 * @param string $method How the gate is loaded: user_ini or htaccess.
+	 * @param string $body   Lines of the block, or an empty string to remove it.
 	 * @return bool
 	 */
 	private static function write_block( $target, $method, $body ) {
@@ -334,8 +343,10 @@ class BotStormRadar_Gate_Early {
 	}
 
 	/**
-	 * @param string $a
-	 * @param string $b
+	 * Tell whether two paths name the same file.
+	 *
+	 * @param string $a First path.
+	 * @param string $b Second path.
 	 * @return bool
 	 */
 	private static function same_file( $a, $b ) {

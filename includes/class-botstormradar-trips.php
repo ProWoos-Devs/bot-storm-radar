@@ -34,6 +34,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Per-address trips: one address that probes too often or asks for too many missing pages.
+ */
 class BotStormRadar_Trips {
 
 	// Leave five minutes for a late tick before the 25-minute counters expire.
@@ -89,12 +92,12 @@ class BotStormRadar_Trips {
 	/**
 	 * One trip. Returns what happened: banned | would | pending | guarded | verified-bot.
 	 *
-	 * @param string   $ip
-	 * @param string   $reason   probe | 404
-	 * @param array    $evidence
-	 * @param string   $origin   gate | radar
+	 * @param string   $ip       IP address.
+	 * @param string   $reason   probe | 404.
+	 * @param array    $evidence Evidence recorded for the ban.
+	 * @param string   $origin   gate | radar.
 	 * @param string   $claim    Bot family the user agent claims ('' if none).
-	 * @param int|null $now
+	 * @param int|null $now      Unix timestamp; the current time when omitted.
 	 * @return string
 	 */
 	public static function trip( $ip, $reason, array $evidence, $origin, $claim = '', $now = null ) {
@@ -132,12 +135,14 @@ class BotStormRadar_Trips {
 	// ── Pending bot claims ────────────────────────────────────────────
 
 	/**
-	 * @param string $ip
-	 * @param string $reason
-	 * @param array  $evidence
-	 * @param string $origin
-	 * @param string $claim
-	 * @param int    $now
+	 * Hold the trip of an unverified search-bot claim until DNS has checked it.
+	 *
+	 * @param string $ip       IP address.
+	 * @param string $reason   Ban reason: probe or 404.
+	 * @param array  $evidence Evidence recorded for the ban.
+	 * @param string $origin   Where the trip was counted: gate or radar.
+	 * @param string $claim    Search bot the address claims to be.
+	 * @param int    $now      Unix timestamp.
 	 */
 	private static function hold( $ip, $reason, array $evidence, $origin, $claim, $now ) {
 		$list        = self::pending();
@@ -149,6 +154,8 @@ class BotStormRadar_Trips {
 	}
 
 	/**
+	 * Return the trips held until their claims are verified.
+	 *
 	 * @return array ip => reason, evidence, origin, claim, at
 	 */
 	public static function pending() {
@@ -157,12 +164,9 @@ class BotStormRadar_Trips {
 	}
 
 	/**
-	 * After the tick verified the queued bot claims: a verified address is
-	 * dropped (it is protected), a fake one trips now, one still pending after
-	 * a day is dropped. A claim held while the DNS check was off is queued for
-	 * it once the check is switched on. Returns what was decided per address.
+	 * After the tick verified the queued bot claims: a verified address is dropped (it is protected), a fake one trips now, one still pending after a day is dropped. A claim held while the DNS check was off is queued for it once the check is switched on. Returns what was decided per address.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return array ip => result
 	 */
 	public static function process_pending( $now = null ) {
@@ -201,12 +205,11 @@ class BotStormRadar_Trips {
 	// ── Digest ────────────────────────────────────────────────────────
 
 	/**
-	 * Count a ban for the hourly digest; mail once when more than
-	 * DIGEST_COUNT distinct addresses tripped within the last hour.
+	 * Count a ban for the hourly digest; mail once when more than DIGEST_COUNT distinct addresses tripped within the last hour.
 	 *
-	 * @param string $ip
-	 * @param string $reason
-	 * @param int    $now
+	 * @param string $ip     IP address.
+	 * @param string $reason Ban reason: probe or 404.
+	 * @param int    $now    Unix timestamp.
 	 * @return bool Whether a digest was sent.
 	 */
 	public static function note_for_digest( $ip, $reason, $now ) {

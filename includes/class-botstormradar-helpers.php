@@ -9,6 +9,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Shared helpers: settings, wrappers for the IP functions, and small request and number helpers.
+ */
 class BotStormRadar_Helpers {
 
 	/**
@@ -19,6 +22,8 @@ class BotStormRadar_Helpers {
 	private static $options = null;
 
 	/**
+	 * Return the plugin's settings merged with their defaults.
+	 *
 	 * @return array
 	 */
 	public static function get_options() {
@@ -51,7 +56,9 @@ class BotStormRadar_Helpers {
 	// ── IP arithmetic ───────────────────────────────────────────────
 
 	/**
-	 * @param string $ip
+	 * Tell whether a value is a valid IP address.
+	 *
+	 * @param string $ip IP address.
 	 * @return bool
 	 */
 	public static function is_valid_ip( $ip ) {
@@ -59,10 +66,9 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * A routable internet address (see BotStormRadar_IP_Resolver::is_public_ip()).
-	 * Same rule as WCAF_Helpers::is_public_ip().
+	 * A routable internet address (see BotStormRadar_IP_Resolver::is_public_ip()). Same rule as WCAF_Helpers::is_public_ip().
 	 *
-	 * @param string $ip
+	 * @param string $ip IP address.
 	 * @return bool
 	 */
 	public static function is_public_ip( $ip ) {
@@ -70,10 +76,9 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * An address that cannot belong to an internet client (the complement of
-	 * is_public_ip, invalid input included).
+	 * An address that cannot belong to an internet client (the complement of is_public_ip, invalid input included).
 	 *
-	 * @param string $ip
+	 * @param string $ip IP address.
 	 * @return bool
 	 */
 	public static function is_private_ip( $ip ) {
@@ -83,7 +88,7 @@ class BotStormRadar_Helpers {
 	/**
 	 * CIDR match for IPv4 and IPv6 (see BotStormRadar_IP_Resolver::ip_in_cidr()).
 	 *
-	 * @param string $ip
+	 * @param string $ip   IP address.
 	 * @param string $cidr "a.b.c.d/nn", "x::/nn", or a bare address.
 	 * @return bool
 	 */
@@ -113,7 +118,7 @@ class BotStormRadar_Helpers {
 	/**
 	 * Network key for swarm counting: IPv4 /24, IPv6 /48.
 	 *
-	 * @param string $ip
+	 * @param string $ip IP address.
 	 * @return string "" when the address is invalid.
 	 */
 	public static function network_key( $ip ) {
@@ -132,10 +137,9 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * Short stable hash for user agents and session ids (never reversible,
-	 * never stored with the original).
+	 * Short stable hash for user agents and session ids (never reversible, never stored with the original).
 	 *
-	 * @param string $s
+	 * @param string $s String to hash.
 	 * @return string 16 hex chars.
 	 */
 	public static function short_hash( $s ) {
@@ -143,6 +147,8 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
+	 * Keep the valid addresses of a comma-separated list of emails.
+	 *
 	 * @param string $emails Comma-separated.
 	 * @return array
 	 */
@@ -153,7 +159,7 @@ class BotStormRadar_Helpers {
 	/**
 	 * Read a bundled list file from assets/data.
 	 *
-	 * @param string $file
+	 * @param string $file File name in assets/data.
 	 * @return array
 	 */
 	public static function bundled_list( $file ) {
@@ -168,7 +174,7 @@ class BotStormRadar_Helpers {
 	/**
 	 * Minute bucket id for a timestamp.
 	 *
-	 * @param int|null $ts
+	 * @param int|null $ts Unix timestamp; the current time when omitted.
 	 * @return int
 	 */
 	public static function minute( $ts = null ) {
@@ -176,9 +182,11 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * @param float $v
-	 * @param float $lo
-	 * @param float $hi
+	 * Limit a number to a range.
+	 *
+	 * @param float $v  Number to limit.
+	 * @param float $lo Lowest allowed value.
+	 * @param float $hi Highest allowed value.
 	 * @return float
 	 */
 	public static function clamp( $v, $lo, $hi ) {
@@ -186,8 +194,8 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * @param string $path
-	 * @param int    $flags
+	 * Return the path of the current request, without its query string.
+	 *
 	 * @return string
 	 */
 	public static function request_path() {
@@ -209,6 +217,8 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
+	 * Return the current request's user agent, sanitized and cut to 512 characters.
+	 *
 	 * @return string
 	 */
 	public static function user_agent() {

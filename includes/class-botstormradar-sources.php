@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The traffic sources the radar watches: the site itself and the log sources.
+ */
 class BotStormRadar_Sources {
 
 	const SITE = 'site';
@@ -51,7 +54,7 @@ class BotStormRadar_Sources {
 	 * The option name a per-source option has for this source.
 	 *
 	 * @param string $name   Site option name, starting with `botstormradar_`.
-	 * @param string $source
+	 * @param string $source Source id: the site or a log source.
 	 * @return string
 	 */
 	public static function option( $name, $source = self::SITE ) {
@@ -62,10 +65,9 @@ class BotStormRadar_Sources {
 	}
 
 	/**
-	 * A source id is 1 to 20 lowercase letters and digits, starting with a
-	 * letter, and not reserved.
+	 * A source id is 1 to 20 lowercase letters and digits, starting with a letter, and not reserved.
 	 *
-	 * @param mixed $source
+	 * @param mixed $source Source id: the site or a log source.
 	 * @return bool
 	 */
 	public static function is_valid( $source ) {
@@ -75,6 +77,8 @@ class BotStormRadar_Sources {
 	}
 
 	/**
+	 * Return the defined log sources.
+	 *
 	 * @return array id => definition
 	 */
 	public static function log_sources() {
@@ -85,7 +89,7 @@ class BotStormRadar_Sources {
 	/**
 	 * The site, or a defined log source.
 	 *
-	 * @param mixed $source
+	 * @param mixed $source Source id: the site or a log source.
 	 * @return bool
 	 */
 	public static function exists( $source ) {
@@ -93,7 +97,9 @@ class BotStormRadar_Sources {
 	}
 
 	/**
-	 * @param string $source
+	 * Return the display name of a source.
+	 *
+	 * @param string $source Source id: the site or a log source.
 	 * @return string
 	 */
 	public static function label( $source ) {
@@ -107,7 +113,7 @@ class BotStormRadar_Sources {
 	/**
 	 * A log source's reader state: last_minute, last_run, files, stats.
 	 *
-	 * @param string $source
+	 * @param string $source Source id: the site or a log source.
 	 * @return array
 	 */
 	public static function log_state( $source ) {
@@ -116,10 +122,9 @@ class BotStormRadar_Sources {
 	}
 
 	/**
-	 * Who gets a source's alerts: its own recipients when it has them,
-	 * otherwise the site's.
+	 * Who gets a source's alerts: its own recipients when it has them, otherwise the site's.
 	 *
-	 * @param string $source
+	 * @param string $source Source id: the site or a log source.
 	 * @return array
 	 */
 	public static function alert_recipients( $source ) {
@@ -131,17 +136,9 @@ class BotStormRadar_Sources {
 	}
 
 	/**
-	 * Whether a source's transitions are mailed yet. A log source starts
-	 * reading a busy log with no baseline, scored against the minimum-addresses
-	 * floor, so its ordinary traffic can look like a storm (a wiki with 40 to
-	 * 70 distinct addresses a minute does). It mails once its baseline holds
-	 * at least one full day. The baseline also summarizes the partial day the
-	 * source started on (60 minutes are enough for that), so counting days
-	 * alone would switch alerts on at the first midnight after a few hours of
-	 * data; a day only counts here with FULL_DAY_MINUTES rows. The site mails
-	 * from the start, as in 0.1. The replay scratch source never mails.
+	 * Whether a source's transitions are mailed yet. A log source starts reading a busy log with no baseline, scored against the minimum-addresses floor, so its ordinary traffic can look like a storm (a wiki with 40 to 70 distinct addresses a minute does). It mails once its baseline holds at least one full day. The baseline also summarizes the partial day the source started on (60 minutes are enough for that), so counting days alone would switch alerts on at the first midnight after a few hours of data; a day only counts here with FULL_DAY_MINUTES rows. The site mails from the start, as in 0.1. The replay scratch source never mails.
 	 *
-	 * @param string $source
+	 * @param string $source Source id: the site or a log source.
 	 * @return bool
 	 */
 	public static function alerts_ready( $source ) {

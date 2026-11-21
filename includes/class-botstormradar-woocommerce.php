@@ -11,8 +11,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Request classes for WooCommerce checkout and cart requests.
+ */
 class BotStormRadar_WooCommerce {
 
+	/**
+	 * Register the request class filter, when WooCommerce is active.
+	 */
 	public static function init() {
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			return;
@@ -21,6 +27,8 @@ class BotStormRadar_WooCommerce {
 	}
 
 	/**
+	 * Tell whether WooCommerce is active.
+	 *
 	 * @return bool
 	 */
 	public static function active() {

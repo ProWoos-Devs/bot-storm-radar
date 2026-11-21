@@ -30,10 +30,9 @@ class BotStormRadar_CLI {
 	 * [--quiet-ok]
 	 * : Print nothing when a run succeeds.
 	 *
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 * @subcommand ingest
-	 *
-	 * @param array $args
-	 * @param array $assoc
 	 */
 	public function ingest( $args, $assoc ) {
 		$ids = empty( $args ) ? array_keys( BotStormRadar_Log_Source::all() ) : $args;
@@ -132,10 +131,9 @@ class BotStormRadar_CLI {
 	 * [--csv]
 	 * : Print every minute as CSV (UTC time, score, addresses, requests) instead of the summary. Redirect it to keep it, for example `> replay.csv`.
 	 *
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 * @subcommand replay
-	 *
-	 * @param array $args
-	 * @param array $assoc
 	 */
 	public function replay( $args, $assoc ) {
 		foreach ( $args as $f ) {
@@ -194,8 +192,8 @@ class BotStormRadar_CLI {
 	/**
 	 * The --gate dry run.
 	 *
-	 * @param array $args
-	 * @param array $assoc
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 */
 	private function replay_gate( $args, $assoc ) {
 		$t0  = microtime( true );
@@ -235,7 +233,9 @@ class BotStormRadar_CLI {
 	}
 
 	/**
-	 * @param array $events path => event
+	 * Join the events of the log files into one short list.
+	 *
+	 * @param array $events path => event.
 	 * @return string
 	 */
 	private static function events( array $events ) {
@@ -286,8 +286,8 @@ class BotStormRadar_CLI_Source {
 	 *
 	 *     wp bot-storm-radar source add wiki --profile=mediawiki --label="Wiki" --logs=/var/log/nginx/wiki_access.log,/var/log/nginx/wiki-en_access.log
 	 *
-	 * @param array $args
-	 * @param array $assoc
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 */
 	public function add( $args, $assoc ) {
 		$id = (string) $args[0];
@@ -331,10 +331,9 @@ class BotStormRadar_CLI_Source {
 	/**
 	 * List log sources.
 	 *
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 * @subcommand list
-	 *
-	 * @param array $args
-	 * @param array $assoc
 	 */
 	public function list_( $args, $assoc ) {
 		$rows = [];
@@ -400,8 +399,8 @@ class BotStormRadar_CLI_Source {
 	 * [--purge]
 	 * : Also delete its stored minutes, state, baseline and file positions.
 	 *
-	 * @param array $args
-	 * @param array $assoc
+	 * @param array $args  Positional arguments.
+	 * @param array $assoc Named arguments (flags).
 	 */
 	public function remove( $args, $assoc ) {
 		$id = (string) $args[0];

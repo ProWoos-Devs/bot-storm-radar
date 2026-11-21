@@ -27,6 +27,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Counters on the backend that fits the site: object cache, APCu, transients or memory.
+ */
 class BotStormRadar_Counters {
 
 	const GROUP = 'botstormradar';
@@ -46,16 +49,22 @@ class BotStormRadar_Counters {
 	const TRANSIENT_CAP = 2000;
 
 	/**
+	 * The backend in use.
+	 *
 	 * @var string|null object_cache | apcu | transient
 	 */
 	private static $backend = null;
 
 	/**
+	 * Backend forced by tests or by the BOTSTORMRADAR_COUNTER_BACKEND constant.
+	 *
 	 * @var string|null Forced backend (tests, or the BOTSTORMRADAR_COUNTER_BACKEND constant).
 	 */
 	private static $forced = null;
 
 	/**
+	 * Prefix of the keys stored in APCu.
+	 *
 	 * @var string
 	 */
 	private static $apcu_prefix = '';
@@ -66,7 +75,17 @@ class BotStormRadar_Counters {
 	 * @var array
 	 */
 	private static $t_groups = [];
+	/**
+	 * Transient groups changed in this request and waiting to be saved.
+	 *
+	 * @var array<string, bool>
+	 */
 	private static $t_dirty  = [];
+	/**
+	 * Whether the shutdown flush of the transient groups is registered.
+	 *
+	 * @var bool
+	 */
 	private static $t_flush_registered = false;
 
 	/**
@@ -75,6 +94,11 @@ class BotStormRadar_Counters {
 	 * @var array
 	 */
 	private static $mem     = [];
+	/**
+	 * Expiry times of the in-memory entries, by key.
+	 *
+	 * @var array<string, int>
+	 */
 	private static $mem_exp = [];
 
 	/**
@@ -87,6 +111,8 @@ class BotStormRadar_Counters {
 	// ── Backend selection ───────────────────────────────────────────
 
 	/**
+	 * Return the counter backend in use, choosing one on the first call.
+	 *
 	 * @return string
 	 */
 	public static function backend() {
@@ -113,6 +139,8 @@ class BotStormRadar_Counters {
 	}
 
 	/**
+	 * Tell whether APCu is installed and enabled.
+	 *
 	 * @return bool
 	 */
 	public static function apcu_available() {
@@ -122,7 +150,7 @@ class BotStormRadar_Counters {
 	/**
 	 * Force a backend (tests). Pass null to return to detection.
 	 *
-	 * @param string|null $backend
+	 * @param string|null $backend Backend name, or null to detect it again.
 	 */
 	public static function force( $backend ) {
 		self::flush();
@@ -156,8 +184,8 @@ class BotStormRadar_Counters {
 	/**
 	 * Atomic increment; creates the key at $by when absent.
 	 *
-	 * @param string $key
-	 * @param int    $ttl
+	 * @param string $key Counter key.
+	 * @param int    $ttl Time to live in seconds.
 	 * @param int    $by  Step (the gate channel drain adds a minute's count at once).
 	 * @return int The new value (0 on backend failure).
 	 */
@@ -199,7 +227,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
+	 * Read a counter.
+	 *
+	 * @param string $key Counter key.
 	 * @return int
 	 */
 	public static function get( $key ) {
@@ -218,7 +248,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param array $keys
+	 * Read several counters at once.
+	 *
+	 * @param array $keys Counter keys.
 	 * @return array key => int
 	 */
 	public static function get_multi( array $keys ) {
@@ -266,9 +298,9 @@ class BotStormRadar_Counters {
 	/**
 	 * Store an arbitrary value (registries, snapshots). Not atomic.
 	 *
-	 * @param string $key
-	 * @param mixed  $value
-	 * @param int    $ttl
+	 * @param string $key   Counter key.
+	 * @param mixed  $value Value to store.
+	 * @param int    $ttl   Time to live in seconds.
 	 * @return bool
 	 */
 	public static function set_value( $key, $value, $ttl = self::TTL_MINUTE ) {
@@ -309,14 +341,11 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Add only when absent: the lock primitive for the tick and the page
-	 * cache check. On the transient backend the lock is a row in the plugin's
-	 * lock table, claimed atomically (see db_claim()); get_value() does not
-	 * read it, and delete() removes it only for its owner.
+	 * Add only when absent: the lock primitive for the tick and the page cache check. On the transient backend the lock is a row in the plugin's lock table, claimed atomically (see db_claim()); get_value() does not read it, and delete() removes it only for its owner.
 	 *
-	 * @param string $key
-	 * @param mixed  $value
-	 * @param int    $ttl
+	 * @param string $key   Counter key.
+	 * @param mixed  $value Value to store.
+	 * @param int    $ttl   Time to live in seconds.
 	 * @return bool True when this call created the key.
 	 */
 	public static function add_value( $key, $value, $ttl = 120 ) {
@@ -338,16 +367,10 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Claim a lock row in one statement, so two processes can never both
-	 * hold it: INSERT IGNORE creates it, or an UPDATE takes it over once its
-	 * expiry has passed. Each claim carries a random owner token. A get then
-	 * a set, as with transients, lets two processes in between. The row lives
-	 * in the plugin's own table (BotStormRadar_Bans::locks_table()): core's
-	 * add_option() cannot claim atomically, it reads its cache and then
-	 * inserts with ON DUPLICATE KEY UPDATE.
+	 * Claim a lock row in one statement, so two processes can never both hold it: INSERT IGNORE creates it, or an UPDATE takes it over once its expiry has passed. Each claim carries a random owner token. A get then a set, as with transients, lets two processes in between. The row lives in the plugin's own table (BotStormRadar_Bans::locks_table()): core's add_option() cannot claim atomically, it reads its cache and then inserts with ON DUPLICATE KEY UPDATE.
 	 *
-	 * @param string $key
-	 * @param int    $ttl
+	 * @param string $key Counter key.
+	 * @param int    $ttl Time to live in seconds.
 	 * @return bool
 	 */
 	private static function db_claim( $key, $ttl ) {
@@ -448,10 +471,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Release a lock row, only while it still carries this process's token:
-	 * a lock that expired and was taken by another process stays theirs.
+	 * Release a lock row, only while it still carries this process's token: a lock that expired and was taken by another process stays theirs.
 	 *
-	 * @param string $key
+	 * @param string $key Counter key.
 	 */
 	private static function db_release( $key ) {
 		global $wpdb;
@@ -469,7 +491,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
+	 * Return the name of the lock row for a key, at most 64 characters.
+	 *
+	 * @param string $key Counter key.
 	 * @return string Name of a lock row, at most 64 characters.
 	 */
 	private static function lock_name( $key ) {
@@ -487,7 +511,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
+	 * Delete a counter or a stored value.
+	 *
+	 * @param string $key Counter key.
 	 */
 	public static function delete( $key ) {
 		switch ( self::backend() ) {
@@ -515,15 +541,13 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Append to a bounded registry (list of distinct entries) stored under a
-	 * key. Read-modify-write, so entries can be lost under contention; used
-	 * only for display and for the UA distribution, never for counts.
+	 * Append to a bounded registry (list of distinct entries) stored under a key. Read-modify-write, so entries can be lost under contention; used only for display and for the UA distribution, never for counts.
 	 *
-	 * @param string $key
-	 * @param string $entry_key
-	 * @param mixed  $entry_value
-	 * @param int    $cap
-	 * @param int    $ttl
+	 * @param string $key         Counter key.
+	 * @param string $entry_key   Key of the entry in the registry.
+	 * @param mixed  $entry_value Value of the entry.
+	 * @param int    $cap         Most entries the registry may hold.
+	 * @param int    $ttl         Time to live in seconds.
 	 * @return bool True when added.
 	 */
 	public static function registry_add( $key, $entry_key, $entry_value, $cap, $ttl = self::TTL_MINUTE ) {
@@ -562,7 +586,9 @@ class BotStormRadar_Counters {
 	// ── Memory backend ──────────────────────────────────────────────
 
 	/**
-	 * @param string $key
+	 * Tell whether an in-memory entry exists and has not expired, dropping it when it has.
+	 *
+	 * @param string $key Counter key.
 	 * @return bool Whether the key exists and has not expired.
 	 */
 	private static function m_live( $key ) {
@@ -579,7 +605,7 @@ class BotStormRadar_Counters {
 	/**
 	 * Drop every memory key starting with a prefix (a finished minute).
 	 *
-	 * @param string $prefix
+	 * @param string $prefix Key prefix.
 	 * @return int Keys removed.
 	 */
 	public static function memory_purge( $prefix ) {
@@ -595,10 +621,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * Live memory keys starting with a prefix, with their expiry, so a
-	 * caller can persist them between runs (good-bot verdicts).
+	 * Live memory keys starting with a prefix, with their expiry, so a caller can persist them between runs (good-bot verdicts).
 	 *
-	 * @param string $prefix
+	 * @param string $prefix Key prefix.
 	 * @return array key => [ value, expiry ]
 	 */
 	public static function memory_export( $prefix ) {
@@ -615,7 +640,7 @@ class BotStormRadar_Counters {
 	/**
 	 * Load what memory_export() returned; expired entries are skipped.
 	 *
-	 * @param array $entries key => [ value, expiry ]
+	 * @param array $entries key => [ value, expiry ].
 	 */
 	public static function memory_import( array $entries ) {
 		$now = time();
@@ -638,7 +663,9 @@ class BotStormRadar_Counters {
 	// ── Transient backend internals ─────────────────────────────────
 
 	/**
-	 * @param string $key
+	 * Return the transient group a key is stored in.
+	 *
+	 * @param string $key Counter key.
 	 * @return string "m:12345" style group, or "g:<key>" for globals.
 	 */
 	private static function t_group_of( $key ) {
@@ -650,7 +677,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $group
+	 * Return the transient name of a group.
+	 *
+	 * @param string $group Group name.
 	 * @return string Transient name (<= 172 chars for the option table).
 	 */
 	private static function t_name( $group ) {
@@ -658,7 +687,9 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $group
+	 * Load a transient group once per request and register the shutdown flush.
+	 *
+	 * @param string $group Group name.
 	 * @return array
 	 */
 	private static function t_load( $group ) {
@@ -675,8 +706,11 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
-	 * @param int    $ttl
+	 * Add to a counter in the transient backend.
+	 *
+	 * @param string $key Counter key.
+	 * @param int    $ttl Time to live in seconds.
+	 * @param int    $by  Amount to add.
 	 * @return int
 	 */
 	private static function t_incr( $key, $ttl, $by = 1 ) {
@@ -718,9 +752,11 @@ class BotStormRadar_Counters {
 	}
 
 	/**
-	 * @param string $key
-	 * @param mixed  $value
-	 * @param int    $ttl
+	 * Store a value in the transient backend.
+	 *
+	 * @param string $key   Counter key.
+	 * @param mixed  $value Value to store.
+	 * @param int    $ttl   Time to live in seconds.
 	 */
 	private static function t_set( $key, $value, $ttl ) {
 		$g = self::t_group_of( $key );

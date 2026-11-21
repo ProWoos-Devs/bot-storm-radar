@@ -38,6 +38,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Installs the gate: writes its generated copy and the mu-plugin loader that includes it.
+ */
 class BotStormRadar_Gate_Install {
 
 	const LOADER_FILE   = 'loader.php';
@@ -75,6 +78,8 @@ class BotStormRadar_Gate_Install {
 	];
 
 	/**
+	 * The last error message.
+	 *
 	 * @var string
 	 */
 	private static $error = '';
@@ -87,6 +92,9 @@ class BotStormRadar_Gate_Install {
 	const STATUS_OPTION = 'botstormradar_gate_install';
 	const RETRY_AFTER   = 5 * MINUTE_IN_SECONDS;
 
+	/**
+	 * Register the daily hooks and retry an install that is still pending.
+	 */
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'finish_move' ], 45, 0 );
@@ -270,13 +278,9 @@ class BotStormRadar_Gate_Install {
 	}
 
 	/**
-	 * Delete gate copies the manifest no longer needs: keep the current one
-	 * and the KEEP_PREVIOUS most recent previous ones; delete any other once
-	 * the manifest left it more than RETIRE_AFTER ago. A copy with no history
-	 * entry (and the fixed-name gate.php of 0.2 development builds) goes once
-	 * its file is older than a day. Returns the files deleted.
+	 * Delete gate copies the manifest no longer needs: keep the current one and the KEEP_PREVIOUS most recent previous ones; delete any other once the manifest left it more than RETIRE_AFTER ago. A copy with no history entry (and the fixed-name gate.php of 0.2 development builds) goes once its file is older than a day. Returns the files deleted.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return string[]
 	 */
 	public static function retire( $now = null ) {
@@ -408,6 +412,8 @@ LOADER;
 	}
 
 	/**
+	 * Return the last error message.
+	 *
 	 * @return string
 	 */
 	public static function last_error() {
@@ -415,11 +421,10 @@ LOADER;
 	}
 
 	/**
-	 * Build the self-contained gate. Returns '' when a source is missing or
-	 * the result does not parse.
+	 * Build the self-contained gate. Returns '' when a source is missing or the result does not parse.
 	 *
 	 * @param string $includes Directory holding the SOURCES files.
-	 * @param string $version
+	 * @param string $version  Plugin version the copy is generated for.
 	 * @return string
 	 */
 	public static function bundle( $includes, $version ) {
@@ -462,7 +467,7 @@ LOADER;
 	/**
 	 * The mu-plugin that includes the loader at an absolute path.
 	 *
-	 * @param string $loader
+	 * @param string $loader Absolute path of the loader file.
 	 * @return string
 	 */
 	public static function mu_plugin( $loader ) {
@@ -473,8 +478,10 @@ LOADER;
 	}
 
 	/**
-	 * @param string $path
-	 * @param string $contents
+	 * Write a file through a temporary file and a rename, so that no request includes half a file.
+	 *
+	 * @param string $path     Path of the file to write.
+	 * @param string $contents Contents to write.
 	 * @return bool
 	 */
 	private static function write_atomic( $path, $contents ) {

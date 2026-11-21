@@ -21,22 +21,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 interface BotStormRadar_Actions {
 
 	/**
-	 * @param array $ctx
+	 * Handle the move to warning.
+	 *
+	 * @param array $ctx Context of the state change.
 	 */
 	public function on_warning( array $ctx );
 
 	/**
-	 * @param array $ctx
+	 * Handle the move to storm.
+	 *
+	 * @param array $ctx Context of the state change.
 	 */
 	public function on_storm( array $ctx );
 
 	/**
-	 * @param array $ctx
+	 * Handle the move to cooling.
+	 *
+	 * @param array $ctx Context of the state change.
 	 */
 	public function on_cooling( array $ctx );
 
 	/**
-	 * @param array $ctx
+	 * Handle the return to calm.
+	 *
+	 * @param array $ctx Context of the state change.
 	 */
 	public function on_calm( array $ctx );
 
@@ -44,14 +52,14 @@ interface BotStormRadar_Actions {
 	 * A storm persisted with the current rung engaged; engage the next.
 	 *
 	 * @param int   $rung 1-based.
-	 * @param array $ctx
+	 * @param array $ctx  Context of the state change.
 	 */
 	public function escalate( $rung, array $ctx );
 
 	/**
 	 * Stand every rung down.
 	 *
-	 * @param array $ctx
+	 * @param array $ctx Context of the state change.
 	 */
 	public function deescalate( array $ctx );
 }

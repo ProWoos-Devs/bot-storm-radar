@@ -33,6 +33,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Moves the gate channel's closed minutes into the radar's counters, bans and evidence on each tick.
+ */
 class BotStormRadar_Channel_Drain {
 
 	const STATUS_OPTION = 'botstormradar_channel_status';
@@ -66,7 +69,7 @@ class BotStormRadar_Channel_Drain {
 	/**
 	 * Drain every closed minute. Returns the per-minute totals drained.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now            Unix timestamp; the current time when omitted.
 	 * @param int|null $computed_up_to Last minute whose row is already stored.
 	 * @return array minute => [probe, ban]
 	 */
@@ -140,15 +143,12 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
-	 * A gate-side trip. `trip` (enforce mode) becomes a ban row through the
-	 * guard unless an administrative change voided it: the generation moved
-	 * on since the gate decided, or the address was unbanned after that.
-	 * `wouldban` (observe mode) is recorded for the Bans tab.
+	 * A gate-side trip. `trip` (enforce mode) becomes a ban row through the guard unless an administrative change voided it: the generation moved on since the gate decided, or the address was unbanned after that. `wouldban` (observe mode) is recorded for the Bans tab.
 	 *
-	 * @param string $kind
-	 * @param string $detail <reason>-<generation>-<ttl>
-	 * @param string $ip
-	 * @param int    $minute
+	 * @param string $kind   Kind of trip: probe or 404.
+	 * @param string $detail <reason>-<generation>-<ttl>.
+	 * @param string $ip     IP address.
+	 * @param int    $minute Minute number (Unix time divided by 60).
 	 * @param array  $events The minute's events (evidence).
 	 * @param array  $st     Status, updated.
 	 */
@@ -189,6 +189,8 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
+	 * Add one trip result to the running totals.
+	 *
 	 * @param string $r  BotStormRadar_Trips::trip() result.
 	 * @param array  $st Status, updated.
 	 */
@@ -199,11 +201,9 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
-	 * Radar-side probe trips, for a site whose gate wrote the spool (no APCu,
-	 * so the gate could not count). An address trips on the minute its
-	 * probes within the window cross the threshold, once per crossing.
+	 * Radar-side probe trips, for a site whose gate wrote the spool (no APCu, so the gate could not count). An address trips on the minute its probes within the window cross the threshold, once per crossing.
 	 *
-	 * @param int   $minute
+	 * @param int   $minute Minute number (Unix time divided by 60).
 	 * @param array $events The minute's events.
 	 * @param array $st     Status, updated.
 	 */
@@ -237,7 +237,7 @@ class BotStormRadar_Channel_Drain {
 	 * Fold one minute's spool evidence lines into the kept records.
 	 *
 	 * @param array $events The minute's events.
-	 * @param int   $minute
+	 * @param int   $minute Minute number (Unix time divided by 60).
 	 */
 	private static function spool_evidence( array $events, $minute ) {
 		$per = [];
@@ -265,11 +265,9 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
-	 * Paths and user agents seen from an address, for a trip's evidence:
-	 * the gate's APCu record and the kept spool record, merged. Empty when
-	 * there is none.
+	 * Paths and user agents seen from an address, for a trip's evidence: the gate's APCu record and the kept spool record, merged. Empty when there is none.
 	 *
-	 * @param string $ip
+	 * @param string $ip IP address.
 	 * @return array paths, user_agents
 	 */
 	public static function probe_evidence( $ip ) {
@@ -335,11 +333,9 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
-	 * How long the oldest closed minute has been waiting for a drain, in
-	 * seconds (0 when none waits). On a site whose cron only runs on visits
-	 * nothing can promise when the next drain comes; the Radar shows this.
+	 * How long the oldest closed minute has been waiting for a drain, in seconds (0 when none waits). On a site whose cron only runs on visits nothing can promise when the next drain comes; the Radar shows this.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return int
 	 */
 	public static function oldest_waiting_age( $now = null ) {
@@ -353,6 +349,8 @@ class BotStormRadar_Channel_Drain {
 	}
 
 	/**
+	 * Return what the last drain did.
+	 *
 	 * @return array last_drain, minutes, events, late, lost, full, channel,
 	 *               trips (ban rows written), wouldban, overridden (voided by an
 	 *               administrative change), guarded (refused by the guard)

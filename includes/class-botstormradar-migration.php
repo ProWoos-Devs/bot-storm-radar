@@ -15,6 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * One-time moves of names stored by older versions to the current prefix.
+ */
 class BotStormRadar_Migration {
 
 	const MARKER     = 'botstormradar_prefix_migrated';

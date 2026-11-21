@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Records one classified event per request into the counters, at shutdown.
+ */
 class BotStormRadar_Recorder {
 
 	/**
@@ -30,15 +33,22 @@ class BotStormRadar_Recorder {
 	const UA_SAMPLE_LENGTH = 120;
 
 	/**
+	 * Whether this request was recorded already.
+	 *
 	 * @var bool
 	 */
 	private static $recorded = false;
 
 	/**
+	 * Seconds spent recording this request.
+	 *
 	 * @var float Seconds spent in ingest() for this request (overhead report).
 	 */
 	private static $spent = 0.0;
 
+	/**
+	 * Register the hooks that classify late and record the request.
+	 */
 	public static function init() {
 		add_action( 'template_redirect', [ __CLASS__, 'late_classify' ], PHP_INT_MAX );
 		// Last on shutdown: WordPress has flushed its output buffers by then,
@@ -115,7 +125,7 @@ class BotStormRadar_Recorder {
 		if ( defined( 'BOTSTORMRADAR_DEBUG_TIMING' ) && BOTSTORMRADAR_DEBUG_TIMING ) {
 			error_log( sprintf( '[Bot Storm Radar] timing: record %.3f ms on %s, class %s, request %d ms', self::$spent * 1000, BotStormRadar_Counters::backend(), $event['class'], $event['ms'] ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
-		// github-build-only:end
+		// github-build-only:end.
 
 		if ( 'beacon' !== $event['class'] ) {
 			BotStormRadar_Tick::maybe_run_inline();
@@ -123,6 +133,8 @@ class BotStormRadar_Recorder {
 	}
 
 	/**
+	 * Build the event of the current request.
+	 *
 	 * @return array
 	 */
 	public static function event_from_request() {
@@ -141,11 +153,9 @@ class BotStormRadar_Recorder {
 	}
 
 	/**
-	 * Page 404s per address and minute (assets are their own class and never
-	 * get here). The request that reaches the count trips, once per minute.
-	 * Live requests only; log sources never trip.
+	 * Page 404s per address and minute (assets are their own class and never get here). The request that reaches the count trips, once per minute. Live requests only; log sources never trip.
 	 *
-	 * @param array $e
+	 * @param array $e Event of the request.
 	 * @return string BotStormRadar_Trips::trip() result, or ''.
 	 */
 	public static function trip_404( array $e ) {

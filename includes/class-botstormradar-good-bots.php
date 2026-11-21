@@ -23,6 +23,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Verifies search-bot claims by published address list, or by reverse and forward DNS.
+ */
 class BotStormRadar_Good_Bots {
 
 	const VERDICT_TTL     = 86400;
@@ -37,15 +40,22 @@ class BotStormRadar_Good_Bots {
 	const VERIFY_BUDGET_S = 8;
 
 	/**
+	 * Replacement for the reverse DNS lookup, used by tests.
+	 *
 	 * @var callable|null Test hook: fn( string $ip ) => string|false host name.
 	 */
 	public static $reverse_resolver = null;
 
 	/**
+	 * Replacement for the forward DNS check, used by tests.
+	 *
 	 * @var callable|null Test hook: fn( string $host, string $ip ) => bool forward match.
 	 */
 	public static $forward_resolver = null;
 
+	/**
+	 * Register the daily refresh of the address lists.
+	 */
 	public static function init() {
 		// The DuckDuckBot list refreshes on the same daily hook as the Cloudflare ranges.
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'refresh_ip_lists' ], 20 );
@@ -99,7 +109,7 @@ class BotStormRadar_Good_Bots {
 	/**
 	 * Which good bot the user agent claims to be, or "".
 	 *
-	 * @param string $ua
+	 * @param string $ua User agent.
 	 * @return string
 	 */
 	public static function claimed( $ua ) {
@@ -115,12 +125,10 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * Cached verdict for an address claiming a bot: verified | fake | pending |
-	 * unchecked. Address-list bots are resolved immediately (no DNS); the
-	 * others are queued for the tick, or "unchecked" while the DNS check is off.
+	 * Cached verdict for an address claiming a bot: verified | fake | pending | unchecked. Address-list bots are resolved immediately (no DNS); the others are queued for the tick, or "unchecked" while the DNS check is off.
 	 *
-	 * @param string $ip
-	 * @param string $name
+	 * @param string $ip   IP address.
+	 * @param string $name Bot name in lower case, such as googlebot.
 	 * @return string
 	 */
 	public static function verdict( $ip, $name ) {
@@ -174,13 +182,12 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * Synchronous verification (DNS or list). A reverse-DNS bot is looked up
-	 * only when the DNS check is on, or when `$explicit` says the owner asked
-	 * for this one run (`wp bot-storm-radar replay --gate --verify-bots`).
+	 * Synchronous verification (DNS or list). A reverse-DNS bot is looked up only when the DNS check is on, or when `$explicit` says the owner asked for this one run (`wp bot-storm-radar replay --gate --verify-bots`).
 	 *
-	 * @param string $ip
-	 * @param string $name
-	 * @param bool   $explicit
+	 * @param string $ip       IP address.
+	 * @param string $name     Bot name in lower case, such as googlebot.
+	 * @param bool   $explicit Whether the owner asked for this run, so that reverse DNS is used even when
+	 *                         the DNS check is off.
 	 * @return bool
 	 */
 	public static function verify_now( $ip, $name, $explicit = false ) {
@@ -200,8 +207,8 @@ class BotStormRadar_Good_Bots {
 	/**
 	 * Reverse lookup, suffix check, forward confirmation.
 	 *
-	 * @param string $ip
-	 * @param array  $suffixes
+	 * @param string $ip       IP address.
+	 * @param array  $suffixes Host name suffixes the bot's reverse lookup may end in.
 	 * @return bool
 	 */
 	public static function verify_by_rdns( $ip, array $suffixes ) {
@@ -225,8 +232,10 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * @param string $host
-	 * @param string $ip
+	 * Tell whether a host name resolves to the address (the forward confirmation).
+	 *
+	 * @param string $host Host name from the reverse lookup.
+	 * @param string $ip   IP address.
 	 * @return bool
 	 */
 	public static function forward_matches( $host, $ip ) {
@@ -254,8 +263,10 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * @param string $ip
-	 * @param string $name
+	 * Verify a bot against its published address list.
+	 *
+	 * @param string $ip   IP address.
+	 * @param string $name Bot name in lower case, such as googlebot.
 	 * @return bool
 	 */
 	public static function verify_by_list( $ip, $name ) {
@@ -266,6 +277,8 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
+	 * Return DuckDuckBot's address ranges: the downloaded copy, or the bundled list.
+	 *
 	 * @return array
 	 */
 	public static function duckduckbot_ranges() {
@@ -303,9 +316,11 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
-	 * @param string $ip
-	 * @param string $name
-	 * @param string $verdict
+	 * Remember a bot verdict for an address and keep the list of recent verdicts.
+	 *
+	 * @param string $ip      IP address.
+	 * @param string $name    Bot name in lower case, such as googlebot.
+	 * @param string $verdict Verdict: verified or fake.
 	 */
 	public static function store_verdict( $ip, $name, $verdict ) {
 		$before = BotStormRadar_Counters::get_value( 'g:bot:' . $ip );
@@ -334,6 +349,8 @@ class BotStormRadar_Good_Bots {
 	}
 
 	/**
+	 * Return how many addresses wait for DNS verification.
+	 *
 	 * @return int
 	 */
 	public static function pending_count() {

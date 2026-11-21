@@ -19,6 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The beacon: a tiny request that real browsers make and swarm bots do not, used for the asset ratio.
+ */
 class BotStormRadar_Beacon {
 
 	const PARAM = 'botstormradar-beacon';
@@ -31,6 +34,9 @@ class BotStormRadar_Beacon {
 
 	const HANDLE = 'botstormradar-beacon';
 
+	/**
+	 * Register the hooks that add the beacon to front-end pages.
+	 */
 	public static function init() {
 		add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
 		add_action( 'wp_footer', [ __CLASS__, 'emit' ], 1 );
@@ -59,6 +65,8 @@ class BotStormRadar_Beacon {
 	}
 
 	/**
+	 * Tell whether the current request is for the beacon.
+	 *
 	 * @return bool
 	 */
 	public static function is_beacon_request() {

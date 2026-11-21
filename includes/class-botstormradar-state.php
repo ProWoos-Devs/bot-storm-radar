@@ -28,6 +28,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The gate's state file and the plugin's data directory.
+ */
 class BotStormRadar_State {
 
 	const DIR_OPTION   = 'botstormradar_data_dir';
@@ -50,6 +53,9 @@ class BotStormRadar_State {
 	 */
 	private static $error = '';
 
+	/**
+	 * Rebuild the state file whenever its inputs change.
+	 */
 	public static function init() {
 		BotStormRadar_Projection::on_change( [ __CLASS__, 'rebuild' ] );
 	}
@@ -84,7 +90,7 @@ class BotStormRadar_State {
 	/**
 	 * Where the data directory belongs for a suffix, without creating it.
 	 *
-	 * @param string $suffix
+	 * @param string $suffix Random suffix of the directory name.
 	 * @return string
 	 */
 	private static function location( $suffix ) {
@@ -104,9 +110,9 @@ class BotStormRadar_State {
 	}
 
 	/**
-	 * index.php and an Apache deny-all .htaccess, written once.
+	 * Write an index.php and an Apache deny-all .htaccess into the data directory, once.
 	 *
-	 * @param string $dir
+	 * @param string $dir Path of the data directory.
 	 */
 	private static function protect( $dir ) {
 		if ( ! file_exists( $dir . 'index.php' ) ) {
@@ -317,7 +323,7 @@ class BotStormRadar_State {
 	/**
 	 * Delete every file of a directory except LEFT_BEHIND.
 	 *
-	 * @param string $dir
+	 * @param string $dir Path of the data directory.
 	 */
 	private static function strip( $dir ) {
 		foreach ( (array) scandir( $dir ) as $f ) {

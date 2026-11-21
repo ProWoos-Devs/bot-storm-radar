@@ -21,12 +21,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Detects bursts of 5xx responses in log sources and alerts once per burst.
+ */
 class BotStormRadar_Error_Burst {
 
 	const OPTION = 'botstormradar_errors';
 
 	/**
-	 * @param string $source
+	 * Return a source's error-burst state, with defaults for what is missing.
+	 *
+	 * @param string $source Source id: the site or a log source.
 	 * @return array active, started_minute, peak, below, bursts, last_minute
 	 */
 	public static function get_state( $source ) {
@@ -42,19 +47,20 @@ class BotStormRadar_Error_Burst {
 	}
 
 	/**
-	 * @param string $source
+	 * Forget a source's error-burst state.
+	 *
+	 * @param string $source Source id: the site or a log source.
 	 */
 	public static function reset( $source ) {
 		delete_option( BotStormRadar_Sources::option( self::OPTION, $source ) );
 	}
 
 	/**
-	 * Feed one finished minute of a log source. Returns the context of a
-	 * burst that just opened, null otherwise.
+	 * Feed one finished minute of a log source. Returns the context of a burst that just opened, null otherwise.
 	 *
 	 * @param array      $row    Scored minute row.
 	 * @param array|null $opts   Options (defaults to stored).
-	 * @param string     $source
+	 * @param string     $source Source id: the site or a log source.
 	 * @return array|null
 	 */
 	public static function step( array $row, $opts, $source ) {
@@ -92,12 +98,11 @@ class BotStormRadar_Error_Burst {
 	}
 
 	/**
-	 * step(), then log and mail a burst that opened. This is what the log
-	 * reader calls once per finished minute.
+	 * Run step(), then log and mail a burst that opened. This is what the log reader calls once per finished minute.
 	 *
-	 * @param array      $row
-	 * @param array|null $opts
-	 * @param string     $source
+	 * @param array      $row    Minute row.
+	 * @param array|null $opts   Settings that govern the rule, or null for the saved ones.
+	 * @param string     $source Source id: the site or a log source.
 	 * @return array|null The burst context, null when nothing opened.
 	 */
 	public static function observe( array $row, $opts, $source ) {
@@ -106,7 +111,7 @@ class BotStormRadar_Error_Burst {
 			return null;
 		}
 		BotStormRadar_Storage::add_transition( $ctx, $source );
-		// github-build-only:start
+		// github-build-only:start.
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( '[Bot Storm Radar] ' . $source . ': ' . $ctx['explanation'] ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
@@ -122,11 +127,11 @@ class BotStormRadar_Error_Burst {
 	/**
 	 * A transition-log entry whose state does not change.
 	 *
-	 * @param array  $row
-	 * @param int    $minute
-	 * @param int    $err5
-	 * @param int    $threshold
-	 * @param string $source
+	 * @param array  $row       Minute row.
+	 * @param int    $minute    Minute number (Unix time divided by 60).
+	 * @param int    $err5      Number of 5xx responses in the minute.
+	 * @param int    $threshold Number of 5xx responses that opens a burst.
+	 * @param string $source    Source id: the site or a log source.
 	 * @return array
 	 */
 	private static function context( array $row, $minute, $err5, $threshold, $source ) {

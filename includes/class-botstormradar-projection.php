@@ -12,6 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * What the gate decides with: bans, unbans, protected addresses, trust configuration and rules, as a read-only view of the database.
+ */
 class BotStormRadar_Projection {
 
 	/**

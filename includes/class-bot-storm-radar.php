@@ -9,17 +9,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Main plugin class: loads the modules, registers the hooks and handles activation and deactivation.
+ */
 class Bot_Storm_Radar {
 
 	const OPTION_KEY     = 'botstormradar_options';
 	const VERSION_OPTION = 'botstormradar_version';
 
 	/**
+	 * The single instance of the plugin.
+	 *
 	 * @var Bot_Storm_Radar|null
 	 */
 	private static $instance = null;
 
 	/**
+	 * Return the single instance of the plugin, creating it on first use.
+	 *
 	 * @return Bot_Storm_Radar
 	 */
 	public static function get_instance() {
@@ -29,6 +36,9 @@ class Bot_Storm_Radar {
 		return self::$instance;
 	}
 
+	/**
+	 * Load the modules, answer the beacon request if this is one, and register the hooks.
+	 */
 	private function __construct() {
 		$this->load_dependencies();
 		// The beacon answers before anything else loads (see BotStormRadar_Beacon).
@@ -36,6 +46,9 @@ class Bot_Storm_Radar {
 		$this->init_hooks();
 	}
 
+	/**
+	 * Load the modules this build and this request need.
+	 */
 	private function load_dependencies() {
 		$dir = BOTSTORMRADAR_PLUGIN_DIR . 'includes/';
 		require_once $dir . 'class-botstormradar-ip-resolver.php';
@@ -49,7 +62,7 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-trips.php';
 		require_once $dir . 'class-botstormradar-projection.php';
 		require_once $dir . 'class-botstormradar-inline-gate.php';
-		// github-build-only:start (the early gate: build-zip.sh --wporg removes these blocks and the files they load)
+		// github-build-only:start (the early gate: build-zip.sh --wporg removes these blocks and the files they load).
 		require_once $dir . 'class-botstormradar-state-reader.php';
 		require_once $dir . 'class-botstormradar-channel.php';
 		require_once $dir . 'class-botstormradar-channel-drain.php';
@@ -58,10 +71,10 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-gate-early.php';
 		define( 'BOTSTORMRADAR_EARLY_GATE', true );
 		// github-build-only:end
-		// github-build-only:start (AbuseIPDB and provider reports, issue #76)
+		// github-build-only:start (AbuseIPDB and provider reports, issue #76).
 		require_once $dir . 'class-botstormradar-abuseipdb.php';
 		require_once $dir . 'class-botstormradar-provider-report.php';
-		// github-build-only:end
+		// github-build-only:end.
 		require_once $dir . 'class-botstormradar-classifier.php';
 		require_once $dir . 'class-botstormradar-woocommerce.php';
 		require_once $dir . 'class-botstormradar-counters.php';
@@ -81,9 +94,9 @@ class Bot_Storm_Radar {
 		require_once $dir . 'class-botstormradar-email-alerts.php';
 		require_once $dir . 'class-botstormradar-admin.php';
 		require_once $dir . 'class-botstormradar-migration.php';
-		// github-build-only:start (build-zip.sh --wporg removes this block and the file it loads)
+		// github-build-only:start (build-zip.sh --wporg removes this block and the file it loads).
 		require_once $dir . 'class-botstormradar-github-updater.php';
-		// github-build-only:end
+		// github-build-only:end.
 
 		// Log-fed sources are read from the command line only.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
@@ -96,6 +109,9 @@ class Bot_Storm_Radar {
 		}
 	}
 
+	/**
+	 * Register the plugin's own hooks: loading, cron schedule, activation and deactivation.
+	 */
 	private function init_hooks() {
 		add_action( 'plugins_loaded', [ $this, 'on_plugins_loaded' ] );
 		add_action( 'init', [ $this, 'init' ] );
@@ -122,11 +138,11 @@ class Bot_Storm_Radar {
 		BotStormRadar_Client_IP::init();
 		BotStormRadar_Bans::init();
 		BotStormRadar_Guard::init();
-		// github-build-only:start
+		// github-build-only:start.
 		BotStormRadar_State::init();
 		BotStormRadar_Gate_Install::init();
 		BotStormRadar_AbuseIPDB::init();
-		// github-build-only:end
+		// github-build-only:end.
 		BotStormRadar_Good_Bots::init();
 		self::gate_list_downloads();
 		BotStormRadar_Tick::init();
@@ -150,11 +166,14 @@ class Bot_Storm_Radar {
 		remove_action( BotStormRadar_Client_IP::CRON_HOOK, [ 'BotStormRadar_Good_Bots', 'refresh_ip_lists' ], 20 );
 	}
 
+	/**
+	 * Start the modules that run on every request and, in wp-admin, the admin screens.
+	 */
 	public function init() {
 		// github-build-only:start
 		// Builds installed from GitHub get no language packs from wordpress.org.
 		load_plugin_textdomain( 'bot-storm-radar', false, dirname( BOTSTORMRADAR_PLUGIN_BASENAME ) . '/languages' ); // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound
-		// github-build-only:end
+		// github-build-only:end.
 
 		if ( is_admin() ) {
 			BotStormRadar_Admin::init();
@@ -164,13 +183,13 @@ class Bot_Storm_Radar {
 		// update checks and the automatic updates, and WP-CLI or a management
 		// tool can run them too. Without it those checks see wordpress.org only.
 		new BotStormRadar_GitHub_Updater();
-		// github-build-only:end
+		// github-build-only:end.
 	}
 
 	/**
 	 * One-minute schedule for the metrics tick and a daily one for list refreshes.
 	 *
-	 * @param array $schedules
+	 * @param array $schedules Registered cron schedules.
 	 * @return array
 	 */
 	public function cron_schedules( $schedules ) {
@@ -183,6 +202,9 @@ class Bot_Storm_Radar {
 		return $schedules;
 	}
 
+	/**
+	 * Set the plugin up on activation: defaults, initial state, tables and the per-minute tick.
+	 */
 	public function activate() {
 		if ( ! BotStormRadar_Migration::prefix() ) {
 			return; // Another process is moving the stored names; the next load finishes the upgrade.
@@ -201,16 +223,19 @@ class Bot_Storm_Radar {
 		// The outcome is stored apart from the version: a failed write is
 		// retried and shown in wp-admin (BotStormRadar_Gate_Install::maybe_retry()).
 		BotStormRadar_Gate_Install::setup();
-		// github-build-only:end
+		// github-build-only:end.
 		BotStormRadar_Tick::schedule();
 		BotStormRadar_Client_IP::ensure_cron();
 		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 		// github-build-only:start
 		// Last: the gate runs again only once its copy, manifest and state exist.
 		BotStormRadar_Gate_Install::enable();
-		// github-build-only:end
+		// github-build-only:end.
 	}
 
+	/**
+	 * Undo what the plugin scheduled and installed: the early gate, scheduled events and the tick.
+	 */
 	public function deactivate() {
 		// github-build-only:start
 		// First: the marker stops the gate on the very next request, whatever
@@ -219,7 +244,7 @@ class Bot_Storm_Radar {
 		BotStormRadar_Gate_Early::disable();
 		BotStormRadar_Gate_Install::remove_loader();
 		wp_clear_scheduled_hook( BotStormRadar_AbuseIPDB::HOOK );
-		// github-build-only:end
+		// github-build-only:end.
 		BotStormRadar_Tick::unschedule();
 		BotStormRadar_Client_IP::unschedule();
 	}
@@ -247,7 +272,7 @@ class Bot_Storm_Radar {
 		// The version below is saved either way; a gate that could not be
 		// written is tracked and retried on its own.
 		BotStormRadar_Gate_Install::setup();
-		// github-build-only:end
+		// github-build-only:end.
 		update_option( self::VERSION_OPTION, BOTSTORMRADAR_VERSION, false );
 	}
 
@@ -296,7 +321,7 @@ class Bot_Storm_Radar {
 		// github-build-only:start
 		// On by default in the GitHub build, so the sites that run it keep their daily check.
 		$defaults['cache_check_daily'] = 1;
-		// github-build-only:end
+		// github-build-only:end.
 		return $defaults;
 	}
 }

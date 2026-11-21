@@ -33,6 +33,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Reports addresses that probed the site to AbuseIPDB, by hand or automatically, within a daily cap.
+ */
 class BotStormRadar_AbuseIPDB {
 
 	/**
@@ -85,6 +88,9 @@ class BotStormRadar_AbuseIPDB {
 	const DEFAULT_CAP  = 50;
 	const MAX_CAP      = 1000;
 
+	/**
+	 * Register the hooks that queue and run automatic reports.
+	 */
 	public static function init() {
 		add_action( 'botstormradar_bans_changed', [ __CLASS__, 'schedule' ], 10, 0 );
 		add_action( self::HOOK, [ __CLASS__, 'run' ], 10, 0 );
@@ -93,7 +99,7 @@ class BotStormRadar_AbuseIPDB {
 	// ── Settings ──────────────────────────────────────────────────────
 
 	/**
-	 * off | manual | automatic; off without a saved key.
+	 * Return the reporting mode: off, manual or automatic; off without a saved key.
 	 *
 	 * @return string
 	 */
@@ -106,6 +112,8 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
+	 * Return the saved API key, trimmed.
+	 *
 	 * @return string
 	 */
 	private static function key() {
@@ -113,6 +121,8 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
+	 * Return the daily limit of reports, kept within the allowed range.
+	 *
 	 * @return int
 	 */
 	public static function daily_cap() {
@@ -122,7 +132,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The settings section, on the plugin's settings page.
 	 *
-	 * @param string $page
+	 * @param string $page Slug of the settings page the section is added to.
 	 */
 	public static function register_settings( $page ) {
 		$name = Bot_Storm_Radar::OPTION_KEY;
@@ -162,8 +172,8 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The settings of this section, from the submitted form into $out.
 	 *
-	 * @param array $input
-	 * @param array $out
+	 * @param array $input Submitted settings.
+	 * @param array $out   Settings sanitized so far.
 	 * @return array
 	 */
 	public static function sanitize( array $input, array $out ) {
@@ -191,7 +201,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * A report candidate from a ban row (BotStormRadar_Bans::listing/get).
 	 *
-	 * @param array $row
+	 * @param array $row Ban row, as the bans table holds it, with the evidence decoded.
 	 * @return array ip, reason, evidence, first, last, ban_id
 	 */
 	public static function from_ban( array $row ) {
@@ -209,8 +219,8 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * A report candidate from a would-be ban (BotStormRadar_Bans::would_bans).
 	 *
-	 * @param string $ip
-	 * @param array  $w
+	 * @param string $ip IP address.
+	 * @param array  $w  The would-be ban's entry, as BotStormRadar_Bans::would_bans() lists it.
 	 * @return array
 	 */
 	public static function from_would( $ip, array $w ) {
@@ -226,11 +236,10 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Why a candidate cannot be reported now, or '' when it can. Does not
-	 * look at the daily cap (see sent_today()).
+	 * Why a candidate cannot be reported now, or '' when it can. Does not look at the daily cap (see sent_today()).
 	 *
-	 * @param array    $c
-	 * @param int|null $now
+	 * @param array    $c   Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return string not-probe | no-paths | protected | reported | sent
 	 */
 	public static function refusal( array $c, $now = null ) {
@@ -250,11 +259,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Why a candidate is not reportable at all, or '' when it is: a probe
-	 * trip of one public address that may be banned, with probed paths.
-	 * Shared with the provider report.
+	 * Why a candidate is not reportable at all, or '' when it is: a probe trip of one public address that may be banned, with probed paths. Shared with the provider report.
 	 *
-	 * @param array $c
+	 * @param array $c Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
 	 * @return string not-probe | protected | no-paths
 	 */
 	public static function reportable( array $c ) {
@@ -273,7 +280,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The categories for a candidate.
 	 *
-	 * @param array $c
+	 * @param array $c Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
 	 * @return string
 	 */
 	public static function categories( array $c ) {
@@ -284,7 +291,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The exact comment sent with the report.
 	 *
-	 * @param array $c
+	 * @param array $c Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
 	 * @return string
 	 */
 	public static function comment( array $c ) {
@@ -310,10 +317,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Up to PATHS probed paths, newest last, query strings cut, anything that
-	 * looks like an e-mail address masked.
+	 * Up to PATHS probed paths, newest last, query strings cut, anything that looks like an e-mail address masked.
 	 *
-	 * @param array $ev
+	 * @param array $ev Evidence stored with the ban.
 	 * @return string[]
 	 */
 	public static function paths( array $ev ) {
@@ -330,7 +336,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The last two user agents in the evidence, cleaned.
 	 *
-	 * @param array $ev
+	 * @param array $ev Evidence stored with the ban.
 	 * @return string[]
 	 */
 	public static function user_agents( array $ev ) {
@@ -340,7 +346,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The search engine the address falsely claimed to be, or ''.
 	 *
-	 * @param array $ev
+	 * @param array $ev Evidence stored with the ban.
 	 * @return string
 	 */
 	public static function fake_claim( array $ev ) {
@@ -353,10 +359,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Probes counted in the evidence: the radar's window count, or the
-	 * gate's per-class counts added up.
+	 * Probes counted in the evidence: the radar's window count, or the gate's per-class counts added up.
 	 *
-	 * @param array $ev
+	 * @param array $ev Evidence stored with the ban.
 	 * @return int
 	 */
 	public static function probe_count( array $ev ) {
@@ -375,7 +380,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * Printable ASCII only, e-mail addresses masked, 200 characters.
 	 *
-	 * @param string $s
+	 * @param string $s String to clean.
 	 * @return string
 	 */
 	public static function clean( $s ) {
@@ -389,9 +394,9 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * Report one candidate now. Returns ok, plus score or error.
 	 *
-	 * @param array    $c
-	 * @param string   $by  manual | auto
-	 * @param int|null $now
+	 * @param array    $c   Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
+	 * @param string   $by  manual | auto.
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return array ok, score, error
 	 */
 	public static function report( array $c, $by = 'manual', $now = null ) {
@@ -443,10 +448,10 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * Keep the outcome: the per-address log, and the ban's exports row.
 	 *
-	 * @param array  $c
-	 * @param array  $res
-	 * @param string $by
-	 * @param int    $now
+	 * @param array  $c   Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
+	 * @param array  $res Result of the report: ok, score and error.
+	 * @param string $by  What started the report: manual or auto.
+	 * @param int    $now Unix timestamp.
 	 */
 	private static function record( array $c, array $res, $by, $now ) {
 		$log = self::log();
@@ -479,6 +484,8 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
+	 * Return the stored log of reports sent, by address.
+	 *
 	 * @return array ip => t, ok, score, error, by (newest first)
 	 */
 	public static function log() {
@@ -489,7 +496,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * Reports accepted since the start of the UTC day.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return int
 	 */
 	public static function sent_today( $now = null ) {
@@ -516,10 +523,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Count one accepted report in SENT_OPTION, atomically: concurrent
-	 * reports each add one, and the first report of a UTC day starts at 1.
+	 * Count one accepted report in SENT_OPTION, atomically: concurrent reports each add one, and the first report of a UTC day starts at 1.
 	 *
-	 * @param int $now
+	 * @param int $now Unix timestamp.
 	 */
 	private static function count_sent( $now ) {
 		global $wpdb;
@@ -550,7 +556,7 @@ class BotStormRadar_AbuseIPDB {
 	/**
 	 * The exports row status of a ban on this layer, or ''.
 	 *
-	 * @param int $ban_id
+	 * @param int $ban_id Id of the ban.
 	 * @return string
 	 */
 	public static function export_status( $ban_id ) {
@@ -562,13 +568,11 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Mark a ban the automatic run will not report (refusal() said why), so
-	 * the oldest-first query moves past it instead of selecting it again.
-	 * A manual report is still possible; refusal() decides that afresh.
+	 * Mark a ban the automatic run will not report (refusal() said why), so the oldest-first query moves past it instead of selecting it again. A manual report is still possible; refusal() decides that afresh.
 	 *
-	 * @param int    $ban_id
-	 * @param string $why
-	 * @param int    $now
+	 * @param int    $ban_id Id of the ban.
+	 * @param string $why    Why the ban is not reported.
+	 * @param int    $now    Unix timestamp.
 	 */
 	private static function skip( $ban_id, $why, $now ) {
 		if ( $ban_id <= 0 ) {
@@ -601,14 +605,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * Report probe bans written in the last AUTO_WINDOW that have no report
-	 * yet, up to AUTO_BATCH and the daily cap. Runs again in a minute while
-	 * more wait, after RETRY_AFTER when a report failed and may be retried,
-	 * or after the next UTC midnight when the cap was reached. A ban that is
-	 * not reportable gets an exports row with status `skipped` and the
-	 * reason, so the next run moves past it. Returns the number reported.
+	 * Report probe bans written in the last AUTO_WINDOW that have no report yet, up to AUTO_BATCH and the daily cap. Runs again in a minute while more wait, after RETRY_AFTER when a report failed and may be retried, or after the next UTC midnight when the cap was reached. A ban that is not reportable gets an exports row with status `skipped` and the reason, so the next run moves past it. Returns the number reported.
 	 *
-	 * @param int|null $now
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return int
 	 */
 	public static function run( $now = null ) {
@@ -668,11 +667,10 @@ class BotStormRadar_AbuseIPDB {
 	// ── Bans tab ─────────────────────────────────────────────────────
 
 	/**
-	 * The report cell of a ban or would-be ban row: what was reported, or a
-	 * preview of the comment with the Report button.
+	 * The report cell of a ban or would-be ban row: what was reported, or a preview of the comment with the Report button.
 	 *
-	 * @param array  $c
-	 * @param string $kind ban | would
+	 * @param array  $c    Report candidate, as BotStormRadar_AbuseIPDB::from_ban() builds it.
+	 * @param string $kind ban | would.
 	 */
 	public static function render_cell( array $c, $kind ) {
 		if ( 'off' === self::mode() || 'probe' !== $c['reason'] ) {
@@ -710,11 +708,10 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * The admin action: report the address's current ban or would-be ban.
-	 * Returns the notice key.
+	 * The admin action: report the address's current ban or would-be ban. Returns the notice key.
 	 *
-	 * @param string $ip
-	 * @param string $kind
+	 * @param string $ip   IP address.
+	 * @param string $kind ban for a ban, or would for a ban that observe mode only listed.
 	 * @return string
 	 */
 	public static function handle_action( $ip, $kind ) {
@@ -747,7 +744,9 @@ class BotStormRadar_AbuseIPDB {
 	}
 
 	/**
-	 * @param int $ts
+	 * Format a past time as a relative phrase, such as "5 mins ago".
+	 *
+	 * @param int $ts Unix timestamp.
 	 * @return string
 	 */
 	private static function ago( $ts ) {

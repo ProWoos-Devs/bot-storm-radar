@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Stores the minute rows in hourly chunks, and the log of state changes.
+ */
 class BotStormRadar_Storage {
 
 	const CHUNK_PREFIX      = 'botstormradar_min_';
@@ -26,8 +29,10 @@ class BotStormRadar_Storage {
 	const TRANSITIONS_CAP   = 200;
 
 	/**
-	 * @param int    $minute
-	 * @param string $source
+	 * Return the name of the option that holds the hourly chunk of a minute.
+	 *
+	 * @param int    $minute Minute number (Unix time divided by 60).
+	 * @param string $source Source id; the site itself by default.
 	 * @return string
 	 */
 	private static function chunk_for( $minute, $source = BotStormRadar_Sources::SITE ) {
@@ -35,8 +40,10 @@ class BotStormRadar_Storage {
 	}
 
 	/**
+	 * Store a finished minute's row and drop the oldest chunks.
+	 *
 	 * @param array  $row    Must carry 'm' (minute id).
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function add_minute( array $row, $source = BotStormRadar_Sources::SITE ) {
 		$minute = (int) $row['m'];
@@ -66,12 +73,11 @@ class BotStormRadar_Storage {
 	}
 
 	/**
-	 * Minute rows for the last $n minutes ending at $until (inclusive),
-	 * keyed by minute id, oldest first. Missing minutes are absent.
+	 * Minute rows for the last $n minutes ending at $until (inclusive), keyed by minute id, oldest first. Missing minutes are absent.
 	 *
-	 * @param int      $n
-	 * @param int|null $until
-	 * @param string   $source
+	 * @param int      $n      Number of minutes.
+	 * @param int|null $until  Last minute number to include, or null for the last finished minute.
+	 * @param string   $source Source id; the site itself by default.
 	 * @return array
 	 */
 	public static function minutes_last( $n, $until = null, $source = BotStormRadar_Sources::SITE ) {
@@ -102,8 +108,8 @@ class BotStormRadar_Storage {
 	/**
 	 * Every stored minute row for a UTC date (baseline day summaries).
 	 *
-	 * @param string $ymd
-	 * @param string $source
+	 * @param string $ymd    UTC date as YYYYMMDD.
+	 * @param string $source Source id; the site itself by default.
 	 * @return array
 	 */
 	public static function minutes_for_day( $ymd, $source = BotStormRadar_Sources::SITE ) {
@@ -122,8 +128,10 @@ class BotStormRadar_Storage {
 	}
 
 	/**
+	 * Add a state change to the log, newest first.
+	 *
 	 * @param array  $t      from, to, at, minute, score, explanation, metrics.
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function add_transition( array $t, $source = BotStormRadar_Sources::SITE ) {
 		$name = BotStormRadar_Sources::option( self::TRANSITIONS, $source );
@@ -141,8 +149,10 @@ class BotStormRadar_Storage {
 	}
 
 	/**
-	 * @param int    $n
-	 * @param string $source
+	 * Return the latest state changes, newest first.
+	 *
+	 * @param int    $n      Most entries to return.
+	 * @param string $source Source id; the site itself by default.
 	 * @return array Newest first.
 	 */
 	public static function transitions( $n = 50, $source = BotStormRadar_Sources::SITE ) {
@@ -153,7 +163,7 @@ class BotStormRadar_Storage {
 	/**
 	 * Remove every stored row, transition and chunk of a source (tests, reset).
 	 *
-	 * @param string $source
+	 * @param string $source Source id; the site itself by default.
 	 */
 	public static function clear( $source = BotStormRadar_Sources::SITE ) {
 		$index_name = BotStormRadar_Sources::option( self::CHUNK_INDEX, $source );

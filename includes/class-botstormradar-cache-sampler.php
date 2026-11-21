@@ -26,6 +26,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Requests a small sample of the site's own pages and hands the answers to the cache check.
+ */
 class BotStormRadar_Cache_Sampler {
 
 	const OPTION    = 'botstormradar_cache_check';
@@ -65,16 +68,23 @@ class BotStormRadar_Cache_Sampler {
 
 	// github-build-only:start
 	/**
+	 * Replacement for the system DNS lookup, used by tests.
+	 *
 	 * @var callable|null Tests: callable( string $host ): array system (string), dns (string[]).
 	 */
 	public static $lookup = null;
 
 	/**
+	 * Public addresses to connect to, by host name.
+	 *
 	 * @var array host => public address to connect to, '' for the normal route.
 	 */
 	private static $routes = [];
 	// github-build-only:end
 
+	/**
+	 * Register the daily sampling hook.
+	 */
 	public static function init() {
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'daily' ], 60, 0 );
 	}
@@ -109,6 +119,8 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
+	 * Return the last sampling result, or null when there is none.
+	 *
 	 * @return array|null The stored result: BotStormRadar_Cache_Check::analyze_site() plus time and trigger.
 	 */
 	public static function last() {
@@ -127,7 +139,9 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * @param bool $dismissed
+	 * Remember that the cache card was dismissed, or bring it back.
+	 *
+	 * @param bool $dismissed True to dismiss the card, false to bring it back.
 	 */
 	public static function set_dismissed( $dismissed ) {
 		if ( $dismissed ) {
@@ -227,7 +241,9 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * @param string $post_type
+	 * Return the permalink of the newest published post of a type.
+	 *
+	 * @param string $post_type Post type.
 	 * @return string
 	 */
 	private static function latest_permalink( $post_type ) {
@@ -244,7 +260,9 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * @param string $taxonomy
+	 * Return the link of the term with the most posts in a taxonomy.
+	 *
+	 * @param string $taxonomy Taxonomy name.
 	 * @return string
 	 */
 	private static function busiest_term_link( $taxonomy ) {
@@ -267,12 +285,12 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Request one page until the answer is clear.
 	 *
-	 * @param string $kind
-	 * @param string $url
-	 * @param array  $custom
-	 * @param float  $deadline
-	 * @param array  $seen    Final URLs already sampled. A shop page can be the home page.
-	 * @param array  $cookies The cookies handed out so far, see collect_cookies().
+	 * @param string $kind     Kind of page: home, shop, product, category or post.
+	 * @param string $url      URL of a page of the site.
+	 * @param array  $custom   Extra headers, as read_response() takes them.
+	 * @param float  $deadline Sampling deadline, as a microtime() value.
+	 * @param array  $seen     Final URLs already sampled. A shop page can be the home page.
+	 * @param array  $cookies  The cookies handed out so far, see collect_cookies().
 	 * @return array|null A sample for analyze_page(), or null when this URL was already sampled.
 	 */
 	private static function sample_page( $kind, $url, array $custom, $deadline, array &$seen, array &$cookies ) {
@@ -327,15 +345,11 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * Send the cookies back to a page that was cached without them. The first
-	 * answer can miss on a cache that keeps a copy per cookie, so the second
-	 * one counts: a miss then means the cookie really leaves the cache. Only
-	 * the cookies a browser would send to that page go back, so a cookie
-	 * scoped to /shop/ is never blamed for the home page.
+	 * Send the cookies back to a page that was cached without them. The first answer can miss on a cache that keeps a copy per cookie, so the second one counts: a miss then means the cookie really leaves the cache. Only the cookies a browser would send to that page go back, so a cookie scoped to /shop/ is never blamed for the home page.
 	 *
 	 * @param array $pages    analyze_site() pages.
 	 * @param array $cookies  See collect_cookies().
-	 * @param float $deadline
+	 * @param float $deadline Sampling deadline, as a microtime() value.
 	 * @return array|null See analyze_site().
 	 */
 	private static function replay( array $pages, array $cookies, $deadline ) {
@@ -378,7 +392,7 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Wait only when the budget covers both the gap and another request.
 	 *
-	 * @param float $deadline
+	 * @param float $deadline Sampling deadline, as a microtime() value.
 	 * @return bool
 	 */
 	private static function wait_for_retry( $deadline ) {
@@ -390,12 +404,10 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * Request a URL, following redirects by hand: a home page can redirect to
-	 * a language path, and a redirect off the site or to a login page has to
-	 * stay what it is, an answer that says nothing about caching.
+	 * Request a URL, following redirects by hand: a home page can redirect to a language path, and a redirect off the site or to a login page has to stay what it is, an answer that says nothing about caching.
 	 *
-	 * @param string $url
-	 * @param float  $deadline
+	 * @param string $url      URL of a page of the site.
+	 * @param float  $deadline Sampling deadline, as a microtime() value.
 	 * @return array url, response
 	 */
 	private static function follow( $url, $deadline ) {
@@ -428,11 +440,10 @@ class BotStormRadar_Cache_Sampler {
 	 * answer counts as what visitors get, and the request can go through a
 	 * public CDN. Core's `https_ssl_verify` filter still applies (#120).
 	 *
-	 * @param string $url
+	 * @param string $url      URL of a page of the site.
 	 * @param array  $cookies  name => value.
-	 * @param float  $deadline The run's deadline. With less than MIN_LEFT left
-	 *                         no request is made; otherwise the timeout is
-	 *                         TIMEOUT or the time left, whichever is shorter.
+	 * @param float  $deadline The run's deadline. With less than MIN_LEFT left no request is made;
+	 *                         otherwise the timeout is TIMEOUT or the time left, whichever is shorter.
 	 * @return array|WP_Error
 	 */
 	private static function get( $url, array $cookies, $deadline ) {
@@ -478,8 +489,7 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * The address to connect to when the system's answer for a host is not
-	 * among its public DNS records, as with a hosts-file entry.
+	 * The address to connect to when the system's answer for a host is not among its public DNS records, as with a hosts-file entry.
 	 *
 	 * Many servers map their own domain to themselves in /etc/hosts, so a
 	 * request from the server never meets the CDN in front of it. When the
@@ -488,7 +498,7 @@ class BotStormRadar_Cache_Sampler {
 	 * certificate is always checked, whatever core's loopback filter says, so
 	 * the answer cannot come from a server that only claims to be the site.
 	 *
-	 * @param string $host
+	 * @param string $host Host name.
 	 * @return string '' for the normal route.
 	 */
 	public static function public_address( $host ) {
@@ -511,7 +521,7 @@ class BotStormRadar_Cache_Sampler {
 		self::$routes[ $host ] = $address;
 		return $address;
 	}
-	// github-build-only:end
+	// github-build-only:end.
 
 	/**
 	 * @param string $url
@@ -538,7 +548,9 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * @param array|WP_Error $response
+	 * Reduce a response to its status and headers, or to an error code.
+	 *
+	 * @param array|WP_Error $response HTTP response, as wp_remote_get() returns it.
 	 * @return array status, headers; or error
 	 */
 	private static function to_request( $response ) {
@@ -645,7 +657,7 @@ class BotStormRadar_Cache_Sampler {
 	 * it comes first in a browser's Cookie header.
 	 *
 	 * @param array  $cookies See collect_cookies().
-	 * @param string $url
+	 * @param string $url     URL of a page of the site.
 	 * @return array
 	 */
 	private static function cookies_for( array $cookies, $url ) {
@@ -672,7 +684,7 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * A request skipped for lack of time.
 	 *
-	 * @param array|WP_Error $response
+	 * @param array|WP_Error $response HTTP response, as wp_remote_get() returns it.
 	 * @return bool
 	 */
 	private static function out_of_time( $response ) {
@@ -682,7 +694,7 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Same host as the site, with or without www.
 	 *
-	 * @param string $url
+	 * @param string $url URL of a page of the site.
 	 * @return bool
 	 */
 	private static function same_site( $url ) {

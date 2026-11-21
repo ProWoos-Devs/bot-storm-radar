@@ -27,6 +27,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The gate inside the plugin, for builds without the early gate: refuses probes and banned addresses once plugins are loaded.
+ */
 class BotStormRadar_Inline_Gate {
 
 	const OPTION       = 'botstormradar_gate_rules';
@@ -48,6 +51,9 @@ class BotStormRadar_Inline_Gate {
 		return ! defined( 'BOTSTORMRADAR_EARLY_GATE' );
 	}
 
+	/**
+	 * Start the gate's hooks and run it, when it is active.
+	 */
 	public static function init() {
 		if ( ! self::active() ) {
 			return;
@@ -97,11 +103,10 @@ class BotStormRadar_Inline_Gate {
 	}
 
 	/**
-	 * Decide one request and count a refusal. Never refuses itself, so tests
-	 * can feed synthetic requests.
+	 * Decide one request and count a refusal. Never refuses itself, so tests can feed synthetic requests.
 	 *
-	 * @param array    $server
-	 * @param int|null $now
+	 * @param array    $server Server variables ($_SERVER or a synthetic array).
+	 * @param int|null $now    Unix timestamp; the current time when omitted.
 	 * @return array {action: pass|ban|probe, why: string, ip: string|false, trip: string}
 	 */
 	public static function check( array $server, $now = null ) {

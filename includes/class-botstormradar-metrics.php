@@ -26,6 +26,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The swarm metrics of a finished minute and the storm score computed from them.
+ */
 class BotStormRadar_Metrics {
 
 	const SENSITIVE_CLASSES = [ 'search', 'xmlrpc', 'rest', 'login', 'register', 'comment', 'cart', 'checkout', '404', 'admin-ajax', 'wc-ajax', 'special', 'revision' ];
@@ -46,7 +49,7 @@ class BotStormRadar_Metrics {
 	/**
 	 * Read one minute's counters and compute the row the tick stores.
 	 *
-	 * @param int        $minute
+	 * @param int        $minute   Minute number (Unix time divided by 60).
 	 * @param array|null $opts     Plugin options (defaults to stored).
 	 * @param array|null $baseline Baseline (defaults to the site's effective one).
 	 * @return array
@@ -145,10 +148,9 @@ class BotStormRadar_Metrics {
 	}
 
 	/**
-	 * Derive the ratios, the volume gate and the storm score for a row.
-	 * Pure: tests feed synthetic rows.
+	 * Derive the ratios, the volume gate and the storm score for a row. Pure: tests feed synthetic rows.
 	 *
-	 * @param array      $row
+	 * @param array      $row      Minute row.
 	 * @param array|null $opts     Plugin options (defaults to stored).
 	 * @param array|null $baseline Baseline (defaults to the effective one).
 	 * @return array
@@ -209,11 +211,10 @@ class BotStormRadar_Metrics {
 	}
 
 	/**
-	 * Plain-words explanation of a row, naming the signals in descending
-	 * order of contribution.
+	 * Plain-words explanation of a row, naming the signals in descending order of contribution.
 	 *
-	 * @param array $row
-	 * @param array|null $baseline
+	 * @param array      $row      Minute row.
+	 * @param array|null $baseline Baseline to compare with, or null for the site's own.
 	 * @return string
 	 */
 	public static function explain( array $row, $baseline = null ) {
@@ -275,7 +276,7 @@ class BotStormRadar_Metrics {
 	/**
 	 * Shannon entropy over counts, normalized to 0..1 by log(n).
 	 *
-	 * @param array $counts
+	 * @param array $counts Counts per class.
 	 * @return float
 	 */
 	public static function normalized_entropy( array $counts ) {
@@ -296,8 +297,10 @@ class BotStormRadar_Metrics {
 	}
 
 	/**
-	 * @param float $v
-	 * @param int   $d
+	 * Format a number for display in the site's locale.
+	 *
+	 * @param float $v Number to format.
+	 * @param int   $d Number of decimals.
 	 * @return string
 	 */
 	public static function fmt( $v, $d = 2 ) {

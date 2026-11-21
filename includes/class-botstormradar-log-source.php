@@ -226,6 +226,8 @@ class BotStormRadar_Log_Source {
 	const GLOBALS_TTL   = 86400;
 
 	/**
+	 * Return every defined log source.
+	 *
 	 * @return array id => label, profile, logs, alert_to, created
 	 */
 	public static function all() {
@@ -233,7 +235,9 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param string $id
+	 * Return the definition of a log source, or null when there is none.
+	 *
+	 * @param string $id Log source id.
 	 * @return array|null
 	 */
 	public static function get( $id ) {
@@ -242,8 +246,10 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param string $id
-	 * @param array  $def label, profile, logs, alert_to
+	 * Add or update a log source.
+	 *
+	 * @param string $id  Log source id.
+	 * @param array  $def label, profile, logs, alert_to.
 	 */
 	public static function save( $id, array $def ) {
 		$all        = self::all();
@@ -258,7 +264,9 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param string $id
+	 * Remove a log source, and its stored data on request.
+	 *
+	 * @param string $id    Log source id.
 	 * @param bool   $purge Also delete its rows, state, baseline and cursor.
 	 */
 	public static function remove( $id, $purge = false ) {
@@ -271,7 +279,9 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param string $id
+	 * Delete everything stored for a log source.
+	 *
+	 * @param string $id Log source id.
 	 */
 	public static function purge( $id ) {
 		BotStormRadar_Storage::clear( $id );
@@ -282,7 +292,9 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param string $id
+	 * Return the run state of a log source.
+	 *
+	 * @param string $id Log source id.
 	 * @return array last_minute, last_run, files, stats
 	 */
 	public static function state( $id ) {
@@ -290,11 +302,10 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * Read what the source's logs gained since the last run and process every
-	 * finished minute.
+	 * Read what the source's logs gained since the last run and process every finished minute.
 	 *
-	 * @param string   $id
-	 * @param int|null $now
+	 * @param string   $id  Log source id.
+	 * @param int|null $now Unix timestamp; the current time when omitted.
 	 * @return array Run summary (status: ok | started | caught_up | locked | unknown).
 	 */
 	public static function run( $id, $now = null ) {
@@ -355,12 +366,10 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * Replay whole log files (plain or .gz) through a scratch source, for
-	 * testing detection against a past storm. Stores into the source's
-	 * options, which the caller purges.
+	 * Replay whole log files (plain or .gz) through a scratch source, for testing detection against a past storm. Stores into the source's options, which the caller purges.
 	 *
 	 * @param string     $id       Scratch source id.
-	 * @param string     $profile
+	 * @param string     $profile  Log profile name (see BotStormRadar_Log_Line).
 	 * @param array      $files    Read in parallel, merged by minute.
 	 * @param array|null $baseline Baseline to score against (ips_median ...).
 	 * @return array Summary with every minute row's score.
@@ -388,17 +397,15 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * The merge loop: take the earliest head line across the files, feed it
-	 * to its minute, finish each minute when a later line shows up, commit
-	 * positions at every finished minute.
+	 * The merge loop: take the earliest head line across the files, feed it to its minute, finish each minute when a later line shows up, commit positions at every finished minute.
 	 *
-	 * @param string     $id
-	 * @param string     $profile
-	 * @param array      $cursors  path => BotStormRadar_Log_Cursor
-	 * @param int|null   $bucket   First minute to fill (null: the first line's).
-	 * @param int        $current  Lines at or after this minute are left unread.
-	 * @param array      $state    Source state (files, last_minute), updated.
-	 * @param bool       $live     Commit the state after every minute and stop at the byte budget.
+	 * @param string   $id      Log source id.
+	 * @param string   $profile Log profile name (see BotStormRadar_Log_Line).
+	 * @param array    $cursors path => BotStormRadar_Log_Cursor.
+	 * @param int|null $bucket  First minute to fill (null: the first line's).
+	 * @param int      $current Lines at or after this minute are left unread.
+	 * @param array    $state   Source state (files, last_minute), updated.
+	 * @param bool     $live    Commit the state after every minute and stop at the byte budget.
 	 * @return array
 	 */
 	private static function process( $id, $profile, array $cursors, $bucket, $current, array $state, $live ) {
@@ -503,7 +510,9 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * @param array $cursors
+	 * Add up the bytes read by the cursors.
+	 *
+	 * @param array $cursors Cursors of the source's log files.
 	 * @return int
 	 */
 	private static function bytes( array $cursors ) {
@@ -515,11 +524,10 @@ class BotStormRadar_Log_Source {
 	}
 
 	/**
-	 * Switch the counters to memory for this process and load the source's
-	 * good-bot verdicts from the last run.
+	 * Switch the counters to memory for this process and load the source's good-bot verdicts from the last run.
 	 *
-	 * @param string $id
-	 * @param bool   $load_globals
+	 * @param string $id           Log source id.
+	 * @param bool   $load_globals Whether to load the good-bot verdicts saved by the last run.
 	 */
 	private static function begin_memory( $id, $load_globals = true ) {
 		BotStormRadar_Counters::force( 'memory' );
@@ -535,8 +543,8 @@ class BotStormRadar_Log_Source {
 	/**
 	 * Keep the verdicts for the next run and give the counters back.
 	 *
-	 * @param string $id
-	 * @param bool   $save_globals
+	 * @param string $id           Log source id.
+	 * @param bool   $save_globals Whether to save the good-bot verdicts for the next run.
 	 */
 	private static function end_memory( $id, $save_globals = true ) {
 		if ( $save_globals ) {

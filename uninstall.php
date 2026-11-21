@@ -28,7 +28,7 @@ BotStormRadar_Gate_Early::disable();
 BotStormRadar_Gate_Install::remove_loader();
 BotStormRadar_State::uninstall();
 wp_clear_scheduled_hook( 'botstormradar_abuseipdb_run' );
-// github-build-only:end
+// github-build-only:end.
 BotStormRadar_Bans::uninstall();
 
 global $wpdb;

@@ -31,6 +31,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Reads what a page's response headers say about caching and turns samples into findings. It makes no requests.
+ */
 class BotStormRadar_Cache_Check {
 
 	// What a cache layer did with one response.
@@ -85,10 +88,9 @@ class BotStormRadar_Cache_Check {
 	];
 
 	/**
-	 * Headers with lower-case names. wp_remote_retrieve_headers() gives a
-	 * case-insensitive object, so callers pass ->getAll() or a plain array.
+	 * Headers with lower-case names. wp_remote_retrieve_headers() gives a case-insensitive object, so callers pass ->getAll() or a plain array.
 	 *
-	 * @param array $headers
+	 * @param array $headers Response headers.
 	 * @return array
 	 */
 	public static function normalize_headers( array $headers ) {
@@ -100,10 +102,9 @@ class BotStormRadar_Cache_Check {
 	}
 
 	/**
-	 * One status word list to a state. Several entries report several servers
-	 * (Fastly shielding), and any hit means the origin was not asked.
+	 * One status word list to a state. Several entries report several servers (Fastly shielding), and any hit means the origin was not asked.
 	 *
-	 * @param string $value
+	 * @param string $value Header value: one status word, or several separated by commas.
 	 * @return string
 	 */
 	public static function status_word_state( $value ) {
@@ -144,8 +145,9 @@ class BotStormRadar_Cache_Check {
 	/**
 	 * The cache layers one response announces.
 	 *
-	 * @param array $headers
-	 * @param array $custom  Extra headers, name => callable( string $value ): string state. The caller applies its filter.
+	 * @param array $headers Response headers.
+	 * @param array $custom  Extra headers, name => callable( string $value ): string state. The caller
+	 *                       applies its filter.
 	 * @return array state (hit, bypass, dynamic, miss, unknown or none), layers [ layer, header, value, state ]
 	 */
 	public static function read_response( array $headers, array $custom = [] ) {
@@ -220,7 +222,7 @@ class BotStormRadar_Cache_Check {
 	/**
 	 * What the origin asked caches to do.
 	 *
-	 * @param array $headers
+	 * @param array $headers Response headers.
 	 * @return array asks (bool), forbids (bool), edge_ttl (int, 0 when none is stated)
 	 */
 	public static function origin_intent( array $headers ) {
@@ -242,7 +244,7 @@ class BotStormRadar_Cache_Check {
 	/**
 	 * The names of the cookies a response sets. Values are never kept.
 	 *
-	 * @param array $headers
+	 * @param array $headers Response headers.
 	 * @return string[]
 	 */
 	public static function cookie_names( array $headers ) {
@@ -260,10 +262,9 @@ class BotStormRadar_Cache_Check {
 	}
 
 	/**
-	 * Whether a page's HTML carries something that looks like a nonce, in a
-	 * script's data or a form field.
+	 * Whether a page's HTML carries something that looks like a nonce, in a script's data or a form field.
 	 *
-	 * @param string $body
+	 * @param string $body HTML of the page.
 	 * @return bool
 	 */
 	public static function body_has_nonce( $body ) {
@@ -275,7 +276,8 @@ class BotStormRadar_Cache_Check {
 	/**
 	 * One sampled page, requested two or more times without cookies.
 	 *
-	 * @param array $sample kind (string), url (string), has_nonce (bool), requests: list of [ status (int), headers (array) ], or [ error (string) ]
+	 * @param array $sample kind (string), url (string), has_nonce (bool), requests: list of [ status
+	 *                      (int), headers (array) ], or [ error (string) ].
 	 * @param array $custom See read_response().
 	 * @return array kind, url, outcome, cookies, layers, edge_ttl, has_nonce, passed_by (layers that did not store a page another layer answered)
 	 */
@@ -440,12 +442,10 @@ class BotStormRadar_Cache_Check {
 	}
 
 	/**
-	 * A page that is cached for a clean request and not once the visitor
-	 * holds the cookies browsing hands out: one product view can take a
-	 * visitor out of the cache on every page.
+	 * A page that is cached for a clean request and not once the visitor holds the cookies browsing hands out: one product view can take a visitor out of the cache on every page.
 	 *
-	 * @param array|null $replay
-	 * @param array      $custom
+	 * @param array|null $replay       The replay sample (cookies and response), or null.
+	 * @param array      $custom       Extra headers, as read_response() takes them.
 	 * @param bool       $clean_cached Whether anything was cached without cookies.
 	 * @return array|null
 	 */
@@ -470,7 +470,9 @@ class BotStormRadar_Cache_Check {
 	}
 
 	/**
-	 * @param mixed $value
+	 * Turn a header value into a string, joining a list with commas.
+	 *
+	 * @param mixed $value Value.
 	 * @return string
 	 */
 	private static function flat( $value ) {

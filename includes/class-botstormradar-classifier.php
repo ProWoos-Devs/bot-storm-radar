@@ -16,11 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * Names the kind of each request (page, asset, REST, login and so on), once per request.
+ */
 class BotStormRadar_Classifier {
 
 	const ASSET_EXTENSIONS = [ 'css', 'js', 'mjs', 'map', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'otf', 'eot', 'mp4', 'webm', 'mp3', 'pdf', 'txt', 'xml' ];
 
 	/**
+	 * The class and detail resolved for this request.
+	 *
 	 * @var array|null {class, detail}
 	 */
 	private static $result = null;
@@ -37,6 +42,8 @@ class BotStormRadar_Classifier {
 	}
 
 	/**
+	 * Return the class of the current request.
+	 *
 	 * @return string
 	 */
 	public static function get_class() {
@@ -44,6 +51,8 @@ class BotStormRadar_Classifier {
 	}
 
 	/**
+	 * Return the detail of the current request's class.
+	 *
 	 * @return string
 	 */
 	public static function get_detail() {
@@ -51,6 +60,8 @@ class BotStormRadar_Classifier {
 	}
 
 	/**
+	 * Return the class and detail of the current request, working them out on the first call.
+	 *
 	 * @return array {class: string, detail: string}
 	 */
 	public static function get() {
@@ -140,11 +151,10 @@ class BotStormRadar_Classifier {
 	}
 
 	/**
-	 * Whether a lower-case request path ends with one of the endpoint paths
-	 * (the site's base path or a language prefix may come before it).
+	 * Whether a lower-case request path ends with one of the endpoint paths (the site's base path or a language prefix may come before it).
 	 *
-	 * @param string $lower
-	 * @param string $name
+	 * @param string $lower Lower-case request path.
+	 * @param string $name  Endpoint name, a key of endpoint_paths().
 	 * @return bool
 	 */
 	private static function is_endpoint( $lower, $name ) {
