@@ -315,10 +315,11 @@ class Bot_Storm_Radar {
 			'trip_404_count'        => 20,
 			'trip_ban_minutes'      => 60,
 			'trip_ban_repeat_hours' => 24,
-			// The daily page cache check (#115): off in the wordpress.org build.
+			// The daily page cache check (#115).
 			'cache_check_daily'     => 0,
 		];
-		// github-build-only:start.
+		// github-build-only:start
+		// On by default in the GitHub build, so the sites that run it keep their daily check.
 		$defaults['cache_check_daily'] = 1;
 		// github-build-only:end.
 		return $defaults;

@@ -46,6 +46,14 @@ class BotStormRadar_Bans {
 
 	const DB_VERSION_OPTION = 'botstormradar_db_version';
 
+	/**
+	 * Time of the last install that left a table missing (#120), and how long
+	 * to wait before the next try, so a database user without CREATE does not
+	 * run dbDelta on every request.
+	 */
+	const INSTALL_FAILED_OPTION = 'botstormradar_db_install_failed';
+	const INSTALL_RETRY_AFTER   = 5 * MINUTE_IN_SECONDS;
+
 	const GENERATION_OPTION = 'botstormradar_generation';
 
 	/**
@@ -183,14 +191,51 @@ class BotStormRadar_Bans {
 	 */
 	public static function maybe_install() {
 		if ( (int) get_option( self::DB_VERSION_OPTION, 0 ) !== self::DB_VERSION ) {
-			self::install();
+			self::repair();
 		}
 	}
 
 	/**
-	 * Create the ban tables with dbDelta and record the schema version.
+	 * Install again, unless a failed install was tried within
+	 * INSTALL_RETRY_AFTER. Also called when a lock claim finds its table
+	 * missing on a site whose stored version says it exists.
+	 *
+	 * @param int|null $now
+	 * @return bool Whether all tables exist afterwards.
 	 */
-	public static function install() {
+	public static function repair( $now = null ) {
+		$now    = null === $now ? time() : (int) $now;
+		$failed = (int) get_option( self::INSTALL_FAILED_OPTION, 0 );
+		if ( $failed > 0 && $now - $failed < self::INSTALL_RETRY_AFTER ) {
+			return false;
+		}
+		return self::install( $now );
+	}
+
+	/**
+	 * Whether the ban, export and lock tables all exist.
+	 *
+	 * @return bool
+	 */
+	public static function tables_exist() {
+		global $wpdb;
+		foreach ( [ self::table(), self::exports_table(), self::locks_table() ] as $t ) {
+			if ( $t !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $t ) ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * dbDelta the tables, and record the schema version only when every
+	 * table exists afterwards: a database user without CREATE must not leave
+	 * the version saying the tables are there (#120).
+	 *
+	 * @param int|null $now
+	 * @return bool Whether all tables exist.
+	 */
+	public static function install( $now = null ) {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		$charset = $wpdb->get_charset_collate();
@@ -240,10 +285,17 @@ class BotStormRadar_Bans {
   PRIMARY KEY  (name)
 ) {$charset};" );
 
-		update_option( self::DB_VERSION_OPTION, self::DB_VERSION, true );
+		$ok = self::tables_exist();
+		if ( $ok ) {
+			update_option( self::DB_VERSION_OPTION, self::DB_VERSION, true );
+			delete_option( self::INSTALL_FAILED_OPTION );
+		} else {
+			update_option( self::INSTALL_FAILED_OPTION, null === $now ? time() : (int) $now, false );
+		}
 		if ( false === get_option( self::GENERATION_OPTION, false ) ) {
 			add_option( self::GENERATION_OPTION, 1, '', false );
 		}
+		return $ok;
 	}
 
 	/**

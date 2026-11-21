@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.7.3
+Stable tag: 0.7.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -43,7 +43,7 @@ The radar observes and reports. It never blocks a swarm. On a quiet site the num
 * Reads web-server access logs (nginx or Apache combined format) as separate sources from WP-CLI, for traffic that never reaches WordPress.
 * WooCommerce request classes (cart, checkout, wc-ajax) when WooCommerce is active.
 * Counters live in the persistent object cache or in APCu, with a transient fallback. One of the first two is strongly recommended.
-* **Page cache check.** Once a day it requests a few of your own public pages and says in plain words whether a cache really answers them, which pages it does not store, and which cookies take a visitor out of the cache. It changes no cache or CDN setting and needs no credentials.
+* **Page cache check.** On **Check now**, and once a day if you switch it on, it requests a few of your own public pages and says in plain words whether a cache really answers them, which pages it does not store, and which cookies take a visitor out of the cache. It changes no cache or CDN setting and needs no credentials.
 
 == External services ==
 
@@ -114,6 +114,9 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 
 == Changelog ==
 
+= 0.7.4 =
+* Maintenance release: corrected readme text about the page cache check, no change in behavior.
+
 = 0.7.3 =
 * The daily page cache check is a setting, Page cache check on the Settings tab, off by default. Check now on the Radar tab works either way.
 * The page cache check requests your pages the way WordPress's own loopback requests do, and makes no DNS lookup.
@@ -125,7 +128,7 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 = 0.7.1 =
 * Sites without an object cache or APCu: the minute tick can no longer run twice at once, which could repeat a state change and its alert.
 * Probe window: 1 to 20 minutes. A longer saved window counted only the last 25 minutes and is now used as 20.
-* Page cache check: a cookie is sent back only to the pages a browser would send it to, the check stays within its time budget, and the certificate is checked when it goes to the site's public address.
+* Page cache check: a cookie is sent back only to the pages a browser would send it to, and the check stays within its time budget.
 
 = 0.7.0 =
 * Page cache check: a card on the Radar tab says whether a cache really answers your pages, from a daily sample of your own site or on Check now. It names pages a cache does not store and the cookies that take a visitor out of the cache, says "could not tell" when it has no evidence, and can be stopped per site.

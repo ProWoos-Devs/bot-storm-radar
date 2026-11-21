@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Lock handover when the lock table comes back (#123). While the table is missing the lock is a transient (#120); once another process had created the table, its claim took the new row although the first process still held the transient, so two ticks or two page cache checks could run at once. A claim on the table now gives way to a live transient lock, and a transient claim gives way to a live row; the transient is read from the database, not from the request's option cache.
+- Page cache check, Secure flag per cookie (#123). The flag was kept by cookie name and only a bare `Secure` was recognized, so `Secure=1` was missed, and with one name on two paths the flag of one could land on the other. Core also keeps one cookie per name. The check now reads each Set-Cookie line itself (name, value, Domain, Path, Expires, Max-Age, Secure), keeps the flag with its own cookie, and sends no Secure cookie over HTTP.
+- Page cache check cookies and certificates (#120). Core's cookie objects carry no Secure flag, so the replay could send a Secure cookie to an `http://` page; the flag is now read from the Set-Cookie headers, such a cookie is sent over HTTPS only, and one an HTTP answer sets is dropped, as a browser does. The check's requests now ask for certificate verification (core's `https_ssl_verify` filter still applies) instead of following the loopback filter, which is off by default, since they can go through a public CDN.
+- Lock table install (#120). The schema version was stored even when the database refused to create a table, so a site upgraded while its database user lacked CREATE kept no lock table and never retried; on sites without an object cache or APCu every lock claim failed and the minute tick and the page cache check stopped. The version is now stored only once all three tables exist, a failed install is retried at most every 5 minutes, a claim that finds the table missing repairs it, and until then the lock falls back to a transient so the radar keeps running.
+
+## [0.7.4] - 2026-11-21
+
+### Fixed
+- Follow-up to #115 from a second strict review of the wordpress.org build: `readme.txt` no longer says the page cache check runs daily by default, and its 0.7.1 entry no longer mentions the public-address route; the sampler's wordpress.org code has no leftover route code (`get()` calls `request()` with core's loopback filter, the route lives in a GitHub-only `request_via()`); the lock queries name `{$wpdb->prefix}botstormradar_locks` directly, so Plugin Check no longer warns about the table variable.
+
 ## [0.7.3] - 2026-11-21
 
 ### Changed
