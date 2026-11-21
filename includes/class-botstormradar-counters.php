@@ -352,7 +352,7 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_claim( $key, $ttl ) {
 		global $wpdb;
-		$table = BotStormRadar_Bans::locks_table();
+		$table = esc_sql( BotStormRadar_Bans::locks_table() );
 		$name  = self::lock_name( $key );
 		$now   = time();
 		$token = bin2hex( random_bytes( 8 ) );
@@ -377,7 +377,7 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_release( $key ) {
 		global $wpdb;
-		$table = BotStormRadar_Bans::locks_table();
+		$table = esc_sql( BotStormRadar_Bans::locks_table() );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE name = %s AND owner = %s", self::lock_name( $key ), self::$claims[ $key ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix.
 		unset( self::$claims[ $key ] );
 	}
