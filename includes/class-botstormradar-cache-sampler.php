@@ -557,42 +557,86 @@ class BotStormRadar_Cache_Sampler {
 	 * and each cookie keeps its scope. A browser keys a cookie by name, domain
 	 * and path, so the same name under two paths is two cookies. A Secure
 	 * cookie is sent over HTTPS only, and one an HTTP answer sets is dropped
-	 * (#120); core's WP_Http_Cookie carries no Secure flag, so it comes from
-	 * the Set-Cookie headers.
+	 * (#120). The cookies are read from the Set-Cookie lines themselves: core
+	 * keeps one cookie per name and no Secure flag, so its cookie objects
+	 * cannot tell two paths apart or say which one is Secure.
 	 *
 	 * @param array  $response
 	 * @param string $url     The URL that answered.
 	 * @param array  $cookies "name|domain|path" => name, value, domain, host_only, path, secure.
 	 */
 	private static function collect_cookies( $response, $url, array &$cookies ) {
-		$host   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
-		$https  = 'https' === strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
-		$secure = self::secure_names( $response );
-		foreach ( wp_remote_retrieve_cookies( $response ) as $cookie ) {
-			if ( ! $cookie instanceof WP_Http_Cookie || '' === (string) $cookie->name ) {
+		$https = 'https' === strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		foreach ( (array) wp_remote_retrieve_header( $response, 'set-cookie' ) as $line ) {
+			$entry = self::parse_set_cookie( (string) $line, $url );
+			if ( null === $entry || ( $entry['secure'] && ! $https ) ) {
 				continue;
 			}
-			if ( isset( $secure[ (string) $cookie->name ] ) && ! $https ) {
-				continue;
-			}
-			$domain = isset( $cookie->domain ) && '' !== (string) $cookie->domain ? ltrim( strtolower( (string) $cookie->domain ), '.' ) : '';
-			$path   = isset( $cookie->path ) && 0 === strpos( (string) $cookie->path, '/' ) ? (string) $cookie->path : '/';
-			$entry  = [
-				'name'      => (string) $cookie->name,
-				'value'     => (string) $cookie->value,
-				'domain'    => '' === $domain ? $host : $domain,
-				'host_only' => '' === $domain || ! empty( $cookie->host_only ),
-				'path'      => $path,
-				'secure'    => isset( $secure[ (string) $cookie->name ] ),
-			];
-			$key    = $entry['name'] . '|' . $entry['domain'] . '|' . $entry['path'];
-			$gone   = '' === $entry['value'] || 'deleted' === $entry['value'] || ( ! empty( $cookie->expires ) && (int) $cookie->expires <= time() );
+			$gone = $entry['gone'];
+			unset( $entry['gone'] );
+			$key = $entry['name'] . '|' . $entry['domain'] . '|' . $entry['path'];
 			if ( $gone ) {
 				unset( $cookies[ $key ] );
 			} else {
 				$cookies[ $key ] = $entry;
 			}
 		}
+	}
+
+	/**
+	 * One Set-Cookie line as a browser stores it (RFC 6265 5.2 and 5.3). An
+	 * attribute counts by its name, whatever follows it, so "Secure=1" is
+	 * Secure; the last Domain, Path, Expires or Max-Age on the line wins.
+	 *
+	 * @param string $line
+	 * @param string $url  The URL that answered.
+	 * @return array|null name, value, domain, host_only, path, secure, gone;
+	 *                    null for a line a browser ignores.
+	 */
+	private static function parse_set_cookie( $line, $url ) {
+		$parts = explode( ';', $line );
+		$pair  = (string) array_shift( $parts );
+		$eq    = strpos( $pair, '=' );
+		$name  = false === $eq ? '' : trim( substr( $pair, 0, $eq ) );
+		if ( '' === $name ) {
+			return null;
+		}
+		$value = trim( substr( $pair, $eq + 1 ) );
+		$attrs = [];
+		foreach ( $parts as $part ) {
+			$eq          = strpos( $part, '=' );
+			$key         = strtolower( trim( false === $eq ? $part : substr( $part, 0, $eq ) ) );
+			$attrs[ $key ] = false === $eq ? '' : trim( substr( $part, $eq + 1 ) );
+		}
+		$host   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$domain = isset( $attrs['domain'] ) ? ltrim( strtolower( $attrs['domain'] ), '.' ) : '';
+		if ( '' !== $domain && $host !== $domain && substr( $host, -strlen( '.' . $domain ) ) !== '.' . $domain ) {
+			return null; // Set for a domain the answering host is not part of.
+		}
+		if ( isset( $attrs['path'] ) && 0 === strpos( $attrs['path'], '/' ) ) {
+			$path = $attrs['path'];
+		} else {
+			// The default path: the answering URL's path up to its last slash.
+			$from = (string) wp_parse_url( $url, PHP_URL_PATH );
+			$cut  = 0 === strpos( $from, '/' ) ? (int) strrpos( $from, '/' ) : 0;
+			$path = $cut > 0 ? substr( $from, 0, $cut ) : '/';
+		}
+		$gone = '' === $value || 'deleted' === $value;
+		if ( isset( $attrs['max-age'] ) && preg_match( '/^-?\d+$/', $attrs['max-age'] ) ) {
+			$gone = $gone || (int) $attrs['max-age'] <= 0;
+		} elseif ( isset( $attrs['expires'] ) ) {
+			$when = strtotime( $attrs['expires'] );
+			$gone = $gone || ( false !== $when && $when <= time() );
+		}
+		return [
+			'name'      => $name,
+			'value'     => $value,
+			'domain'    => '' === $domain ? $host : $domain,
+			'host_only' => '' === $domain,
+			'path'      => $path,
+			'secure'    => isset( $attrs['secure'] ),
+			'gone'      => $gone,
+		];
 	}
 
 	/**
@@ -623,26 +667,6 @@ class BotStormRadar_Cache_Sampler {
 			}
 		}
 		return $send;
-	}
-
-	/**
-	 * Names of the cookies a response sets with the Secure attribute.
-	 *
-	 * @param array $response
-	 * @return array name => true
-	 */
-	private static function secure_names( $response ) {
-		$names = [];
-		foreach ( (array) wp_remote_retrieve_header( $response, 'set-cookie' ) as $line ) {
-			$parts = explode( ';', (string) $line );
-			$name  = trim( (string) strtok( (string) array_shift( $parts ), '=' ) );
-			foreach ( $parts as $attr ) {
-				if ( '' !== $name && 'secure' === strtolower( trim( $attr ) ) ) {
-					$names[ $name ] = true;
-				}
-			}
-		}
-		return $names;
 	}
 
 	/**
