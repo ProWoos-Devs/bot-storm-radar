@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.7.4
+Stable tag: 0.7.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -114,6 +114,10 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 
 == Changelog ==
 
+= 0.7.5 =
+* The minute tick and page cache check keep running if the lock table cannot be created during an update. The plugin retries installation and honors existing fallback locks when the table becomes available.
+* The page cache check verifies HTTPS certificates by default and respects each cookie’s Secure flag, domain and path during replay.
+
 = 0.7.4 =
 * Maintenance release: corrected readme text about the page cache check, no change in behavior.
 
@@ -149,6 +153,9 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 The full history is in [CHANGELOG.md](https://github.com/ProWoos-Devs/bot-storm-radar/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 0.7.5 =
+Updates from 0.7.3 and 0.7.4 can recover a missing lock table without reactivation.
 
 = 0.5.0 =
 The DNS check of search bots is now off unless you switch on Search bot check on the Settings tab.
