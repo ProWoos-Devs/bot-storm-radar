@@ -310,9 +310,9 @@ class BotStormRadar_Counters {
 
 	/**
 	 * Add only when absent: the lock primitive for the tick and the page
-	 * cache check. On the transient backend the lock is a row of its own in
-	 * the options table, claimed atomically (see db_claim()); get_value()
-	 * does not read it, and delete() removes it only for its owner.
+	 * cache check. On the transient backend the lock is a row in the plugin's
+	 * lock table, claimed atomically (see db_claim()); get_value() does not
+	 * read it, and delete() removes it only for its owner.
 	 *
 	 * @param string $key
 	 * @param mixed  $value
@@ -340,8 +340,11 @@ class BotStormRadar_Counters {
 	/**
 	 * Claim a lock row in one statement, so two processes can never both
 	 * hold it: INSERT IGNORE creates it, or an UPDATE takes it over once its
-	 * expiry has passed. The value is "<expiry>:<owner token>". A get then a
-	 * set, as with transients, lets two processes in between.
+	 * expiry has passed. Each claim carries a random owner token. A get then
+	 * a set, as with transients, lets two processes in between. The row lives
+	 * in the plugin's own table (BotStormRadar_Bans::locks_table()): core's
+	 * add_option() cannot claim atomically, it reads its cache and then
+	 * inserts with ON DUPLICATE KEY UPDATE.
 	 *
 	 * @param string $key
 	 * @param int    $ttl
@@ -349,18 +352,17 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_claim( $key, $ttl ) {
 		global $wpdb;
+		$table = BotStormRadar_Bans::locks_table();
 		$name  = self::lock_name( $key );
 		$now   = time();
 		$token = bin2hex( random_bytes( 8 ) );
-		$value = ( $now + max( 1, (int) $ttl ) ) . ':' . $token;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery
-		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", $name, $value ) );
+		$until = $now + max( 1, (int) $ttl );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
+		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$table} (name, expires_at, owner) VALUES (%s, %d, %s)", $name, $until, $token ) );
 		if ( ! $got ) {
-			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND CAST( SUBSTRING_INDEX( option_value, ':', 1 ) AS UNSIGNED ) <= %d", $value, $name, $now ) );
+			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) );
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery
-		wp_cache_delete( $name, 'options' );
-		wp_cache_delete( 'notoptions', 'options' );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $got ) {
 			self::$claims[ $key ] = $token;
 		}
@@ -375,18 +377,27 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_release( $key ) {
 		global $wpdb;
-		$name = self::lock_name( $key );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value LIKE %s", $name, '%:' . $wpdb->esc_like( self::$claims[ $key ] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$table = BotStormRadar_Bans::locks_table();
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE name = %s AND owner = %s", self::lock_name( $key ), self::$claims[ $key ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix.
 		unset( self::$claims[ $key ] );
-		wp_cache_delete( $name, 'options' );
 	}
 
 	/**
 	 * @param string $key
-	 * @return string Option name of a lock row.
+	 * @return string Name of a lock row, at most 64 characters.
 	 */
 	private static function lock_name( $key ) {
-		return 'botstormradar_lock_' . substr( self::t_name( $key ), strlen( 'botstormradar_' ) );
+		return substr( substr( self::t_name( $key ), strlen( 'botstormradar_' ) ), 0, 64 );
+	}
+
+	/**
+	 * Remove the lock rows 0.7.1 and 0.7.2 kept in the options table (#115).
+	 * Run from the upgrade; the keys are the two locks those versions took.
+	 */
+	public static function drop_option_locks() {
+		foreach ( [ 'g:tick_lock', 'g:cache_check_lock' ] as $key ) {
+			delete_option( 'botstormradar_lock_' . self::lock_name( $key ) );
+		}
 	}
 
 	/**
