@@ -67,7 +67,12 @@ The page cache check talks only to your own site. When you click **Check now** o
 
 = Does it block a bot swarm? =
 
-Not yet. The radar detects a swarm and tells you. What the plugin refuses today are scanner probes, for every visitor, and single addresses that tripped a ban once you switched bans to enforce.
+It detects the swarm and tells you which kinds of request it makes. Blocking it happens in front of WordPress, and the right place depends on what the swarm asks for.
+
+* **Pages a cache can store** (home page, posts, products, categories). Make sure a page cache or CDN really answers them, so a swarm never reaches WordPress. Run **Check now** on the Radar tab. It says which pages are not stored and which cookies take a visitor out of the cache.
+* **Pages a cache cannot store** (search, add to cart, filtered listings, the login page). Limit the request rate for those paths at your CDN or web server, or let your CDN challenge visitors there while the storm lasts.
+
+Banning addresses does not help against a swarm, because each address makes only one or two requests. That is why the plugin's own bans are aimed at single addresses that keep probing. Scanner probes are refused for every visitor.
 
 = What is observe mode? =
 
