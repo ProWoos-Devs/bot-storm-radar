@@ -36,9 +36,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 class BotStormRadar_Bans {
 
 	/**
-	 * Schema version of both tables; bump on any column or index change.
+	 * Schema version of the plugin's tables; bump on any column or index change.
+	 * 2: the lock table (#115).
 	 */
-	const DB_VERSION = 1;
+	const DB_VERSION = 2;
 
 	const DB_VERSION_OPTION = 'botstormradar_db_version';
 
@@ -74,6 +75,16 @@ class BotStormRadar_Bans {
 	public static function exports_table() {
 		global $wpdb;
 		return $wpdb->prefix . 'botstormradar_ban_exports';
+	}
+
+	/**
+	 * Lock rows of the transient counter backend (BotStormRadar_Counters, #115).
+	 *
+	 * @return string
+	 */
+	public static function locks_table() {
+		global $wpdb;
+		return $wpdb->prefix . 'botstormradar_locks';
 	}
 
 	/**
@@ -158,7 +169,7 @@ class BotStormRadar_Bans {
 	// ── Schema ────────────────────────────────────────────────────────
 
 	/**
-	 * Create or update both tables when the stored schema version is behind.
+	 * Create or update the tables when the stored schema version is behind.
 	 * Cheap on every load: one autoloaded option compared with a constant.
 	 */
 	public static function maybe_install() {
@@ -168,7 +179,7 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * dbDelta both tables and record the schema version.
+	 * dbDelta the tables and record the schema version.
 	 */
 	public static function install() {
 		global $wpdb;
@@ -212,6 +223,14 @@ class BotStormRadar_Bans {
   KEY status (status)
 ) {$charset};" );
 
+		$locks = self::locks_table();
+		dbDelta( "CREATE TABLE {$locks} (
+  name varchar(64) NOT NULL,
+  expires_at int(10) unsigned NOT NULL,
+  owner char(16) NOT NULL,
+  PRIMARY KEY  (name)
+) {$charset};" );
+
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION, true );
 		if ( false === get_option( self::GENERATION_OPTION, false ) ) {
 			add_option( self::GENERATION_OPTION, 1, '', false );
@@ -219,10 +238,11 @@ class BotStormRadar_Bans {
 	}
 
 	/**
-	 * Drop both tables and their options (uninstall only).
+	 * Drop the tables and their options (uninstall only).
 	 */
 	public static function uninstall() {
 		global $wpdb;
+		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::locks_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::exports_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name from $wpdb->prefix.
 		// The tables of 0.2.x, where the plugin was never loaded after the

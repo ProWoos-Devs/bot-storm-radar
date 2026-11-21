@@ -239,6 +239,8 @@ class Bot_Storm_Radar {
 		BotStormRadar_Client_IP::ensure_cron();
 		// 0.3.0 left old chunk names inside the minute-chunk indexes.
 		BotStormRadar_Migration::repair_chunk_indexes();
+		// 0.7.1 and 0.7.2 kept the transient-backend locks in the options table (#115).
+		BotStormRadar_Counters::drop_option_locks();
 		// A new version brings a new gate: rebuild the state and the bundle.
 		BotStormRadar_Inline_Gate::store();
 		// github-build-only:start

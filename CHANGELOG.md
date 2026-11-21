@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Lock table (#115). The transient-backend lock (#98) moves from rows in the options table to a table of the plugin's own, `{prefix}botstormradar_locks` (schema version 2), created with the ban tables and dropped on uninstall. The upgrade removes the two lock rows 0.7.1 and 0.7.2 left in the options table.
 - Page cache check on the wordpress.org build (#115): the daily run is a setting, **Page cache check** on the Settings tab, off by default there (on by default in the GitHub build); **Check now** works either way. The wordpress.org build no longer has the route to the site's public address, so it makes no DNS lookup and does not touch the cURL handle; a site whose server maps its own domain to itself gets "could not tell" there. The GitHub build keeps the route. The sampler's error messages are translatable.
 
 ## [0.7.2] - 2026-11-21
