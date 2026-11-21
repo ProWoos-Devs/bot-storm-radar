@@ -362,7 +362,8 @@ class BotStormRadar_Admin {
 					'at'          => time(),
 					'minute'      => (int) $row['m'],
 					'score'       => (int) $row['score'],
-					'explanation' => __( 'Test alert sent from the Settings tab. ', 'bot-storm-radar' ) . BotStormRadar_Metrics::explain( $row ),
+					/* translators: %s: explanation of the latest storm score */
+					'explanation' => sprintf( __( 'Test alert sent from the Settings tab. %s', 'bot-storm-radar' ), BotStormRadar_Metrics::explain( $row ) ),
 					'metrics'     => $row,
 				] );
 				$notice = $sent ? 'alert_sent' : 'alert_failed';
@@ -718,7 +719,7 @@ class BotStormRadar_Admin {
 					$next = wp_next_scheduled( BotStormRadar_Tick::HOOK );
 					if ( $next ) {
 						/* translators: %s: relative time, such as "in 1 min" */
-						printf( ', ' . esc_html__( 'next scheduled %s', 'bot-storm-radar' ), esc_html( self::ago( $next ) ) );
+						printf( esc_html__( ', next scheduled %s', 'bot-storm-radar' ), esc_html( self::ago( $next ) ) );
 					}
 					?>
 				</div>
@@ -1159,7 +1160,7 @@ class BotStormRadar_Admin {
 					printf( esc_html__( 'last ran %s', 'bot-storm-radar' ), esc_html( self::ago( (int) $lr['last_run'] ) ) );
 					if ( isset( $stats['lines'] ) ) {
 						/* translators: 1: log lines read, 2: minutes stored, 3: late lines, 4: unparsed lines, 5: refused requests */
-						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed, %5$d refused', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ), (int) ( $stats['refused'] ?? 0 ) );
+						printf( esc_html__( ', %1$d lines, %2$d minutes, %3$d late, %4$d unparsed, %5$d refused', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ), (int) ( $stats['refused'] ?? 0 ) );
 					}
 					if ( ! empty( $stats['events'] ) ) {
 						$ev = [];
