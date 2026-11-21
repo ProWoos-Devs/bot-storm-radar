@@ -26,20 +26,20 @@ class BotStormRadar_Email_Alerts {
 		$label = BotStormRadar_Sources::label( $source );
 		$to    = (string) $ctx['to'];
 		$from  = (string) $ctx['from'];
-		$m     = is_array( $ctx['metrics'] ?? null ) ? $ctx['metrics'] : [];
+		$m     = is_array( $ctx['metrics'] ?? null ) ? $ctx['metrics'] : array();
 		$when  = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $ctx['at'] );
 		$radar = admin_url( 'admin.php?page=bot-storm-radar' . ( $is_site ? '' : '&source=' . rawurlencode( $source ) ) );
 
-		$titles = [
+		$titles  = array(
 			'warning' => __( 'Bot storm warning', 'bot-storm-radar' ),
 			'storm'   => __( 'Bot storm detected', 'bot-storm-radar' ),
 			'cooling' => __( 'Bot storm cooling down', 'bot-storm-radar' ),
 			'calm'    => __( 'Bot storm over', 'bot-storm-radar' ),
-		];
+		);
 		$title   = $titles[ $to ] ?? $to;
 		$subject = sprintf( '[%s — Bot Storm Radar] %s', $site, $is_site ? $title : $label . ': ' . $title );
 
-		$body   = [];
+		$body = array();
 		if ( ! empty( $ctx['started_from'] ) ) {
 			/* translators: 1: state the minute started in, 2: state passed through, 3: new state, 4: date and time */
 			$body[] = sprintf( __( 'Bot Storm Radar moved from %1$s through %2$s to %3$s at %4$s, all within one minute.', 'bot-storm-radar' ), strtoupper( (string) $ctx['started_from'] ), strtoupper( $from ), strtoupper( $to ), $when );
@@ -70,7 +70,7 @@ class BotStormRadar_Email_Alerts {
 		}
 		if ( ! empty( $m['classes'] ) && is_array( $m['classes'] ) ) {
 			arsort( $m['classes'] );
-			$parts = [];
+			$parts = array();
 			foreach ( array_slice( $m['classes'], 0, 6, true ) as $c => $n ) {
 				if ( $n > 0 ) {
 					$parts[] = $c . ' ' . (int) $n;
@@ -86,8 +86,8 @@ class BotStormRadar_Email_Alerts {
 		if ( $is_site ) {
 			$body[] = sprintf( 'Counter backend: %s', BotStormRadar_Counters::backend_label() );
 		} else {
-			$def    = BotStormRadar_Sources::log_sources()[ $source ] ?? [];
-			$body[] = sprintf( 'Log files: %s', implode( ', ', array_map( 'basename', (array) ( $def['logs'] ?? [] ) ) ) );
+			$def    = BotStormRadar_Sources::log_sources()[ $source ] ?? array();
+			$body[] = sprintf( 'Log files: %s', implode( ', ', array_map( 'basename', (array) ( $def['logs'] ?? array() ) ) ) );
 		}
 		return self::deliver( $addresses, $subject, $body );
 	}
@@ -107,26 +107,26 @@ class BotStormRadar_Email_Alerts {
 		}
 		$site  = get_bloginfo( 'name' );
 		$label = BotStormRadar_Sources::label( $source );
-		$m     = is_array( $ctx['metrics'] ?? null ) ? $ctx['metrics'] : [];
+		$m     = is_array( $ctx['metrics'] ?? null ) ? $ctx['metrics'] : array();
 		$when  = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $ctx['at'] );
 		$radar = admin_url( 'admin.php?page=bot-storm-radar&source=' . rawurlencode( $source ) );
-		$def   = BotStormRadar_Sources::log_sources()[ $source ] ?? [];
+		$def   = BotStormRadar_Sources::log_sources()[ $source ] ?? array();
 
 		$subject = sprintf( '[%s — Bot Storm Radar] %s: %s', $site, $label, __( '5xx burst', 'bot-storm-radar' ) );
-		$body    = [];
+		$body    = array();
 		/* translators: 1: number of 5xx responses, 2: date and time, 3: alert threshold */
-		$body[]  = sprintf( __( '%1$d responses with a 5xx status went out in one minute at %2$s (the alert threshold is %3$d).', 'bot-storm-radar' ), (int) ( $ctx['err5'] ?? 0 ), $when, (int) ( $ctx['threshold'] ?? 0 ) );
+		$body[] = sprintf( __( '%1$d responses with a 5xx status went out in one minute at %2$s (the alert threshold is %3$d).', 'bot-storm-radar' ), (int) ( $ctx['err5'] ?? 0 ), $when, (int) ( $ctx['threshold'] ?? 0 ) );
 		/* translators: %s: label of the source */
-		$body[]  = sprintf( __( 'Source %s, read from the web-server access log.', 'bot-storm-radar' ), $label );
+		$body[] = sprintf( __( 'Source %s, read from the web-server access log.', 'bot-storm-radar' ), $label );
 		/* translators: %s: storm state */
-		$body[]  = sprintf( __( 'The storm state is %s and was not changed by this rule. One mail per episode; the episode ends after the configured minutes below the threshold.', 'bot-storm-radar' ), strtoupper( (string) ( $ctx['to'] ?? '' ) ) );
-		$body[]  = '';
-		$body[]  = __( 'LAST MINUTE:', 'bot-storm-radar' );
-		$body[]  = sprintf( 'Requests: %d, distinct addresses: %d, 5xx responses: %d', (int) ( $m['total'] ?? 0 ), (int) ( $m['ips'] ?? 0 ), (int) ( $ctx['err5'] ?? 0 ) );
-		$body[]  = sprintf( 'Storm score: %s', $ctx['score'] ?? '-' );
+		$body[] = sprintf( __( 'The storm state is %s and was not changed by this rule. One mail per episode; the episode ends after the configured minutes below the threshold.', 'bot-storm-radar' ), strtoupper( (string) ( $ctx['to'] ?? '' ) ) );
+		$body[] = '';
+		$body[] = __( 'LAST MINUTE:', 'bot-storm-radar' );
+		$body[] = sprintf( 'Requests: %d, distinct addresses: %d, 5xx responses: %d', (int) ( $m['total'] ?? 0 ), (int) ( $m['ips'] ?? 0 ), (int) ( $ctx['err5'] ?? 0 ) );
+		$body[] = sprintf( 'Storm score: %s', $ctx['score'] ?? '-' );
 		if ( ! empty( $m['classes'] ) && is_array( $m['classes'] ) ) {
 			arsort( $m['classes'] );
-			$parts = [];
+			$parts = array();
 			foreach ( array_slice( $m['classes'], 0, 6, true ) as $c => $n ) {
 				if ( $n > 0 ) {
 					$parts[] = $c . ' ' . (int) $n;
@@ -139,7 +139,7 @@ class BotStormRadar_Email_Alerts {
 		$body[] = '';
 		$body[] = __( 'ACTIONS:', 'bot-storm-radar' );
 		$body[] = sprintf( 'Radar: %s', $radar );
-		$body[] = sprintf( 'Log files: %s', implode( ', ', array_map( 'basename', (array) ( $def['logs'] ?? [] ) ) ) );
+		$body[] = sprintf( 'Log files: %s', implode( ', ', array_map( 'basename', (array) ( $def['logs'] ?? array() ) ) ) );
 		return self::deliver( $addresses, $subject, $body );
 	}
 
@@ -156,19 +156,19 @@ class BotStormRadar_Email_Alerts {
 		if ( empty( $addresses ) ) {
 			return false;
 		}
-		$site    = get_bloginfo( 'name' );
+		$site = get_bloginfo( 'name' );
 		/* translators: %d: number of addresses */
 		$subject = sprintf( '[%s — Bot Storm Radar] %s', $site, sprintf( __( '%d addresses banned in the last hour', 'bot-storm-radar' ), count( $recent ) ) );
-		$by      = [];
+		$by      = array();
 		foreach ( $recent as $r ) {
 			$by[ $r['reason'] ] = ( $by[ $r['reason'] ] ?? 0 ) + 1;
 		}
-		$body   = [];
+		$body = array();
 		/* translators: 1: number of addresses, 2: start time, 3: end time */
 		$body[] = sprintf( __( '%1$d addresses were banned for a while between %2$s and %3$s, each after crossing a trip on its own (probes for files only scanners ask for, or many missing pages in a minute).', 'bot-storm-radar' ), count( $recent ), wp_date( get_option( 'time_format' ), $now - BotStormRadar_Trips::DIGEST_WINDOW ), wp_date( get_option( 'time_format' ), $now ) );
 		$body[] = __( 'This is the only mail for this hour. Nothing else changed; the storm state is separate.', 'bot-storm-radar' );
 		$body[] = '';
-		$parts = [];
+		$parts  = array();
 		foreach ( $by as $reason => $n ) {
 			$parts[] = $reason . ' ' . (int) $n;
 		}
@@ -195,10 +195,10 @@ class BotStormRadar_Email_Alerts {
 		/* translators: 1: plugin version number, 2: site name */
 		$body[] = sprintf( __( 'Generated by Bot Storm Radar %1$s on %2$s', 'bot-storm-radar' ), BOTSTORMRADAR_VERSION, $site );
 
-		$headers = [
+		$headers = array(
 			'Content-Type: text/plain; charset=UTF-8',
 			sprintf( 'From: %s <%s>', $site, get_option( 'admin_email' ) ),
-		];
+		);
 
 		$sent = true;
 		foreach ( $addresses as $addr ) {

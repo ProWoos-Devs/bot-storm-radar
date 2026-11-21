@@ -30,15 +30,18 @@ class BotStormRadar_Error_Burst {
 	 * @return array active, started_minute, peak, below, bursts, last_minute
 	 */
 	public static function get_state( $source ) {
-		$s = get_option( BotStormRadar_Sources::option( self::OPTION, $source ), [] );
-		return wp_parse_args( is_array( $s ) ? $s : [], [
-			'active'         => false,
-			'started_minute' => 0,
-			'peak'           => 0,
-			'below'          => 0,
-			'bursts'         => 0,
-			'last_minute'    => 0,
-		] );
+		$s = get_option( BotStormRadar_Sources::option( self::OPTION, $source ), array() );
+		return wp_parse_args(
+			is_array( $s ) ? $s : array(),
+			array(
+				'active'         => false,
+				'started_minute' => 0,
+				'peak'           => 0,
+				'below'          => 0,
+				'bursts'         => 0,
+				'last_minute'    => 0,
+			)
+		);
 	}
 
 	/**
@@ -133,7 +136,7 @@ class BotStormRadar_Error_Burst {
 		$state = BotStormRadar_Storm::get_state( $source )['state'];
 		$light = $row;
 		unset( $light['hot'], $light['ua_top'] );
-		return [
+		return array(
 			'source'      => $source,
 			'from'        => $state,
 			'to'          => $state,
@@ -153,6 +156,6 @@ class BotStormRadar_Error_Burst {
 			),
 			'note'        => 'error burst',
 			'metrics'     => $light,
-		];
+		);
 	}
 }

@@ -39,36 +39,36 @@ class BotStormRadar_Projection {
 		BotStormRadar_Helpers::flush_options();
 		$opts = BotStormRadar_Helpers::get_options();
 
-		$bans = [];
+		$bans = array();
 		foreach ( BotStormRadar_Bans::active( $now ) as $b ) {
 			// Asked again: a ban that became protected after it was written
 			// (an allowlist entry, an administrator seen since) is left out.
 			if ( BotStormRadar_Guard::may_ban( $b['ip_text'], (int) $b['prefix_len'] ) ) {
-				$bans[] = [ $b['ip_text'], (int) $b['prefix_len'], (int) $b['expires_at'] ];
+				$bans[] = array( $b['ip_text'], (int) $b['prefix_len'], (int) $b['expires_at'] );
 			}
 		}
-		$unbans = [];
+		$unbans = array();
 		foreach ( BotStormRadar_Bans::recent_unbans( $now - self::RECENT_UNBAN ) as $u ) {
-			$unbans[] = [ $u['ip_text'], (int) $u['prefix_len'], (int) $u['unbanned_at'] ];
+			$unbans[] = array( $u['ip_text'], (int) $u['prefix_len'], (int) $u['unbanned_at'] );
 		}
 
-		return [
+		return array(
 			'format'     => self::FORMAT,
 			'written_at' => $now,
 			'generation' => BotStormRadar_Bans::generation(),
 			'mode'       => 'enforce' === ( $opts['ban_mode'] ?? 'observe' ) ? 'enforce' : 'observe',
 			'trust'      => BotStormRadar_Client_IP::trust_config(),
-			'protected'  => [
+			'protected'  => array(
 				'allowlist' => BotStormRadar_Helpers::parse_list( $opts['allowlist'] ?? '' ),
 				'admins'    => BotStormRadar_Guard::admin_addresses( $now ),
 				'bots'      => BotStormRadar_Guard::verified_bots( $now ),
-			],
+			),
 			'bans'       => $bans,
 			'unbans'     => $unbans,
 			'probe'      => self::probe_config(),
 			'trips'      => BotStormRadar_Trips::state_config(),
-			'mail'       => [ 'recipients' => BotStormRadar_Sources::alert_recipients( BotStormRadar_Sources::SITE ) ],
-		];
+			'mail'       => array( 'recipients' => BotStormRadar_Sources::alert_recipients( BotStormRadar_Sources::SITE ) ),
+		);
 	}
 
 	/**
@@ -103,7 +103,7 @@ class BotStormRadar_Projection {
 		}
 		$opts    = BotStormRadar_Helpers::get_options();
 		$uploads = wp_upload_dir( null, false );
-		return [
+		return array(
 			'on'      => ! empty( $opts['probe_refusal'] ),
 			'home'    => untrailingslashit( (string) wp_parse_url( (string) get_option( 'home' ), PHP_URL_PATH ) ),
 			'uploads' => trailingslashit( (string) wp_parse_url( (string) ( $uploads['baseurl'] ?? '' ), PHP_URL_PATH ) ),
@@ -111,6 +111,6 @@ class BotStormRadar_Projection {
 			'scanner' => $scanner,
 			'extra'   => BotStormRadar_Probe::compile( (string) ( $opts['probe_extra'] ?? '' ) ),
 			'allow'   => BotStormRadar_Probe::compile( (string) ( $opts['probe_allow'] ?? '' ) ),
-		];
+		);
 	}
 }

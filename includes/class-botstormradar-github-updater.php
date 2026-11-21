@@ -30,9 +30,9 @@ class BotStormRadar_GitHub_Updater {
 	public function __construct() {
 		$this->plugin_basename = BOTSTORMRADAR_PLUGIN_BASENAME;
 
-		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_for_update' ] );
-		add_filter( 'plugins_api', [ $this, 'plugin_info' ], 10, 3 );
-		add_action( 'upgrader_process_complete', [ $this, 'clear_cache' ], 10, 2 );
+		add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_for_update' ) );
+		add_filter( 'plugins_api', array( $this, 'plugin_info' ), 10, 3 );
+		add_action( 'upgrader_process_complete', array( $this, 'clear_cache' ), 10, 2 );
 
 		// Clear cache on force-check.
 		if ( is_admin() && isset( $_GET['force-check'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
@@ -65,13 +65,13 @@ class BotStormRadar_GitHub_Updater {
 
 		$current_version = $transient->checked[ $this->plugin_basename ] ?? BOTSTORMRADAR_VERSION;
 
-		$icons = [
+		$icons = array(
 			'1x' => self::ASSETS_URL . '/icon-128x128.png',
 			'2x' => self::ASSETS_URL . '/icon-256x256.png',
-		];
+		);
 
 		if ( version_compare( $remote['version'], $current_version, '>' ) ) {
-			$transient->response[ $this->plugin_basename ] = (object) [
+			$transient->response[ $this->plugin_basename ] = (object) array(
 				'slug'         => self::SLUG,
 				'plugin'       => $this->plugin_basename,
 				'new_version'  => $remote['version'],
@@ -81,16 +81,16 @@ class BotStormRadar_GitHub_Updater {
 				'requires_php' => $remote['requires_php'] ?? '7.4',
 				'requires'     => $remote['requires'] ?? '6.0',
 				'icons'        => $icons,
-			];
+			);
 		} else {
 			// Tell WP we checked and it's up to date (prevents WP.org lookup).
-			$transient->no_update[ $this->plugin_basename ] = (object) [
+			$transient->no_update[ $this->plugin_basename ] = (object) array(
 				'slug'        => self::SLUG,
 				'plugin'      => $this->plugin_basename,
 				'new_version' => $current_version,
 				'url'         => 'https://github.com/' . self::REPO,
 				'icons'       => $icons,
-			];
+			);
 		}
 
 		return $transient;
@@ -130,7 +130,7 @@ class BotStormRadar_GitHub_Updater {
 			$changelog = nl2br( $body );
 		}
 
-		return (object) [
+		return (object) array(
 			'name'          => 'Bot Storm Radar',
 			'slug'          => self::SLUG,
 			'version'       => $remote['version'],
@@ -141,19 +141,19 @@ class BotStormRadar_GitHub_Updater {
 			'requires_php'  => $remote['requires_php'] ?? '7.4',
 			'last_updated'  => $remote['updated'] ?? '',
 			'download_link' => $remote['package'] ?? '',
-			'banners'       => [
+			'banners'       => array(
 				'low'  => self::ASSETS_URL . '/banner-772x250.png',
 				'high' => self::ASSETS_URL . '/banner-1544x500.png',
-			],
-			'icons'         => [
+			),
+			'icons'         => array(
 				'1x' => self::ASSETS_URL . '/icon-128x128.png',
 				'2x' => self::ASSETS_URL . '/icon-256x256.png',
-			],
-			'sections'      => [
+			),
+			'sections'      => array(
 				'description' => 'Detects bot swarms as swarms: request classes, sliding-window counters, swarm metrics, a learned baseline, a storm state machine and email alerts. Radar only in 0.1, nothing is blocked.',
 				'changelog'   => $changelog,
-			],
-		];
+			),
+		);
 	}
 
 	/**
@@ -184,13 +184,16 @@ class BotStormRadar_GitHub_Updater {
 		}
 
 		$url      = 'https://api.github.com/repos/' . self::REPO . '/releases/latest';
-		$response = wp_remote_get( $url, [
-			'timeout' => 15,
-			'headers' => [
-				'Accept'     => 'application/vnd.github.v3+json',
-				'User-Agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION . ' WordPress/' . get_bloginfo( 'version' ),
-			],
-		] );
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 15,
+				'headers' => array(
+					'Accept'     => 'application/vnd.github.v3+json',
+					'User-Agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION . ' WordPress/' . get_bloginfo( 'version' ),
+				),
+			)
+		);
 
 		if ( is_wp_error( $response ) ) {
 			return false;
@@ -219,7 +222,7 @@ class BotStormRadar_GitHub_Updater {
 			}
 		}
 
-		$data = [
+		$data = array(
 			'version'      => $version,
 			'package'      => $package,
 			'changelog'    => $release['body'] ?? '',
@@ -227,7 +230,7 @@ class BotStormRadar_GitHub_Updater {
 			'tested'       => '',
 			'requires'     => '6.0',
 			'requires_php' => '7.4',
-		];
+		);
 
 		set_transient( self::CACHE_KEY, $data, self::CACHE_EXPIRY );
 

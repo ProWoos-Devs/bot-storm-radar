@@ -28,7 +28,7 @@ class BotStormRadar_Decision {
 		if ( ! is_array( $pb ) || (int) ( $pb['exp'] ?? 0 ) <= $now || (int) ( $pb['gen'] ?? -1 ) !== (int) ( $state['generation'] ?? 0 ) ) {
 			return false;
 		}
-		foreach ( (array) ( $state['unbans'] ?? [] ) as $u ) {
+		foreach ( (array) ( $state['unbans'] ?? array() ) as $u ) {
 			if ( is_array( $u ) && isset( $u[0], $u[2] ) && (int) $u[2] >= (int) ( $pb['t'] ?? 0 ) && BotStormRadar_IP_Resolver::ip_in_cidr( $ip, $u[0] . '/' . (int) ( $u[1] ?? 32 ) ) ) {
 				return false;
 			}
@@ -46,30 +46,58 @@ class BotStormRadar_Decision {
 	 * @return array {action: pass|ban|probe, why: string, ip: string|false}
 	 */
 	public static function decide( array $server, array $state, $now, $provisional = null ) {
-		$trust = isset( $state['trust'] ) && is_array( $state['trust'] ) ? $state['trust'] : [];
+		$trust = isset( $state['trust'] ) && is_array( $state['trust'] ) ? $state['trust'] : array();
 		$ip    = BotStormRadar_IP_Resolver::resolve( $server, $trust )['ip'];
 		// Probes first, for every address: these paths are never served by
 		// WordPress, so refusing them only turns a 404 into a cheap 403.
-		$probe = BotStormRadar_Probe::classify( (string) ( $server['REQUEST_URI'] ?? '' ), isset( $state['probe'] ) && is_array( $state['probe'] ) ? $state['probe'] : [], (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
+		$probe = BotStormRadar_Probe::classify( (string) ( $server['REQUEST_URI'] ?? '' ), isset( $state['probe'] ) && is_array( $state['probe'] ) ? $state['probe'] : array(), (string) ( $server['SCRIPT_FILENAME'] ?? '' ) );
 		if ( '' !== $probe ) {
-			return [ 'action' => 'probe', 'why' => $probe, 'ip' => $ip ];
+			return array(
+				'action' => 'probe',
+				'why'    => $probe,
+				'ip'     => $ip,
+			);
 		}
 		if ( false === $ip ) {
-			return [ 'action' => 'pass', 'why' => 'no-address', 'ip' => false ];
+			return array(
+				'action' => 'pass',
+				'why'    => 'no-address',
+				'ip'     => false,
+			);
 		}
 		if ( self::is_protected( $ip, $state ) ) {
-			return [ 'action' => 'pass', 'why' => 'protected', 'ip' => $ip ];
+			return array(
+				'action' => 'pass',
+				'why'    => 'protected',
+				'ip'     => $ip,
+			);
 		}
 		if ( 'enforce' !== ( $state['mode'] ?? 'observe' ) ) {
-			return [ 'action' => 'pass', 'why' => 'observe', 'ip' => $ip ];
+			return array(
+				'action' => 'pass',
+				'why'    => 'observe',
+				'ip'     => $ip,
+			);
 		}
 		if ( self::banned( $ip, $state, (int) $now ) ) {
-			return [ 'action' => 'ban', 'why' => 'banned', 'ip' => $ip ];
+			return array(
+				'action' => 'ban',
+				'why'    => 'banned',
+				'ip'     => $ip,
+			);
 		}
 		if ( is_callable( $provisional ) && self::provisional_holds( call_user_func( $provisional, $ip ), $ip, $state, (int) $now ) ) {
-			return [ 'action' => 'ban', 'why' => 'provisional', 'ip' => $ip ];
+			return array(
+				'action' => 'ban',
+				'why'    => 'provisional',
+				'ip'     => $ip,
+			);
 		}
-		return [ 'action' => 'pass', 'why' => 'clear', 'ip' => $ip ];
+		return array(
+			'action' => 'pass',
+			'why'    => 'clear',
+			'ip'     => $ip,
+		);
 	}
 
 	/**
@@ -84,9 +112,9 @@ class BotStormRadar_Decision {
 		if ( ! BotStormRadar_IP_Resolver::is_public_ip( $ip ) ) {
 			return true;
 		}
-		$trust = $state['trust'] ?? [];
-		$prot  = $state['protected'] ?? [];
-		foreach ( [ $trust['cloudflare'] ?? [], $trust['proxies'] ?? [], $prot['allowlist'] ?? [], $prot['admins'] ?? [], $prot['bots'] ?? [] ] as $list ) {
+		$trust = $state['trust'] ?? array();
+		$prot  = $state['protected'] ?? array();
+		foreach ( array( $trust['cloudflare'] ?? array(), $trust['proxies'] ?? array(), $prot['allowlist'] ?? array(), $prot['admins'] ?? array(), $prot['bots'] ?? array() ) as $list ) {
 			if ( ! empty( $list ) && BotStormRadar_IP_Resolver::ip_in_list( $ip, $list ) ) {
 				return true;
 			}
@@ -130,9 +158,9 @@ class BotStormRadar_Decision {
 	 * @return array {single: array, ranges: array}
 	 */
 	public static function index( array $state ) {
-		$single = [];
-		$ranges = [];
-		foreach ( (array) ( $state['bans'] ?? [] ) as $b ) {
+		$single = array();
+		$ranges = array();
+		foreach ( (array) ( $state['bans'] ?? array() ) as $b ) {
 			if ( ! is_array( $b ) || count( $b ) < 3 ) {
 				continue;
 			}
@@ -145,9 +173,12 @@ class BotStormRadar_Decision {
 				$hex            = bin2hex( $bin );
 				$single[ $hex ] = max( (int) $b[2], $single[ $hex ] ?? 0 );
 			} else {
-				$ranges[] = [ $b[0] . '/' . $len, (int) $b[2] ];
+				$ranges[] = array( $b[0] . '/' . $len, (int) $b[2] );
 			}
 		}
-		return [ 'single' => $single, 'ranges' => $ranges ];
+		return array(
+			'single' => $single,
+			'ranges' => $ranges,
+		);
 	}
 }

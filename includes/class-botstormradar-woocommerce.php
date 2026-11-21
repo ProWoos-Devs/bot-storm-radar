@@ -17,7 +17,7 @@ class BotStormRadar_WooCommerce {
 		if ( ! class_exists( 'WooCommerce' ) ) {
 			return;
 		}
-		add_filter( 'botstormradar_request_class', [ __CLASS__, 'classify' ], 10, 4 );
+		add_filter( 'botstormradar_request_class', array( __CLASS__, 'classify' ), 10, 4 );
 	}
 
 	/**
@@ -38,23 +38,41 @@ class BotStormRadar_WooCommerce {
 		if ( isset( $query['wc-ajax'] ) ) {
 			$action = substr( sanitize_key( (string) $query['wc-ajax'] ), 0, 40 );
 			if ( 'checkout' === $action ) {
-				return [ 'class' => 'checkout', 'detail' => 'wc-ajax' ];
+				return array(
+					'class'  => 'checkout',
+					'detail' => 'wc-ajax',
+				);
 			}
 			if ( 'add_to_cart' === $action ) {
-				return [ 'class' => 'cart', 'detail' => 'wc-ajax' ];
+				return array(
+					'class'  => 'cart',
+					'detail' => 'wc-ajax',
+				);
 			}
-			return [ 'class' => 'wc-ajax', 'detail' => $action ];
+			return array(
+				'class'  => 'wc-ajax',
+				'detail' => $action,
+			);
 		}
 		if ( isset( $query['add-to-cart'] ) ) {
-			return [ 'class' => 'cart', 'detail' => 'add-to-cart' ];
+			return array(
+				'class'  => 'cart',
+				'detail' => 'add-to-cart',
+			);
 		}
 		if ( 'rest' === $result['class'] && 'wc-store' === $result['detail'] ) {
 			$route = isset( $query['rest_route'] ) ? strtolower( (string) $query['rest_route'] ) : strtolower( (string) $path );
 			if ( preg_match( '#/wc/store/v\d+/checkout#', $route ) ) {
-				return [ 'class' => 'checkout', 'detail' => 'store-api' ];
+				return array(
+					'class'  => 'checkout',
+					'detail' => 'store-api',
+				);
 			}
 			if ( preg_match( '#/wc/store/v\d+/cart#', $route ) ) {
-				return [ 'class' => 'cart', 'detail' => 'store-api' ];
+				return array(
+					'class'  => 'cart',
+					'detail' => 'store-api',
+				);
 			}
 		}
 		return $result;

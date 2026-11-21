@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Classifier {
 
-	const ASSET_EXTENSIONS = [ 'css', 'js', 'mjs', 'map', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'otf', 'eot', 'mp4', 'webm', 'mp3', 'pdf', 'txt', 'xml' ];
+	const ASSET_EXTENSIONS = array( 'css', 'js', 'mjs', 'map', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'otf', 'eot', 'mp4', 'webm', 'mp3', 'pdf', 'txt', 'xml' );
 
 	/**
 	 * @var array|null {class, detail}
@@ -33,7 +33,7 @@ class BotStormRadar_Classifier {
 	 * @return array
 	 */
 	public static function known_classes() {
-		return apply_filters( 'botstormradar_known_classes', [ 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'special', 'revision', 'probe', 'other' ] );
+		return apply_filters( 'botstormradar_known_classes', array( 'html', 'search', 'rest', 'xmlrpc', 'login', 'register', 'comment', 'admin-ajax', 'wc-ajax', 'checkout', 'cart', 'asset', '404', 'special', 'revision', 'probe', 'other' ) );
 	}
 
 	/**
@@ -77,8 +77,8 @@ class BotStormRadar_Classifier {
 	 * @return array
 	 */
 	public static function server_vars() {
-		$out = [];
-		foreach ( [ 'REQUEST_METHOD', 'SCRIPT_FILENAME' ] as $k ) {
+		$out = array();
+		foreach ( array( 'REQUEST_METHOD', 'SCRIPT_FILENAME' ) as $k ) {
 			if ( isset( $_SERVER[ $k ] ) && is_string( $_SERVER[ $k ] ) ) {
 				$out[ $k ] = substr( sanitize_text_field( wp_unslash( $_SERVER[ $k ] ) ), 0, 2048 );
 			}
@@ -94,7 +94,10 @@ class BotStormRadar_Classifier {
 	 * @param string $detail
 	 */
 	public static function set( $class, $detail = '' ) {
-		self::$result = [ 'class' => (string) $class, 'detail' => (string) $detail ];
+		self::$result = array(
+			'class'  => (string) $class,
+			'detail' => (string) $detail,
+		);
 	}
 
 	/**
@@ -116,15 +119,15 @@ class BotStormRadar_Classifier {
 		static $paths = null;
 		if ( null === $paths ) {
 			$base  = rtrim( strtolower( (string) wp_parse_url( site_url( '/' ), PHP_URL_PATH ) ), '/' );
-			$urls  = [
+			$urls  = array(
 				'ajax'    => admin_url( 'admin-ajax.php' ),
 				'login'   => wp_login_url(),
 				'xmlrpc'  => site_url( 'xmlrpc.php' ),
 				'comment' => site_url( 'wp-comments-post.php' ),
 				'cron'    => site_url( 'wp-cron.php' ),
 				'admin'   => admin_url( '/' ),
-			];
-			$paths = [];
+			);
+			$paths = array();
 			foreach ( $urls as $name => $url ) {
 				$path = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_PATH ) );
 				if ( '' !== $base && 0 === strpos( $path, $base . '/' ) ) {
@@ -218,9 +221,21 @@ class BotStormRadar_Classifier {
 		 * @param array  $query
 		 * @param array  $server
 		 */
-		$result = apply_filters( 'botstormradar_request_class', [ 'class' => $class, 'detail' => $detail ], $path, $query, $server );
+		$result = apply_filters(
+			'botstormradar_request_class',
+			array(
+				'class'  => $class,
+				'detail' => $detail,
+			),
+			$path,
+			$query,
+			$server
+		);
 		if ( ! is_array( $result ) || empty( $result['class'] ) ) {
-			$result = [ 'class' => $class, 'detail' => $detail ];
+			$result = array(
+				'class'  => $class,
+				'detail' => $detail,
+			);
 		}
 		$result['class']  = substr( sanitize_key( (string) $result['class'] ), 0, 20 );
 		$result['detail'] = substr( (string) ( $result['detail'] ?? '' ), 0, 40 );

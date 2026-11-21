@@ -40,10 +40,10 @@ class BotStormRadar_Recorder {
 	private static $spent = 0.0;
 
 	public static function init() {
-		add_action( 'template_redirect', [ __CLASS__, 'late_classify' ], PHP_INT_MAX );
+		add_action( 'template_redirect', array( __CLASS__, 'late_classify' ), PHP_INT_MAX );
 		// Last on shutdown: WordPress has flushed its output buffers by then,
 		// so under PHP-FPM the response can be handed to the client first.
-		add_action( 'shutdown', [ __CLASS__, 'record' ], PHP_INT_MAX );
+		add_action( 'shutdown', array( __CLASS__, 'record' ), PHP_INT_MAX );
 	}
 
 	/**
@@ -96,7 +96,7 @@ class BotStormRadar_Recorder {
 			return;
 		}
 		self::$recorded = true;
-		$event = self::event_from_request();
+		$event          = self::event_from_request();
 		if ( '' === $event['ip'] ) {
 			return;
 		}
@@ -128,7 +128,7 @@ class BotStormRadar_Recorder {
 	public static function event_from_request() {
 		$start = isset( $_SERVER['REQUEST_TIME_FLOAT'] ) ? (float) $_SERVER['REQUEST_TIME_FLOAT'] : microtime( true );
 		$code  = function_exists( 'http_response_code' ) ? http_response_code() : 200;
-		return [
+		return array(
 			'class'   => BotStormRadar_Classifier::get_class(),
 			'detail'  => BotStormRadar_Classifier::get_detail(),
 			'ip'      => (string) BotStormRadar_Client_IP::resolve(),
@@ -137,7 +137,7 @@ class BotStormRadar_Recorder {
 			'status'  => is_int( $code ) ? $code : 200,
 			'ms'      => (int) round( ( microtime( true ) - $start ) * 1000 ),
 			'method'  => isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET',
-		];
+		);
 	}
 
 	/**
@@ -160,13 +160,13 @@ class BotStormRadar_Recorder {
 			return '';
 		}
 		BotStormRadar_Counters::flush();
-		$ev = [
+		$ev = array(
 			'by'         => 'radar',
 			'page_404s'  => $n,
 			'last_path'  => substr( (string) BotStormRadar_Helpers::request_path(), 0, 200 ),
 			'user_agent' => (string) ( $e['ua'] ?? '' ),
 			'minute'     => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',
-		];
+		);
 		return BotStormRadar_Trips::trip( $ip, '404', $ev, 'radar', BotStormRadar_Good_Bots::claimed( (string) ( $e['ua'] ?? '' ) ) );
 	}
 
@@ -262,7 +262,6 @@ class BotStormRadar_Recorder {
 		if ( '' !== $session && 1 === BotStormRadar_Counters::incr( $m . 'sess:' . $session ) ) {
 			BotStormRadar_Counters::incr( $m . 'sessions' );
 		}
-
 
 		$status = (int) ( $e['status'] ?? 200 );
 		if ( $status >= 500 ) {

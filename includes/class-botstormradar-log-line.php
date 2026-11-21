@@ -27,31 +27,31 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Log_Line {
 
-	const PROFILES = [ 'mediawiki', 'wordpress' ];
+	const PROFILES = array( 'mediawiki', 'wordpress' );
 
 	/**
 	 * Special namespace names, canonical first, then localized ones.
 	 */
-	const MW_SPECIAL = [ 'special', 'especial' ];
+	const MW_SPECIAL = array( 'special', 'especial' );
 
 	/**
 	 * Special pages that are searches or logins, in lowercase, without the
 	 * namespace. Spanish aliases from MediaWiki's MessagesEs.php.
 	 */
-	const MW_SEARCH = [ 'search', 'buscar' ];
-	const MW_LOGIN  = [ 'userlogin', 'entrar', 'entrada_del_usuario', 'createaccount', 'crear_una_cuenta', 'crearcuenta', 'userlogout', 'salida_del_usuario', 'salir' ];
+	const MW_SEARCH = array( 'search', 'buscar' );
+	const MW_LOGIN  = array( 'userlogin', 'entrar', 'entrada_del_usuario', 'createaccount', 'crear_una_cuenta', 'crearcuenta', 'userlogout', 'salida_del_usuario', 'salir' );
 
 	/**
 	 * Query keys that make an index.php request something other than a page
 	 * view: an old revision, a diff, an edit form, a history.
 	 */
-	const MW_REVISION_KEYS = [ 'oldid', 'diff', 'curid', 'undo', 'undoafter', 'direction', 'veaction', 'section', 'preload', 'rcid', 'printable' ];
+	const MW_REVISION_KEYS = array( 'oldid', 'diff', 'curid', 'undo', 'undoafter', 'direction', 'veaction', 'section', 'preload', 'rcid', 'printable' );
 
 	/**
 	 * @var array Last parsed $time_local string => timestamp (lines come in
 	 *            runs of the same second).
 	 */
-	private static $time_cache = [ '', 0 ];
+	private static $time_cache = array( '', 0 );
 
 	/**
 	 * Parse one combined-format line.
@@ -82,7 +82,7 @@ class BotStormRadar_Log_Line {
 			$method = $r[1];
 			$target = $r[2];
 		}
-		return [
+		return array(
 			'ip'     => $ip,
 			'ts'     => $ts,
 			'minute' => intdiv( $ts, 60 ),
@@ -90,7 +90,7 @@ class BotStormRadar_Log_Line {
 			'target' => $target,
 			'status' => (int) $m[4],
 			'ua'     => '-' === $m[5] ? '' : $m[5],
-		];
+		);
 	}
 
 	/**
@@ -105,7 +105,7 @@ class BotStormRadar_Log_Line {
 		if ( false === $dt ) {
 			return null;
 		}
-		self::$time_cache = [ $time_local, $dt->getTimestamp() ];
+		self::$time_cache = array( $time_local, $dt->getTimestamp() );
 		return self::$time_cache[1];
 	}
 
@@ -122,12 +122,12 @@ class BotStormRadar_Log_Line {
 		}
 		$qpos  = strpos( $p['target'], '?' );
 		$path  = false === $qpos ? $p['target'] : substr( $p['target'], 0, $qpos );
-		$query = [];
+		$query = array();
 		if ( false !== $qpos ) {
 			parse_str( substr( $p['target'], $qpos + 1 ), $query );
 		}
 		if ( 'wordpress' === $profile ) {
-			$c = BotStormRadar_Classifier::classify( rawurldecode( $path ), $query, [ 'REQUEST_METHOD' => $p['method'] ] )['class'];
+			$c = BotStormRadar_Classifier::classify( rawurldecode( $path ), $query, array( 'REQUEST_METHOD' => $p['method'] ) )['class'];
 			if ( 'html' === $c && 404 === $p['status'] ) {
 				$c = '404';
 			}
@@ -188,7 +188,7 @@ class BotStormRadar_Log_Line {
 		$title = str_replace( ' ', '_', $title );
 		$colon = strpos( $title, ':' );
 		if ( false !== $colon && in_array( substr( $title, 0, $colon ), self::MW_SPECIAL, true ) ) {
-			$page = substr( $title, $colon + 1 );
+			$page  = substr( $title, $colon + 1 );
 			$slash = strpos( $page, '/' );
 			$page  = false === $slash ? $page : substr( $page, 0, $slash );
 			if ( in_array( $page, self::MW_SEARCH, true ) ) {

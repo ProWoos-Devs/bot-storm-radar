@@ -72,21 +72,21 @@ class BotStormRadar_Provider_Report {
 		}
 		$response = wp_remote_get(
 			add_query_arg(
-				[
+				array(
 					'resource'  => rawurlencode( (string) $ip ),
 					'sourceapp' => 'bot-storm-radar',
-				],
+				),
 				self::API_URL
 			),
-			[
+			array(
 				'timeout' => 10,
-				'headers' => [
+				'headers' => array(
 					'Accept'     => 'application/json',
 					'User-Agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION,
-				],
-			]
+				),
+			)
 		);
-		$res = self::parse( $response );
+		$res      = self::parse( $response );
 		$res['t'] = time();
 		set_transient( $key, $res, $res['ok'] ? self::CACHE_TTL : self::FAIL_TTL );
 		return $res;
@@ -100,26 +100,36 @@ class BotStormRadar_Provider_Report {
 	 */
 	public static function parse( $response ) {
 		if ( is_wp_error( $response ) ) {
-			return [ 'ok' => false, 'contacts' => [], 'rir' => '', 'error' => substr( sanitize_text_field( $response->get_error_message() ), 0, 200 ) ];
+			return array(
+				'ok'       => false,
+				'contacts' => array(),
+				'rir'      => '',
+				'error'    => substr( sanitize_text_field( $response->get_error_message() ), 0, 200 ),
+			);
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 		if ( 200 !== $code || ! is_array( $body ) || 'ok' !== ( $body['status'] ?? '' ) || ! isset( $body['data'] ) || ! is_array( $body['data'] ) ) {
-			return [ 'ok' => false, 'contacts' => [], 'rir' => '', 'error' => 'HTTP ' . $code ];
+			return array(
+				'ok'       => false,
+				'contacts' => array(),
+				'rir'      => '',
+				'error'    => 'HTTP ' . $code,
+			);
 		}
-		$contacts = [];
-		foreach ( (array) ( $body['data']['abuse_contacts'] ?? [] ) as $email ) {
+		$contacts = array();
+		foreach ( (array) ( $body['data']['abuse_contacts'] ?? array() ) as $email ) {
 			$email = sanitize_email( (string) $email );
 			if ( '' !== $email && is_email( $email ) && ! in_array( $email, $contacts, true ) ) {
 				$contacts[] = $email;
 			}
 		}
-		return [
+		return array(
 			'ok'       => true,
 			'contacts' => array_slice( $contacts, 0, self::CONTACTS ),
 			'rir'      => strtoupper( sanitize_key( (string) ( $body['data']['authoritative_rir'] ?? '' ) ) ),
 			'error'    => '',
-		];
+		);
 	}
 
 	// ── The report ───────────────────────────────────────────────────
@@ -142,7 +152,7 @@ class BotStormRadar_Provider_Report {
 	public static function body( array $c, $sender = '' ) {
 		$ev    = $c['evidence'];
 		$host  = (string) wp_parse_url( home_url(), PHP_URL_HOST );
-		$lines = [ 'Hello,', '' ];
+		$lines = array( 'Hello,', '' );
 
 		$lines[] = 'The address ' . $c['ip'] . ' probed a website I operate' . ( '' !== $host ? ' (' . $host . ')' : '' ) . ' for files that vulnerability scanners look for, ' . self::when( (int) $c['first'], (int) $c['last'] ) . '.';
 		$lines[] = '';
@@ -224,7 +234,15 @@ class BotStormRadar_Provider_Report {
 		}
 		printf(
 			'<br /><a class="button button-small bsr-provider-link" href="%1$s" title="%2$s">%3$s</a>',
-			esc_url( BotStormRadar_Admin::action_url( 'provider_report', [ 'ip' => $c['ip'], 'kind' => $kind ] ) ),
+			esc_url(
+				BotStormRadar_Admin::action_url(
+					'provider_report',
+					array(
+						'ip'   => $c['ip'],
+						'kind' => $kind,
+					)
+				)
+			),
 			esc_attr__( 'Looks up the network\'s abuse contact at RIPEstat and prepares a report you send from your own mailbox.', 'bot-storm-radar' ),
 			esc_html__( 'Provider report', 'bot-storm-radar' )
 		);
@@ -270,7 +288,7 @@ class BotStormRadar_Provider_Report {
 		$user    = wp_get_current_user();
 		$subject = self::subject( $c );
 		$body    = self::body( $c, $user ? $user->display_name : '' );
-		$close   = remove_query_arg( [ self::ARG, 'kind' ] );
+		$close   = remove_query_arg( array( self::ARG, 'kind' ) );
 		?>
 		<div class="bsr-provider-panel">
 			<h2>
@@ -306,7 +324,7 @@ class BotStormRadar_Provider_Report {
 			<p><label><?php esc_html_e( 'Message', 'bot-storm-radar' ); ?><br /><textarea class="large-text code" rows="16" readonly><?php echo esc_textarea( $body ); ?></textarea></label></p>
 			<p>
 				<?php if ( $res['ok'] && ! empty( $res['contacts'] ) ) : ?>
-					<a class="button button-primary" href="<?php echo esc_url( 'mailto:' . implode( ',', $res['contacts'] ) . '?subject=' . rawurlencode( $subject ) . '&body=' . rawurlencode( str_replace( "\n", "\r\n", $body ) ), [ 'mailto' ] ); ?>"><?php esc_html_e( 'Open in your mail app', 'bot-storm-radar' ); ?></a>
+					<a class="button button-primary" href="<?php echo esc_url( 'mailto:' . implode( ',', $res['contacts'] ) . '?subject=' . rawurlencode( $subject ) . '&body=' . rawurlencode( str_replace( "\n", "\r\n", $body ) ), array( 'mailto' ) ); ?>"><?php esc_html_e( 'Open in your mail app', 'bot-storm-radar' ); ?></a>
 				<?php endif; ?>
 				<a class="button" href="<?php echo esc_url( $close ); ?>"><?php esc_html_e( 'Close', 'bot-storm-radar' ); ?></a>
 			</p>

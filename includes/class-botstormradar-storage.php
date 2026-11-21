@@ -19,11 +19,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BotStormRadar_Storage {
 
-	const CHUNK_PREFIX      = 'botstormradar_min_';
-	const CHUNK_INDEX       = 'botstormradar_min_chunks';
-	const CHUNK_HOURS       = 25;
-	const TRANSITIONS       = 'botstormradar_transitions';
-	const TRANSITIONS_CAP   = 200;
+	const CHUNK_PREFIX    = 'botstormradar_min_';
+	const CHUNK_INDEX     = 'botstormradar_min_chunks';
+	const CHUNK_HOURS     = 25;
+	const TRANSITIONS     = 'botstormradar_transitions';
+	const TRANSITIONS_CAP = 200;
 
 	/**
 	 * @param int    $minute
@@ -39,10 +39,10 @@ class BotStormRadar_Storage {
 	 * @param string $source
 	 */
 	public static function add_minute( array $row, $source = BotStormRadar_Sources::SITE ) {
-		$minute = (int) $row['m'];
-		$name   = self::chunk_for( $minute, $source );
-		$chunk  = get_option( $name, [] );
-		$chunk  = is_array( $chunk ) ? $chunk : [];
+		$minute           = (int) $row['m'];
+		$name             = self::chunk_for( $minute, $source );
+		$chunk            = get_option( $name, array() );
+		$chunk            = is_array( $chunk ) ? $chunk : array();
 		$chunk[ $minute ] = $row;
 		ksort( $chunk );
 		if ( false === get_option( $name, false ) ) {
@@ -52,8 +52,8 @@ class BotStormRadar_Storage {
 		}
 
 		$index_name = BotStormRadar_Sources::option( self::CHUNK_INDEX, $source );
-		$index      = get_option( $index_name, [] );
-		$index      = is_array( $index ) ? $index : [];
+		$index      = get_option( $index_name, array() );
+		$index      = is_array( $index ) ? $index : array();
 		if ( ! in_array( $name, $index, true ) ) {
 			$index[] = $name;
 			sort( $index );
@@ -77,15 +77,15 @@ class BotStormRadar_Storage {
 	public static function minutes_last( $n, $until = null, $source = BotStormRadar_Sources::SITE ) {
 		$until = null === $until ? BotStormRadar_Helpers::minute() - 1 : (int) $until;
 		$from  = $until - (int) $n + 1;
-		$rows  = [];
-		$seen  = [];
+		$rows  = array();
+		$seen  = array();
 		for ( $m = $from; $m <= $until; $m += 60 ) {
-			$name = self::chunk_for( $m, $source );
+			$name          = self::chunk_for( $m, $source );
 			$seen[ $name ] = true;
 		}
 		$seen[ self::chunk_for( $until, $source ) ] = true;
 		foreach ( array_keys( $seen ) as $name ) {
-			$chunk = get_option( $name, [] );
+			$chunk = get_option( $name, array() );
 			if ( ! is_array( $chunk ) ) {
 				continue;
 			}
@@ -107,10 +107,10 @@ class BotStormRadar_Storage {
 	 * @return array
 	 */
 	public static function minutes_for_day( $ymd, $source = BotStormRadar_Sources::SITE ) {
-		$rows   = [];
+		$rows   = array();
 		$prefix = BotStormRadar_Sources::option( self::CHUNK_PREFIX, $source );
 		for ( $h = 0; $h < 24; $h++ ) {
-			$chunk = get_option( $prefix . $ymd . sprintf( '%02d', $h ), [] );
+			$chunk = get_option( $prefix . $ymd . sprintf( '%02d', $h ), array() );
 			if ( is_array( $chunk ) ) {
 				foreach ( $chunk as $m => $row ) {
 					$rows[ (int) $m ] = $row;
@@ -127,8 +127,8 @@ class BotStormRadar_Storage {
 	 */
 	public static function add_transition( array $t, $source = BotStormRadar_Sources::SITE ) {
 		$name = BotStormRadar_Sources::option( self::TRANSITIONS, $source );
-		$log  = get_option( $name, [] );
-		$log = is_array( $log ) ? $log : [];
+		$log  = get_option( $name, array() );
+		$log  = is_array( $log ) ? $log : array();
 		array_unshift( $log, $t );
 		if ( count( $log ) > self::TRANSITIONS_CAP ) {
 			$log = array_slice( $log, 0, self::TRANSITIONS_CAP );
@@ -146,8 +146,8 @@ class BotStormRadar_Storage {
 	 * @return array Newest first.
 	 */
 	public static function transitions( $n = 50, $source = BotStormRadar_Sources::SITE ) {
-		$log = get_option( BotStormRadar_Sources::option( self::TRANSITIONS, $source ), [] );
-		return is_array( $log ) ? array_slice( $log, 0, $n ) : [];
+		$log = get_option( BotStormRadar_Sources::option( self::TRANSITIONS, $source ), array() );
+		return is_array( $log ) ? array_slice( $log, 0, $n ) : array();
 	}
 
 	/**
@@ -157,7 +157,7 @@ class BotStormRadar_Storage {
 	 */
 	public static function clear( $source = BotStormRadar_Sources::SITE ) {
 		$index_name = BotStormRadar_Sources::option( self::CHUNK_INDEX, $source );
-		$index      = get_option( $index_name, [] );
+		$index      = get_option( $index_name, array() );
 		if ( is_array( $index ) ) {
 			foreach ( $index as $name ) {
 				delete_option( $name );

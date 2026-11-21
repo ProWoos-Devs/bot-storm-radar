@@ -48,7 +48,7 @@ class BotStormRadar_Good_Bots {
 
 	public static function init() {
 		// The DuckDuckBot list refreshes on the same daily hook as the Cloudflare ranges.
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'refresh_ip_lists' ], 20 );
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, array( __CLASS__, 'refresh_ip_lists' ), 20 );
 	}
 
 	/**
@@ -67,33 +67,33 @@ class BotStormRadar_Good_Bots {
 	 * @return array name => [pattern, rdns host endings | ip list]
 	 */
 	public static function bots() {
-		return [
-			'googlebot'   => [
+		return array(
+			'googlebot'   => array(
 				'label'   => 'Googlebot',
 				'pattern' => '~Googlebot|Google-InspectionTool|AdsBot-Google|Storebot-Google|GoogleOther~i',
-				'rdns'    => [ '.googlebot.com', '.google.com' ],
-			],
-			'bingbot'     => [
+				'rdns'    => array( '.googlebot.com', '.google.com' ),
+			),
+			'bingbot'     => array(
 				'label'   => 'Bingbot',
 				'pattern' => '~bingbot|BingPreview|msnbot|adidxbot|MicrosoftPreview~i',
-				'rdns'    => [ '.search.msn.com' ],
-			],
-			'applebot'    => [
+				'rdns'    => array( '.search.msn.com' ),
+			),
+			'applebot'    => array(
 				'label'   => 'Applebot',
 				'pattern' => '~Applebot~i',
-				'rdns'    => [ '.applebot.apple.com' ],
-			],
-			'duckduckbot' => [
+				'rdns'    => array( '.applebot.apple.com' ),
+			),
+			'duckduckbot' => array(
 				'label'   => 'DuckDuckBot',
 				'pattern' => '~DuckDuckBot|DuckDuckGo~i',
 				'iplist'  => true,
-			],
-			'yandex'      => [
+			),
+			'yandex'      => array(
 				'label'   => 'Yandex',
 				'pattern' => '~Yandex~i',
-				'rdns'    => [ '.yandex.ru', '.yandex.net', '.yandex.com' ],
-			],
-		];
+				'rdns'    => array( '.yandex.ru', '.yandex.net', '.yandex.com' ),
+			),
+		);
 	}
 
 	/**
@@ -150,12 +150,12 @@ class BotStormRadar_Good_Bots {
 	 * @return int Number verified.
 	 */
 	public static function verify_pending() {
-		$pending = BotStormRadar_Counters::get_value( self::PENDING_KEY, [] );
+		$pending = BotStormRadar_Counters::get_value( self::PENDING_KEY, array() );
 		if ( ! is_array( $pending ) || empty( $pending ) ) {
 			return 0;
 		}
 		if ( ! self::dns_enabled() ) {
-			BotStormRadar_Counters::set_value( self::PENDING_KEY, [], BotStormRadar_Counters::TTL_GLOBAL ); // Switched off with addresses queued.
+			BotStormRadar_Counters::set_value( self::PENDING_KEY, array(), BotStormRadar_Counters::TTL_GLOBAL ); // Switched off with addresses queued.
 			return 0;
 		}
 		$t0   = microtime( true );
@@ -167,7 +167,7 @@ class BotStormRadar_Good_Bots {
 			$v = self::verify_now( (string) $ip, (string) $name ) ? 'verified' : 'fake';
 			self::store_verdict( (string) $ip, (string) $name, $v );
 			unset( $pending[ $ip ] );
-			$done++;
+			++$done;
 		}
 		BotStormRadar_Counters::set_value( self::PENDING_KEY, $pending, BotStormRadar_Counters::TTL_GLOBAL );
 		return $done;
@@ -282,7 +282,13 @@ class BotStormRadar_Good_Bots {
 	 * Daily refresh of the DuckDuckBot list. Keeps the previous copy on failure.
 	 */
 	public static function refresh_ip_lists() {
-		$r = wp_remote_get( self::DDG_URL, [ 'timeout' => 10, 'user-agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION ] );
+		$r = wp_remote_get(
+			self::DDG_URL,
+			array(
+				'timeout'    => 10,
+				'user-agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION,
+			)
+		);
 		if ( is_wp_error( $r ) || 200 !== (int) wp_remote_retrieve_response_code( $r ) ) {
 			return;
 		}
@@ -290,7 +296,7 @@ class BotStormRadar_Good_Bots {
 		if ( ! is_array( $json ) || empty( $json['prefixes'] ) || ! is_array( $json['prefixes'] ) ) {
 			return;
 		}
-		$ranges = [];
+		$ranges = array();
 		foreach ( $json['prefixes'] as $p ) {
 			$c = $p['ipv4Prefix'] ?? ( $p['ipv6Prefix'] ?? '' );
 			if ( is_string( $c ) && '' !== $c && BotStormRadar_Helpers::is_valid_ip( explode( '/', $c )[0] ) ) {
@@ -298,7 +304,14 @@ class BotStormRadar_Good_Bots {
 			}
 		}
 		if ( count( $ranges ) >= 10 ) {
-			update_option( self::DDG_OPTION, [ 'ranges' => $ranges, 'fetched_at' => time() ], false );
+			update_option(
+				self::DDG_OPTION,
+				array(
+					'ranges'     => $ranges,
+					'fetched_at' => time(),
+				),
+				false
+			);
 		}
 	}
 
@@ -309,10 +322,24 @@ class BotStormRadar_Good_Bots {
 	 */
 	public static function store_verdict( $ip, $name, $verdict ) {
 		$before = BotStormRadar_Counters::get_value( 'g:bot:' . $ip );
-		BotStormRadar_Counters::set_value( 'g:bot:' . $ip, [ 'v' => $verdict, 'bot' => $name, 't' => time() ], self::VERDICT_TTL );
-		$recent = BotStormRadar_Counters::get_value( self::RECENT_KEY, [] );
-		$recent = is_array( $recent ) ? $recent : [];
-		$recent = [ $ip => [ 'bot' => $name, 'v' => $verdict, 't' => time() ] ] + $recent;
+		BotStormRadar_Counters::set_value(
+			'g:bot:' . $ip,
+			array(
+				'v'   => $verdict,
+				'bot' => $name,
+				't'   => time(),
+			),
+			self::VERDICT_TTL
+		);
+		$recent = BotStormRadar_Counters::get_value( self::RECENT_KEY, array() );
+		$recent = is_array( $recent ) ? $recent : array();
+		$recent = array(
+			$ip => array(
+				'bot' => $name,
+				'v'   => $verdict,
+				't'   => time(),
+			),
+		) + $recent;
 		if ( count( $recent ) > self::RECENT_CAP ) {
 			$recent = array_slice( $recent, 0, self::RECENT_CAP, true );
 		}
@@ -329,15 +356,15 @@ class BotStormRadar_Good_Bots {
 	 * @return array ip => [bot, v, t]
 	 */
 	public static function recent() {
-		$r = BotStormRadar_Counters::get_value( self::RECENT_KEY, [] );
-		return is_array( $r ) ? $r : [];
+		$r = BotStormRadar_Counters::get_value( self::RECENT_KEY, array() );
+		return is_array( $r ) ? $r : array();
 	}
 
 	/**
 	 * @return int
 	 */
 	public static function pending_count() {
-		$p = BotStormRadar_Counters::get_value( self::PENDING_KEY, [] );
+		$p = BotStormRadar_Counters::get_value( self::PENDING_KEY, array() );
 		return is_array( $p ) ? count( $p ) : 0;
 	}
 }

@@ -17,13 +17,13 @@ class BotStormRadar_Admin {
 	const CAP          = 'manage_options';
 
 	public static function init() {
-		add_action( 'admin_menu', [ __CLASS__, 'add_menu_page' ] );
-		add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
-		add_action( 'admin_init', [ __CLASS__, 'handle_admin_actions' ] );
-		add_action( 'admin_notices', [ __CLASS__, 'admin_notices' ] );
-		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
-		add_action( 'wp_dashboard_setup', [ __CLASS__, 'add_dashboard_widget' ] );
-		add_filter( 'plugin_action_links_' . BOTSTORMRADAR_PLUGIN_BASENAME, [ __CLASS__, 'add_action_links' ] );
+		add_action( 'admin_menu', array( __CLASS__, 'add_menu_page' ) );
+		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
+		add_action( 'admin_init', array( __CLASS__, 'handle_admin_actions' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+		add_action( 'wp_dashboard_setup', array( __CLASS__, 'add_dashboard_widget' ) );
+		add_filter( 'plugin_action_links_' . BOTSTORMRADAR_PLUGIN_BASENAME, array( __CLASS__, 'add_action_links' ) );
 	}
 
 	public static function add_menu_page() {
@@ -32,7 +32,7 @@ class BotStormRadar_Admin {
 			__( 'Bot Storm Radar', 'bot-storm-radar' ),
 			self::CAP,
 			self::PAGE,
-			[ __CLASS__, 'render_page' ],
+			array( __CLASS__, 'render_page' ),
 			'dashicons-visibility',
 			57
 		);
@@ -47,14 +47,14 @@ class BotStormRadar_Admin {
 		if ( 'toplevel_page_' . self::PAGE !== $hook && 'index.php' !== $hook ) {
 			return;
 		}
-		wp_register_style( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION );
+		wp_register_style( 'botstormradar-admin', false, array(), BOTSTORMRADAR_VERSION );
 		wp_enqueue_style( 'botstormradar-admin' );
 		wp_add_inline_style( 'botstormradar-admin', self::css() );
 		// github-build-only:start
 		wp_add_inline_style( 'botstormradar-admin', '.bsr-report-text{white-space:pre-wrap;word-break:break-word;max-width:420px;font-size:12px;margin:4px 0}.bsr-provider-link{margin-top:4px}.bsr-provider-panel{background:#fff;border:1px solid #c3c4c7;border-left:4px solid #2271b1;padding:4px 16px 8px;margin:12px 0;max-width:900px}' );
 		// github-build-only:end
 		// Links that ask before they act carry their question in data-botstormradar-confirm.
-		wp_register_script( 'botstormradar-admin', false, [], BOTSTORMRADAR_VERSION, true );
+		wp_register_script( 'botstormradar-admin', false, array(), BOTSTORMRADAR_VERSION, true );
 		wp_enqueue_script( 'botstormradar-admin' );
 		wp_add_inline_script( 'botstormradar-admin', 'document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-botstormradar-confirm]");if(a&&!window.confirm(a.getAttribute("data-botstormradar-confirm"))){e.preventDefault();}});' );
 	}
@@ -64,7 +64,7 @@ class BotStormRadar_Admin {
 	private static function current_tab() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'radar';
-		return in_array( $tab, [ 'radar', 'bans', 'settings' ], true ) ? $tab : 'radar';
+		return in_array( $tab, array( 'radar', 'bans', 'settings' ), true ) ? $tab : 'radar';
 	}
 
 	/**
@@ -80,17 +80,17 @@ class BotStormRadar_Admin {
 	}
 
 	private static function tabs() {
-		return [
+		return array(
 			'radar'    => __( 'Radar', 'bot-storm-radar' ),
 			'bans'     => __( 'Bans', 'bot-storm-radar' ),
 			'settings' => __( 'Settings', 'bot-storm-radar' ),
-		];
+		);
 	}
 
 	// ── Settings ────────────────────────────────────────────────────
 
 	public static function register_settings() {
-		register_setting( 'botstormradar_group', Bot_Storm_Radar::OPTION_KEY, [ __CLASS__, 'sanitize' ] );
+		register_setting( 'botstormradar_group', Bot_Storm_Radar::OPTION_KEY, array( __CLASS__, 'sanitize' ) );
 
 		$b = BotStormRadar_Baseline::effective();
 		$baseline_note = self::baseline_sentence( $b );
@@ -126,7 +126,7 @@ class BotStormRadar_Admin {
 			printf( '<input type="text" class="regular-text" name="%1$s[email_recipients]" value="%2$s" /><p class="description">%3$s</p>', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( BotStormRadar_Helpers::opt( 'email_recipients', '' ) ), esc_html__( 'Comma-separated. Leave empty to disable email alerts.', 'bot-storm-radar' ) );
 		}, self::PAGE, 'botstormradar_alerts' );
 		add_settings_field( 'alerts_on', __( 'Send an email on', 'bot-storm-radar' ), function () {
-			foreach ( [ 'alert_on_warning' => __( 'warning', 'bot-storm-radar' ), 'alert_on_storm' => __( 'storm', 'bot-storm-radar' ), 'alert_on_calm' => __( 'all-clear after a storm', 'bot-storm-radar' ) ] as $k => $label ) {
+			foreach ( array( 'alert_on_warning' => __( 'warning', 'bot-storm-radar' ), 'alert_on_storm' => __( 'storm', 'bot-storm-radar' ), 'alert_on_calm' => __( 'all-clear after a storm', 'bot-storm-radar' ) ) as $k => $label ) {
 				printf( '<label><input type="checkbox" name="%1$s[%2$s]" value="1" %3$s /> %4$s</label><br />', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( $k ), checked( 1, (int) BotStormRadar_Helpers::opt( $k, 1 ), false ), esc_html( $label ) );
 			}
 		}, self::PAGE, 'botstormradar_alerts' );
@@ -177,7 +177,7 @@ class BotStormRadar_Admin {
 		}, self::PAGE );
 		add_settings_field( 'ban_mode', __( 'Mode', 'bot-storm-radar' ), function () {
 			$v = BotStormRadar_Helpers::opt( 'ban_mode', 'observe' );
-			foreach ( [ 'observe' => __( 'Observe only: list would-be bans, refuse nobody', 'bot-storm-radar' ), 'enforce' => __( 'Enforce: ban addresses that trip', 'bot-storm-radar' ) ] as $k => $label ) {
+			foreach ( array( 'observe' => __( 'Observe only: list would-be bans, refuse nobody', 'bot-storm-radar' ), 'enforce' => __( 'Enforce: ban addresses that trip', 'bot-storm-radar' ) ) as $k => $label ) {
 				printf( '<label><input type="radio" name="%1$s[ban_mode]" value="%2$s" %3$s /> %4$s</label><br />', esc_attr( Bot_Storm_Radar::OPTION_KEY ), esc_attr( $k ), checked( $k, $v, false ), esc_html( $label ) );
 			}
 		}, self::PAGE, 'botstormradar_bans' );
@@ -232,8 +232,8 @@ class BotStormRadar_Admin {
 	 */
 	public static function sanitize( $input ) {
 		$defaults = Bot_Storm_Radar::get_default_options();
-		$current  = get_option( Bot_Storm_Radar::OPTION_KEY, [] );
-		$current  = wp_parse_args( is_array( $current ) ? $current : [], $defaults );
+		$current  = get_option( Bot_Storm_Radar::OPTION_KEY, array() );
+		$current  = wp_parse_args( is_array( $current ) ? $current : array(), $defaults );
 		if ( ! is_array( $input ) ) {
 			return $current;
 		}
@@ -241,7 +241,7 @@ class BotStormRadar_Admin {
 		if ( isset( $input['ban_mode'] ) ) {
 			$out['ban_mode'] = 'enforce' === $input['ban_mode'] ? 'enforce' : 'observe';
 		}
-		$ints = [ 'trip_probe_count' => [ 0, 1000 ], 'trip_probe_window_minutes' => [ 1, BotStormRadar_Trips::MAX_PROBE_WINDOW_MINUTES ], 'trip_404_count' => [ 0, 10000 ], 'trip_ban_minutes' => [ 1, 10080 ], 'trip_ban_repeat_hours' => [ 1, 720 ], 'warning_threshold' => [ 0, 100 ], 'storm_threshold' => [ 0, 100 ], 'min_distinct_ips' => [ 1, 100000 ], 'slow_request_ms' => [ 0, 60000 ], 'warning_minutes' => [ 1, 60 ], 'storm_minutes' => [ 1, 60 ], 'warning_clear_minutes' => [ 1, 240 ], 'storm_hold_minutes' => [ 1, 720 ], 'cooling_hold_minutes' => [ 1, 720 ], 'error_burst_5xx' => [ 0, 100000 ], 'error_burst_clear_minutes' => [ 1, 720 ] ];
+		$ints = array( 'trip_probe_count' => array( 0, 1000 ), 'trip_probe_window_minutes' => array( 1, BotStormRadar_Trips::MAX_PROBE_WINDOW_MINUTES ), 'trip_404_count' => array( 0, 10000 ), 'trip_ban_minutes' => array( 1, 10080 ), 'trip_ban_repeat_hours' => array( 1, 720 ), 'warning_threshold' => array( 0, 100 ), 'storm_threshold' => array( 0, 100 ), 'min_distinct_ips' => array( 1, 100000 ), 'slow_request_ms' => array( 0, 60000 ), 'warning_minutes' => array( 1, 60 ), 'storm_minutes' => array( 1, 60 ), 'warning_clear_minutes' => array( 1, 240 ), 'storm_hold_minutes' => array( 1, 720 ), 'cooling_hold_minutes' => array( 1, 720 ), 'error_burst_5xx' => array( 0, 100000 ), 'error_burst_clear_minutes' => array( 1, 720 ) );
 		foreach ( $ints as $k => $range ) {
 			if ( isset( $input[ $k ] ) ) {
 				$out[ $k ] = (int) BotStormRadar_Helpers::clamp( (int) $input[ $k ], $range[0], $range[1] );
@@ -265,11 +265,11 @@ class BotStormRadar_Admin {
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
-		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates', 'bot_dns', 'cache_check_daily' ] as $k ) {
+		foreach ( array( 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates', 'bot_dns', 'cache_check_daily' ) as $k ) {
 			$out[ $k ] = empty( $input[ $k ] ) ? 0 : 1;
 		}
 		if ( array_key_exists( 'trusted_proxies', $input ) ) {
-			$kept = [];
+			$kept = array();
 			foreach ( BotStormRadar_Helpers::parse_list( sanitize_textarea_field( (string) $input['trusted_proxies'] ) ) as $e ) {
 				$addr = explode( '/', $e )[0];
 				if ( BotStormRadar_Helpers::is_valid_ip( $addr ) ) {
@@ -281,9 +281,9 @@ class BotStormRadar_Admin {
 			}
 			$out['trusted_proxies'] = implode( "\n", $kept );
 		}
-		foreach ( [ 'probe_allow', 'probe_extra' ] as $k ) {
+		foreach ( array( 'probe_allow', 'probe_extra' ) as $k ) {
 			if ( array_key_exists( $k, $input ) ) {
-				$lines = [];
+				$lines = array();
 				foreach ( preg_split( '/\r\n|\r|\n/', sanitize_textarea_field( (string) $input[ $k ] ) ) as $line ) {
 					$line = trim( $line );
 					if ( '' !== $line && '#' !== $line[0] ) {
@@ -294,7 +294,7 @@ class BotStormRadar_Admin {
 			}
 		}
 		if ( array_key_exists( 'allowlist', $input ) ) {
-			$kept = [];
+			$kept = array();
 			foreach ( BotStormRadar_Helpers::parse_list( sanitize_textarea_field( (string) $input['allowlist'] ) ) as $e ) {
 				if ( BotStormRadar_Helpers::is_valid_ip( explode( '/', $e )[0] ) ) {
 					$kept[] = $e;
@@ -355,8 +355,8 @@ class BotStormRadar_Admin {
 			case 'test_alert':
 				$state = BotStormRadar_Storm::get_state();
 				$rows  = BotStormRadar_Storage::minutes_last( 1 );
-				$row   = $rows ? end( $rows ) : BotStormRadar_Metrics::score( [ 'm' => BotStormRadar_Helpers::minute() - 1, 'total' => 0, 'ips' => 0 ] );
-				$sent  = BotStormRadar_Email_Alerts::send_transition( [
+				$row   = $rows ? end( $rows ) : BotStormRadar_Metrics::score( array( 'm' => BotStormRadar_Helpers::minute() - 1, 'total' => 0, 'ips' => 0 ) );
+				$sent  = BotStormRadar_Email_Alerts::send_transition( array(
 					'from'        => $state['state'],
 					'to'          => 'warning',
 					'at'          => time(),
@@ -364,7 +364,7 @@ class BotStormRadar_Admin {
 					'score'       => (int) $row['score'],
 					'explanation' => __( 'Test alert sent from the Settings tab. ', 'bot-storm-radar' ) . BotStormRadar_Metrics::explain( $row ),
 					'metrics'     => $row,
-				] );
+				) );
 				$notice = $sent ? 'alert_sent' : 'alert_failed';
 				break;
 			case 'refresh_lists':
@@ -412,7 +412,7 @@ class BotStormRadar_Admin {
 				$kind   = isset( $_GET['kind'] ) && 'would' === $_GET['kind'] ? 'would' : 'ban';
 				$notice = BotStormRadar_IP_Resolver::is_valid_ip( $ip ) ? BotStormRadar_Provider_Report::handle_action( $ip, $kind ) : 'provider_none';
 				if ( '' === $notice ) {
-					wp_safe_redirect( add_query_arg( [ BotStormRadar_Provider_Report::ARG => $ip, 'kind' => $kind ], remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce', 'botstormradar_notice' ] ) ) );
+					wp_safe_redirect( add_query_arg( array( BotStormRadar_Provider_Report::ARG => $ip, 'kind' => $kind ), remove_query_arg( array( 'botstormradar_action', 'ip', 'prefix', '_wpnonce', 'botstormradar_notice' ) ) ) );
 					exit;
 				}
 				break;
@@ -438,9 +438,9 @@ class BotStormRadar_Admin {
 				$notice = 'cache_restored';
 				break;
 		}
-		$redirect = remove_query_arg( [ 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ] );
+		$redirect = remove_query_arg( array( 'botstormradar_action', 'ip', 'prefix', '_wpnonce' ) );
 		// github-build-only:start
-		$redirect = remove_query_arg( [ 'kind', BotStormRadar_Provider_Report::ARG ], $redirect );
+		$redirect = remove_query_arg( array( 'kind', BotStormRadar_Provider_Report::ARG ), $redirect );
 		// github-build-only:end
 		wp_safe_redirect( add_query_arg( 'botstormradar_notice', $notice, $redirect ) );
 		exit;
@@ -451,9 +451,9 @@ class BotStormRadar_Admin {
 	 * @param array  $extra
 	 * @return string
 	 */
-	public static function action_url( $action, array $extra = [] ) {
+	public static function action_url( $action, array $extra = array() ) {
 		$tab  = self::current_tab();
-		$args = array_merge( [ 'page' => self::PAGE, 'tab' => $tab, 'botstormradar_action' => $action ], $extra );
+		$args = array_merge( array( 'page' => self::PAGE, 'tab' => $tab, 'botstormradar_action' => $action ), $extra );
 		return wp_nonce_url( add_query_arg( $args, admin_url( 'admin.php' ) ), self::ACTION_NONCE );
 	}
 
@@ -465,36 +465,36 @@ class BotStormRadar_Admin {
 		if ( ! empty( $_GET['botstormradar_notice'] ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$key      = sanitize_key( wp_unslash( $_GET['botstormradar_notice'] ) );
-			$messages = [
-				'baseline_reset'  => [ 'success', __( 'The baseline was reset and will learn again over the next seven days.', 'bot-storm-radar' ) ],
-				'state_reset'     => [ 'success', __( 'The storm state was reset to calm.', 'bot-storm-radar' ) ],
-				'tick_ran'        => [ 'success', __( 'The minute tick ran.', 'bot-storm-radar' ) ],
-				'tick_locked'     => [ 'warning', __( 'Another tick was already running; nothing was done.', 'bot-storm-radar' ) ],
-				'proxy_trusted'   => [ 'success', __( 'The proxy address was added to the trusted list.', 'bot-storm-radar' ) ],
-				'proxy_invalid'   => [ 'error', __( 'There is no suspected proxy to trust right now.', 'bot-storm-radar' ) ],
-				'proxy_dismissed' => [ 'success', __( 'Noted: that address is not a proxy. It will not be reported again for 30 days.', 'bot-storm-radar' ) ],
-				'alert_sent'      => [ 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ],
-				'alert_failed'    => [ 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ],
-				'lists_refreshed' => [ 'success', __( 'The Cloudflare and DuckDuckBot address lists were downloaded.', 'bot-storm-radar' ) ],
-				'unbanned'        => [ 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ],
-				'unban_none'      => [ 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ],
-				'would_cleared'   => [ 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ],
-				'cache_checked'   => [ 'success', __( 'The page cache was checked.', 'bot-storm-radar' ) ],
-				'cache_locked'    => [ 'warning', __( 'A page cache check was already running; nothing was done.', 'bot-storm-radar' ) ],
-				'cache_recent'    => [ 'warning', __( 'The page cache was checked less than a minute ago; nothing was done.', 'bot-storm-radar' ) ],
-				'cache_dismissed' => [ 'success', __( 'Noted: this site is uncached on purpose. The daily page cache check has stopped.', 'bot-storm-radar' ) ],
-				'cache_restored'  => [ 'success', __( 'The daily page cache check is back on.', 'bot-storm-radar' ) ],
+			$messages = array(
+				'baseline_reset'  => array( 'success', __( 'The baseline was reset and will learn again over the next seven days.', 'bot-storm-radar' ) ),
+				'state_reset'     => array( 'success', __( 'The storm state was reset to calm.', 'bot-storm-radar' ) ),
+				'tick_ran'        => array( 'success', __( 'The minute tick ran.', 'bot-storm-radar' ) ),
+				'tick_locked'     => array( 'warning', __( 'Another tick was already running; nothing was done.', 'bot-storm-radar' ) ),
+				'proxy_trusted'   => array( 'success', __( 'The proxy address was added to the trusted list.', 'bot-storm-radar' ) ),
+				'proxy_invalid'   => array( 'error', __( 'There is no suspected proxy to trust right now.', 'bot-storm-radar' ) ),
+				'proxy_dismissed' => array( 'success', __( 'Noted: that address is not a proxy. It will not be reported again for 30 days.', 'bot-storm-radar' ) ),
+				'alert_sent'      => array( 'success', __( 'A test alert was sent.', 'bot-storm-radar' ) ),
+				'alert_failed'    => array( 'error', __( 'The test alert could not be sent. Check the recipients and the site\'s mail setup.', 'bot-storm-radar' ) ),
+				'lists_refreshed' => array( 'success', __( 'The Cloudflare and DuckDuckBot address lists were downloaded.', 'bot-storm-radar' ) ),
+				'unbanned'        => array( 'success', __( 'The address was unbanned. The gate lets it in from the next request.', 'bot-storm-radar' ) ),
+				'unban_none'      => array( 'warning', __( 'That address had no ban in force.', 'bot-storm-radar' ) ),
+				'would_cleared'   => array( 'success', __( 'The list of would-be bans was cleared.', 'bot-storm-radar' ) ),
+				'cache_checked'   => array( 'success', __( 'The page cache was checked.', 'bot-storm-radar' ) ),
+				'cache_locked'    => array( 'warning', __( 'A page cache check was already running; nothing was done.', 'bot-storm-radar' ) ),
+				'cache_recent'    => array( 'warning', __( 'The page cache was checked less than a minute ago; nothing was done.', 'bot-storm-radar' ) ),
+				'cache_dismissed' => array( 'success', __( 'Noted: this site is uncached on purpose. The daily page cache check has stopped.', 'bot-storm-radar' ) ),
+				'cache_restored'  => array( 'success', __( 'The daily page cache check is back on.', 'bot-storm-radar' ) ),
 				// github-build-only:start
-				'early_verified'  => [ 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ],
-				'early_pending'   => [ 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ],
-				'early_off'       => [ 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ],
-				'early_failed'    => [ 'error', __( 'Early protection could not be changed; the reason is shown in the Gate section below.', 'bot-storm-radar' ) ],
-				'abuseipdb_sent'  => [ 'success', __( 'The address was reported to AbuseIPDB.', 'bot-storm-radar' ) ],
-				'abuseipdb_none'  => [ 'warning', __( 'That address has no ban or would-be ban to report.', 'bot-storm-radar' ) ],
-				'abuseipdb_failed' => [ 'error', sprintf( /* translators: %s: the reason */ __( 'The AbuseIPDB report was not sent: %s.', 'bot-storm-radar' ), (string) get_transient( 'botstormradar_abuseipdb_error' ) ) ],
-				'provider_none'   => [ 'warning', __( 'That address has no probe ban or would-be ban that can be reported.', 'bot-storm-radar' ) ],
+				'early_verified'  => array( 'success', __( 'Early protection is on: the gate now runs before WordPress loads.', 'bot-storm-radar' ) ),
+				'early_pending'   => array( 'warning', __( 'Early protection was written, but the check did not see the gate run before WordPress yet. PHP may still be using its cached settings; see the Gate section below and check again later.', 'bot-storm-radar' ) ),
+				'early_off'       => array( 'success', __( 'Early protection is off. The gate still runs from the must-use plugin.', 'bot-storm-radar' ) ),
+				'early_failed'    => array( 'error', __( 'Early protection could not be changed; the reason is shown in the Gate section below.', 'bot-storm-radar' ) ),
+				'abuseipdb_sent'  => array( 'success', __( 'The address was reported to AbuseIPDB.', 'bot-storm-radar' ) ),
+				'abuseipdb_none'  => array( 'warning', __( 'That address has no ban or would-be ban to report.', 'bot-storm-radar' ) ),
+				'abuseipdb_failed' => array( 'error', sprintf( /* translators: %s: the reason */ __( 'The AbuseIPDB report was not sent: %s.', 'bot-storm-radar' ), (string) get_transient( 'botstormradar_abuseipdb_error' ) ) ),
+				'provider_none'   => array( 'warning', __( 'That address has no probe ban or would-be ban that can be reported.', 'bot-storm-radar' ) ),
 				// github-build-only:end
-			];
+			);
 			if ( isset( $messages[ $key ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $messages[ $key ][0] ), esc_html( $messages[ $key ][1] ) );
 			}
@@ -505,7 +505,7 @@ class BotStormRadar_Admin {
 		// A gate that could not be written: Dashboard, Plugins and the plugin's
 		// own page, until a retry works.
 		$gi = BotStormRadar_Gate_Install::install_status();
-		if ( $screen && in_array( $screen->id, [ 'dashboard', 'plugins', 'toplevel_page_' . self::PAGE ], true ) && BOTSTORMRADAR_VERSION === $gi['version'] && ! $gi['ok'] && '' !== $gi['error'] ) {
+		if ( $screen && in_array( $screen->id, array( 'dashboard', 'plugins', 'toplevel_page_' . self::PAGE ), true ) && BOTSTORMRADAR_VERSION === $gi['version'] && ! $gi['ok'] && '' !== $gi['error'] ) {
 			printf(
 				'<div class="notice notice-error"><p><strong>%1$s</strong> %2$s</p></div>',
 				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
@@ -516,16 +516,16 @@ class BotStormRadar_Admin {
 		// github-build-only:end
 		// The suspected-proxy notice shows on the Dashboard and the plugin's
 		// own page only. It resolves itself through its two buttons.
-		$suspect = ( $screen && in_array( $screen->id, [ 'dashboard', 'toplevel_page_' . self::PAGE ], true ) ) ? BotStormRadar_Client_IP::suspect() : null;
+		$suspect = ( $screen && in_array( $screen->id, array( 'dashboard', 'toplevel_page_' . self::PAGE ), true ) ) ? BotStormRadar_Client_IP::suspect() : null;
 		if ( $suspect && BotStormRadar_Client_IP::ip_rules_suspended() ) {
 			printf(
 				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s <a class="button button-small" href="%3$s">%4$s</a> <a class="button button-small" href="%5$s">%6$s</a></p></div>',
 				esc_html__( 'Bot Storm Radar:', 'bot-storm-radar' ),
 				/* translators: 1: address the requests arrived from, 2: address named in the forwarding header */
 				esc_html( sprintf( __( 'recent admin requests arrived from %1$s with a forwarding header naming %2$s, so a proxy with that public address appears to sit in front of the site. Until it is trusted, every visitor is counted under that one address and the per-address metrics are meaningless.', 'bot-storm-radar' ), $suspect['ip'], $suspect['forwarded'] ) ),
-				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'trust_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_url( wp_nonce_url( add_query_arg( array( 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'trust_proxy' ), admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
 				esc_html__( 'Trust this proxy', 'bot-storm-radar' ),
-				esc_url( wp_nonce_url( add_query_arg( [ 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'dismiss_proxy' ], admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
+				esc_url( wp_nonce_url( add_query_arg( array( 'page' => self::PAGE, 'tab' => 'settings', 'botstormradar_action' => 'dismiss_proxy' ), admin_url( 'admin.php' ) ), self::ACTION_NONCE ) ),
 				esc_html__( 'Not a proxy', 'bot-storm-radar' )
 			);
 		}
@@ -590,8 +590,8 @@ class BotStormRadar_Admin {
 		}
 		$current = self::current_source();
 		$labels  = self::state_labels();
-		$links   = [];
-		foreach ( array_merge( [ BotStormRadar_Sources::SITE ], array_keys( $log_sources ) ) as $id ) {
+		$links   = array();
+		foreach ( array_merge( array( BotStormRadar_Sources::SITE ), array_keys( $log_sources ) ) as $id ) {
 			$state   = BotStormRadar_Storm::get_state( $id );
 			$url     = admin_url( 'admin.php?page=' . self::PAGE . ( BotStormRadar_Sources::SITE === $id ? '' : '&source=' . rawurlencode( $id ) ) );
 			$links[] = sprintf(
@@ -605,13 +605,13 @@ class BotStormRadar_Admin {
 		}
 		echo wp_kses(
 			'<ul class="subsubsub bsr-sources">' . implode( ' | ', $links ) . '</ul><br class="clear" />',
-			[
-				'ul'   => [ 'class' => true ],
-				'li'   => [],
-				'a'    => [ 'href' => true, 'class' => true ],
-				'span' => [ 'class' => true ],
-				'br'   => [ 'class' => true ],
-			]
+			array(
+				'ul'   => array( 'class' => true ),
+				'li'   => array(),
+				'a'    => array( 'href' => true, 'class' => true ),
+				'span' => array( 'class' => true ),
+				'br'   => array( 'class' => true ),
+			)
 		);
 	}
 
@@ -725,7 +725,7 @@ class BotStormRadar_Admin {
 				<div class="bsr-card-sub"><strong><?php esc_html_e( 'Addresses:', 'bot-storm-radar' ); ?></strong>
 					<?php
 					$src  = BotStormRadar_Client_IP::source();
-					$srcs = [ 'direct' => __( 'direct (no proxy)', 'bot-storm-radar' ), 'cloudflare' => __( 'behind Cloudflare', 'bot-storm-radar' ), 'cloudflare-forwarded' => __( 'behind Cloudflare without CF-Connecting-IP', 'bot-storm-radar' ), 'local-proxy' => __( 'behind a local proxy', 'bot-storm-radar' ), 'trusted-proxy' => __( 'behind a declared proxy', 'bot-storm-radar' ), 'legacy' => __( 'trusting all forwarding headers (insecure)', 'bot-storm-radar' ), 'none' => __( 'unknown', 'bot-storm-radar' ) ];
+					$srcs = array( 'direct' => __( 'direct (no proxy)', 'bot-storm-radar' ), 'cloudflare' => __( 'behind Cloudflare', 'bot-storm-radar' ), 'cloudflare-forwarded' => __( 'behind Cloudflare without CF-Connecting-IP', 'bot-storm-radar' ), 'local-proxy' => __( 'behind a local proxy', 'bot-storm-radar' ), 'trusted-proxy' => __( 'behind a declared proxy', 'bot-storm-radar' ), 'legacy' => __( 'trusting all forwarding headers (insecure)', 'bot-storm-radar' ), 'none' => __( 'unknown', 'bot-storm-radar' ) );
 					/* translators: 1: how the request reached the site, for example "behind Cloudflare", 2: IP address */
 					printf( esc_html__( 'this request %1$s, you are %2$s', 'bot-storm-radar' ), esc_html( $srcs[ $src ] ?? $src ), esc_html( (string) BotStormRadar_Client_IP::resolve() ) );
 					if ( BotStormRadar_Client_IP::ip_rules_suspended() ) {
@@ -805,12 +805,12 @@ class BotStormRadar_Admin {
 	 * @return string
 	 */
 	private static function cache_verdict_label( $verdict ) {
-		$labels = [
+		$labels = array(
 			BotStormRadar_Cache_Check::SITE_CACHED         => __( 'Cached', 'bot-storm-radar' ),
 			BotStormRadar_Cache_Check::SITE_PARTLY         => __( 'Partly cached', 'bot-storm-radar' ),
 			BotStormRadar_Cache_Check::SITE_NOT_CACHED     => __( 'Not cached', 'bot-storm-radar' ),
 			BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL => __( 'Could not tell', 'bot-storm-radar' ),
-		];
+		);
 		return $labels[ $verdict ] ?? $labels[ BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL ];
 	}
 
@@ -822,11 +822,11 @@ class BotStormRadar_Admin {
 	 * @return array List of [ severity, text ].
 	 */
 	private static function cache_lines( array $result ) {
-		$lines = [];
+		$lines = array();
 		if ( BotStormRadar_Cache_Check::SITE_COULD_NOT_TELL !== $result['verdict'] && BotStormRadar_Cache_Check::SITE_NOT_CACHED !== $result['verdict'] ) {
-			$lines[] = [ BotStormRadar_Cache_Check::INFO, __( 'Requests a cache answers do not reach this radar, so its numbers cover only what gets through.', 'bot-storm-radar' ) ];
+			$lines[] = array( BotStormRadar_Cache_Check::INFO, __( 'Requests a cache answers do not reach this radar, so its numbers cover only what gets through.', 'bot-storm-radar' ) );
 		} elseif ( defined( 'WP_CACHE' ) && WP_CACHE ) {
-			$lines[] = [ BotStormRadar_Cache_Check::INFO, __( 'A PHP page cache is switched on here (WP_CACHE). Not every one announces itself, so it may still be answering.', 'bot-storm-radar' ) ];
+			$lines[] = array( BotStormRadar_Cache_Check::INFO, __( 'A PHP page cache is switched on here (WP_CACHE). Not every one announces itself, so it may still be answering.', 'bot-storm-radar' ) );
 		}
 		foreach ( (array) $result['findings'] as $finding ) {
 			$pages   = self::cache_page_names( (array) $finding['pages'] );
@@ -862,7 +862,7 @@ class BotStormRadar_Admin {
 					break;
 				case 'layer_not_storing':
 					/* translators: 1: list of pages, 2: name of a cache, such as cloudflare */
-					$text = sprintf( __( 'One cache answers these pages, but another is not storing them: %1$s. Not storing: %2$s. These visits still pass through that one to reach the cache that answers.', 'bot-storm-radar' ), $pages, implode( ', ', (array) ( $finding['layers'] ?? [] ) ) );
+					$text = sprintf( __( 'One cache answers these pages, but another is not storing them: %1$s. Not storing: %2$s. These visits still pass through that one to reach the cache that answers.', 'bot-storm-radar' ), $pages, implode( ', ', (array) ( $finding['layers'] ?? array() ) ) );
 					break;
 				case 'ttl_outlives_nonces':
 					/* translators: %s: list of pages */
@@ -871,7 +871,7 @@ class BotStormRadar_Admin {
 				default:
 					continue 2;
 			}
-			$lines[] = [ (string) $finding['severity'], $text ];
+			$lines[] = array( (string) $finding['severity'], $text );
 		}
 		return $lines;
 	}
@@ -881,14 +881,14 @@ class BotStormRadar_Admin {
 	 * @return string
 	 */
 	private static function cache_page_names( array $kinds ) {
-		$names = [
+		$names = array(
 			'home'     => __( 'home page', 'bot-storm-radar' ),
 			'shop'     => __( 'shop', 'bot-storm-radar' ),
 			'product'  => __( 'product', 'bot-storm-radar' ),
 			'category' => __( 'category', 'bot-storm-radar' ),
 			'post'     => __( 'post', 'bot-storm-radar' ),
-		];
-		$out   = [];
+		);
+		$out   = array();
 		foreach ( $kinds as $kind ) {
 			$out[] = $names[ $kind ] ?? (string) $kind;
 		}
@@ -913,7 +913,7 @@ class BotStormRadar_Admin {
 			$max_ip = max( $max_ip, (int) $r['ips'] );
 		}
 		$bars   = '';
-		$points = [];
+		$points = array();
 		foreach ( $rows as $m => $r ) {
 			$x  = (int) $m - $start;
 			if ( $x < 0 || $x >= $w ) {
@@ -930,7 +930,7 @@ class BotStormRadar_Admin {
 		?>
 		<div class="bsr-chart-wrap">
 			<svg class="bsr-chart" viewBox="0 0 <?php echo (int) $w; ?> <?php echo (int) $h; ?>" preserveAspectRatio="none" role="img" aria-label="<?php esc_attr_e( 'Distinct addresses per minute (bars) and storm score (line) over the last 24 hours', 'bot-storm-radar' ); ?>">
-				<g class="bsr-bars"><?php echo wp_kses( $bars, [ 'rect' => [ 'x' => true, 'y' => true, 'width' => true, 'height' => true ], 'title' => [] ] ); ?></g>
+				<g class="bsr-bars"><?php echo wp_kses( $bars, array( 'rect' => array( 'x' => true, 'y' => true, 'width' => true, 'height' => true ), 'title' => array() ) ); ?></g>
 				<line class="bsr-warn" x1="0" x2="<?php echo (int) $w; ?>" y1="<?php echo (int) $warn_y; ?>" y2="<?php echo (int) $warn_y; ?>" />
 				<line class="bsr-storm" x1="0" x2="<?php echo (int) $w; ?>" y1="<?php echo (int) $storm_y; ?>" y2="<?php echo (int) $storm_y; ?>" />
 				<?php if ( count( $points ) > 1 ) : ?>
@@ -951,10 +951,10 @@ class BotStormRadar_Admin {
 	 * @param array $rows
 	 */
 	private static function render_classes( array $rows ) {
-		$sum   = [];
+		$sum   = array();
 		$total = 0;
 		foreach ( array_slice( $rows, -60, null, true ) as $r ) {
-			foreach ( (array) ( $r['classes'] ?? [] ) as $c => $n ) {
+			foreach ( (array) ( $r['classes'] ?? array() ) as $c => $n ) {
 				$sum[ $c ] = ( $sum[ $c ] ?? 0 ) + (int) $n;
 				$total    += (int) $n;
 			}
@@ -976,9 +976,9 @@ class BotStormRadar_Admin {
 	 * @param string $source
 	 */
 	private static function render_bots( array $rows, $source = BotStormRadar_Sources::SITE ) {
-		$sum = [];
+		$sum = array();
 		foreach ( $rows as $r ) {
-			foreach ( (array) ( $r['bots'] ?? [] ) as $b => $set ) {
+			foreach ( (array) ( $r['bots'] ?? array() ) as $b => $set ) {
 				foreach ( (array) $set as $v => $n ) {
 					$sum[ $b ][ $v ] = ( $sum[ $b ][ $v ] ?? 0 ) + (int) $n;
 				}
@@ -1004,7 +1004,7 @@ class BotStormRadar_Admin {
 		$recent = BotStormRadar_Good_Bots::recent();
 		if ( $recent ) {
 			echo '<p class="description">' . esc_html__( 'Recent verdicts:', 'bot-storm-radar' ) . ' ';
-			$parts = [];
+			$parts = array();
 			foreach ( array_slice( $recent, 0, 10, true ) as $ip => $r ) {
 				$parts[] = sprintf( '%s %s (%s)', $ip, $bots[ $r['bot'] ]['label'] ?? $r['bot'], $r['v'] );
 			}
@@ -1017,20 +1017,20 @@ class BotStormRadar_Admin {
 	 */
 	private static function render_top_keys( $source = BotStormRadar_Sources::SITE ) {
 		$rows = BotStormRadar_Storage::minutes_last( 10, null, $source );
-		$out  = [ 'ips' => [], 'nets' => [], 'uas' => [] ];
+		$out  = array( 'ips' => array(), 'nets' => array(), 'uas' => array() );
 		foreach ( $rows as $r ) {
-			foreach ( [ 'ips', 'nets' ] as $kind ) {
-				foreach ( (array) ( $r['hot'][ $kind ] ?? [] ) as $k => $n ) {
+			foreach ( array( 'ips', 'nets' ) as $kind ) {
+				foreach ( (array) ( $r['hot'][ $kind ] ?? array() ) as $k => $n ) {
 					$out[ $kind ][ $k ] = ( $out[ $kind ][ $k ] ?? 0 ) + (int) $n;
 				}
 			}
-			foreach ( (array) ( $r['ua_top'] ?? [] ) as $pair ) {
+			foreach ( (array) ( $r['ua_top'] ?? array() ) as $pair ) {
 				if ( is_array( $pair ) && isset( $pair[0], $pair[1] ) ) {
 					$out['uas'][ (string) $pair[0] ] = ( $out['uas'][ (string) $pair[0] ] ?? 0 ) + (int) $pair[1];
 				}
 			}
 		}
-		$titles = [ 'ips' => __( 'Addresses with 10 or more requests in a minute', 'bot-storm-radar' ), 'nets' => __( 'Networks (/24, /48) with 20 or more requests in a minute', 'bot-storm-radar' ), 'uas' => __( 'Busiest user agents', 'bot-storm-radar' ) ];
+		$titles = array( 'ips' => __( 'Addresses with 10 or more requests in a minute', 'bot-storm-radar' ), 'nets' => __( 'Networks (/24, /48) with 20 or more requests in a minute', 'bot-storm-radar' ), 'uas' => __( 'Busiest user agents', 'bot-storm-radar' ) );
 		foreach ( $out as $kind => $list ) {
 			echo '<h3>' . esc_html( $titles[ $kind ] ) . '</h3>';
 			if ( empty( $list ) ) {
@@ -1090,7 +1090,7 @@ class BotStormRadar_Admin {
 
 	public static function add_dashboard_widget() {
 		if ( current_user_can( self::CAP ) ) {
-			wp_add_dashboard_widget( 'botstormradar_dashboard_widget', __( 'Bot Storm Radar', 'bot-storm-radar' ), [ __CLASS__, 'render_dashboard_widget' ] );
+			wp_add_dashboard_widget( 'botstormradar_dashboard_widget', __( 'Bot Storm Radar', 'bot-storm-radar' ), array( __CLASS__, 'render_dashboard_widget' ) );
 		}
 	}
 
@@ -1143,15 +1143,15 @@ class BotStormRadar_Admin {
 	 * @param string $source
 	 */
 	private static function render_log_card( $source ) {
-		$def   = BotStormRadar_Sources::log_sources()[ $source ] ?? [];
+		$def   = BotStormRadar_Sources::log_sources()[ $source ] ?? array();
 		$lr    = BotStormRadar_Sources::log_state( $source );
 		$stats = (array) $lr['stats'];
 		$late  = self::ingest_is_late( $lr );
-		$extra = [ 'tab' => 'radar', 'source' => $source ];
+		$extra = array( 'tab' => 'radar', 'source' => $source );
 		?>
 		<div class="bsr-card">
 			<div class="bsr-card-label"><?php esc_html_e( 'Log reader', 'bot-storm-radar' ); ?></div>
-			<div class="bsr-card-sub"><strong><?php esc_html_e( 'Files:', 'bot-storm-radar' ); ?></strong> <span class="bsr-key"><?php echo esc_html( implode( ', ', (array) ( $def['logs'] ?? [] ) ) ); ?></span> (<?php echo esc_html( (string) ( $def['profile'] ?? '' ) ); ?>)</div>
+			<div class="bsr-card-sub"><strong><?php esc_html_e( 'Files:', 'bot-storm-radar' ); ?></strong> <span class="bsr-key"><?php echo esc_html( implode( ', ', (array) ( $def['logs'] ?? array() ) ) ); ?></span> (<?php echo esc_html( (string) ( $def['profile'] ?? '' ) ); ?>)</div>
 			<div class="bsr-card-sub <?php echo $late ? 'bsr-danger' : ''; ?>"><strong><?php esc_html_e( 'Ingest:', 'bot-storm-radar' ); ?></strong>
 				<?php
 				if ( (int) $lr['last_run'] > 0 ) {
@@ -1162,7 +1162,7 @@ class BotStormRadar_Admin {
 						printf( ', ' . esc_html__( '%1$d lines, %2$d minutes, %3$d late, %4$d unparsed, %5$d refused', 'bot-storm-radar' ), (int) $stats['lines'], (int) ( $stats['minutes'] ?? 0 ), (int) ( $stats['late'] ?? 0 ), (int) ( $stats['bad'] ?? 0 ), (int) ( $stats['refused'] ?? 0 ) );
 					}
 					if ( ! empty( $stats['events'] ) ) {
-						$ev = [];
+						$ev = array();
 						foreach ( (array) $stats['events'] as $path => $e ) {
 							$ev[] = basename( (string) $path ) . ' ' . $e;
 						}
@@ -1267,10 +1267,10 @@ class BotStormRadar_Admin {
 							}
 							?>
 						</td>
-						<td><?php self::render_evidence( is_array( $r['evidence'] ) ? $r['evidence'] : [] ); ?></td>
+						<td><?php self::render_evidence( is_array( $r['evidence'] ) ? $r['evidence'] : array() ); ?></td>
 						<td>
 							<?php if ( $r['active'] ) : ?>
-								<a class="button button-small" href="<?php echo esc_url( self::action_url( 'unban', [ 'ip' => $r['ip_text'], 'prefix' => (int) $r['prefix_len'] ] ) ); ?>"><?php esc_html_e( 'Unban', 'bot-storm-radar' ); ?></a>
+								<a class="button button-small" href="<?php echo esc_url( self::action_url( 'unban', array( 'ip' => $r['ip_text'], 'prefix' => (int) $r['prefix_len'] ) ) ); ?>"><?php esc_html_e( 'Unban', 'bot-storm-radar' ); ?></a>
 							<?php endif; ?>
 							<?php // github-build-only:start ?>
 							<?php BotStormRadar_AbuseIPDB::render_cell( BotStormRadar_AbuseIPDB::from_ban( $r ), 'ban' ); ?>
@@ -1356,10 +1356,10 @@ class BotStormRadar_Admin {
 	 * @return string
 	 */
 	private static function reason_label( $reason ) {
-		$labels = [
+		$labels = array(
 			'probe' => __( 'scanner probes', 'bot-storm-radar' ),
 			'404'   => __( 'many missing pages', 'bot-storm-radar' ),
-		];
+		);
 		return $labels[ $reason ] ?? $reason;
 	}
 
@@ -1373,11 +1373,11 @@ class BotStormRadar_Admin {
 			echo '&ndash;';
 			return;
 		}
-		$parts = [];
+		$parts = array();
 		foreach ( $ev as $k => $v ) {
 			$parts[] = '<strong>' . esc_html( str_replace( '_', ' ', (string) $k ) ) . '</strong> ' . esc_html( is_array( $v ) ? implode( ', ', array_map( 'strval', $v ) ) : (string) $v );
 		}
-		echo '<small class="bsr-evidence">' . wp_kses( implode( '<br />', $parts ), [ 'strong' => [], 'br' => [] ] ) . '</small>';
+		echo '<small class="bsr-evidence">' . wp_kses( implode( '<br />', $parts ), array( 'strong' => array(), 'br' => array() ) ) . '</small>';
 	}
 
 	// github-build-only:start
@@ -1422,12 +1422,12 @@ class BotStormRadar_Admin {
 						/* translators: %s: path of the file that is loaded first */
 						echo '<span class="bsr-danger">' . esc_html( sprintf( __( 'Not possible: another file is already loaded first (%s), probably a firewall plugin. Bot Storm Radar never replaces or chains it; the gate stays on the must-use plugin.', 'bot-storm-radar' ), $e['conflict'] ) ) . '</span>';
 					} elseif ( $e['enabled'] ) {
-						$labels = [
+						$labels = array(
 							'early'   => __( 'on, and the last check saw the gate run before WordPress', 'bot-storm-radar' ),
 							'mu'      => __( 'written, but the last check still saw the gate run from the must-use plugin', 'bot-storm-radar' ),
 							'pending' => __( 'written, not checked yet', 'bot-storm-radar' ),
 							'none'    => __( 'written, but the last check did not see the gate at all', 'bot-storm-radar' ),
-						];
+						);
 						$res = (string) $e['result'];
 						echo esc_html( $labels[ $res ] ?? $res );
 						if ( $e['checked'] ) {
@@ -1497,7 +1497,7 @@ class BotStormRadar_Admin {
 				esc_html( BotStormRadar_Sources::label( $id ) ),
 				esc_html( $id ),
 				esc_html( (string) ( $def['profile'] ?? '' ) ),
-				esc_html( implode( ', ', (array) ( $def['logs'] ?? [] ) ) ),
+				esc_html( implode( ', ', (array) ( $def['logs'] ?? array() ) ) ),
 				esc_html( implode( ', ', BotStormRadar_Sources::alert_recipients( $id ) ) )
 			);
 		}
@@ -1526,12 +1526,12 @@ class BotStormRadar_Admin {
 	// ── Small helpers ───────────────────────────────────────────────
 
 	private static function state_labels() {
-		return [
+		return array(
 			'calm'    => __( 'Calm', 'bot-storm-radar' ),
 			'warning' => __( 'Warning', 'bot-storm-radar' ),
 			'storm'   => __( 'Storm', 'bot-storm-radar' ),
 			'cooling' => __( 'Cooling', 'bot-storm-radar' ),
-		];
+		);
 	}
 
 	/**

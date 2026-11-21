@@ -97,11 +97,11 @@ class Bot_Storm_Radar {
 	}
 
 	private function init_hooks() {
-		add_action( 'plugins_loaded', [ $this, 'on_plugins_loaded' ] );
-		add_action( 'init', [ $this, 'init' ] );
-		add_filter( 'cron_schedules', [ $this, 'cron_schedules' ] );
-		register_activation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'activate' ] );
-		register_deactivation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'deactivate' ] );
+		add_action( 'plugins_loaded', array( $this, 'on_plugins_loaded' ) );
+		add_action( 'init', array( $this, 'init' ) );
+		add_filter( 'cron_schedules', array( $this, 'cron_schedules' ) );
+		register_activation_hook( BOTSTORMRADAR_PLUGIN_FILE, array( $this, 'activate' ) );
+		register_deactivation_hook( BOTSTORMRADAR_PLUGIN_FILE, array( $this, 'deactivate' ) );
 	}
 
 	/**
@@ -146,8 +146,8 @@ class Bot_Storm_Radar {
 		if ( ! empty( BotStormRadar_Helpers::opt( 'list_updates', 0 ) ) ) {
 			return;
 		}
-		remove_action( BotStormRadar_Client_IP::CRON_HOOK, [ 'BotStormRadar_Client_IP', 'refresh_cloudflare_ranges' ] );
-		remove_action( BotStormRadar_Client_IP::CRON_HOOK, [ 'BotStormRadar_Good_Bots', 'refresh_ip_lists' ], 20 );
+		remove_action( BotStormRadar_Client_IP::CRON_HOOK, array( 'BotStormRadar_Client_IP', 'refresh_cloudflare_ranges' ) );
+		remove_action( BotStormRadar_Client_IP::CRON_HOOK, array( 'BotStormRadar_Good_Bots', 'refresh_ip_lists' ), 20 );
 	}
 
 	public function init() {
@@ -175,10 +175,10 @@ class Bot_Storm_Radar {
 	 */
 	public function cron_schedules( $schedules ) {
 		if ( ! isset( $schedules['botstormradar_minute'] ) ) {
-			$schedules['botstormradar_minute'] = [
+			$schedules['botstormradar_minute'] = array(
 				'interval' => 60,
 				'display'  => __( 'Every minute (Bot Storm Radar)', 'bot-storm-radar' ),
-			];
+			);
 		}
 		return $schedules;
 	}
@@ -188,8 +188,8 @@ class Bot_Storm_Radar {
 			return; // Another process is moving the stored names; the next load finishes the upgrade.
 		}
 		$defaults = self::get_default_options();
-		$existing = get_option( self::OPTION_KEY, [] );
-		update_option( self::OPTION_KEY, wp_parse_args( is_array( $existing ) ? $existing : [], $defaults ) );
+		$existing = get_option( self::OPTION_KEY, array() );
+		update_option( self::OPTION_KEY, wp_parse_args( is_array( $existing ) ? $existing : array(), $defaults ) );
 
 		if ( ! get_option( BotStormRadar_Storm::STATE_OPTION ) ) {
 			update_option( BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Storm::initial_state(), true );
@@ -258,34 +258,34 @@ class Bot_Storm_Radar {
 	 * @return array
 	 */
 	public static function get_default_options() {
-		$defaults = [
-			'email_recipients'      => get_option( 'admin_email' ),
-			'alert_on_warning'      => 1,
-			'alert_on_storm'        => 1,
-			'alert_on_calm'         => 1,
-			'warning_threshold'     => 40,
-			'storm_threshold'       => 60,
-			'warning_minutes'       => 1,
-			'storm_minutes'         => 1,
-			'error_pressure_storm'  => 0.5,
-			'storm_hold_minutes'    => 15,
-			'cooling_hold_minutes'  => 15,
-			'warning_clear_minutes' => 5,
-			'min_distinct_ips'      => 30,
-			'spike_factor'          => 4,
-			'slow_request_ms'       => 2000,
-			'error_burst_5xx'       => 20,
+		$defaults = array(
+			'email_recipients'          => get_option( 'admin_email' ),
+			'alert_on_warning'          => 1,
+			'alert_on_storm'            => 1,
+			'alert_on_calm'             => 1,
+			'warning_threshold'         => 40,
+			'storm_threshold'           => 60,
+			'warning_minutes'           => 1,
+			'storm_minutes'             => 1,
+			'error_pressure_storm'      => 0.5,
+			'storm_hold_minutes'        => 15,
+			'cooling_hold_minutes'      => 15,
+			'warning_clear_minutes'     => 5,
+			'min_distinct_ips'          => 30,
+			'spike_factor'              => 4,
+			'slow_request_ms'           => 2000,
+			'error_burst_5xx'           => 20,
 			'error_burst_clear_minutes' => 15,
-			'trusted_proxies'       => '',
-			'trust_all_forwarding'  => 0,
-			'list_updates'          => 0,
-			'bot_dns'               => 0,
-			'allowlist'             => '',
-			'probe_refusal'         => 1,
-			'probe_extra'           => '',
-			'probe_allow'           => '',
-			'ban_mode'              => 'observe',
-			'trip_probe_count'      => 3,
+			'trusted_proxies'           => '',
+			'trust_all_forwarding'      => 0,
+			'list_updates'              => 0,
+			'bot_dns'                   => 0,
+			'allowlist'                 => '',
+			'probe_refusal'             => 1,
+			'probe_extra'               => '',
+			'probe_allow'               => '',
+			'ban_mode'                  => 'observe',
+			'trip_probe_count'          => 3,
 			'trip_probe_window_minutes' => 10,
 			'trip_404_count'        => 20,
 			'trip_ban_minutes'      => 60,

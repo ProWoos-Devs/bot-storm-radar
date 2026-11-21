@@ -60,7 +60,7 @@ class BotStormRadar_Guard {
 	public static function init() {
 		// Zero accepted arguments: do_action() passes an empty string otherwise,
 		// which note_admin() would take as its time.
-		add_action( 'admin_init', [ __CLASS__, 'note_admin' ], 1, 0 );
+		add_action( 'admin_init', array( __CLASS__, 'note_admin' ), 1, 0 );
 	}
 
 	/**
@@ -117,13 +117,13 @@ class BotStormRadar_Guard {
 			return call_user_func( self::$lists_override );
 		}
 		$opts = BotStormRadar_Helpers::get_options();
-		return [
+		return array(
 			'cloudflare' => BotStormRadar_Client_IP::cloudflare_ranges(),
 			'proxy'      => BotStormRadar_Helpers::parse_list( $opts['trusted_proxies'] ?? '' ),
 			'allowlist'  => BotStormRadar_Helpers::parse_list( $opts['allowlist'] ?? '' ),
 			'admin'      => self::admin_addresses(),
 			'bot'        => self::verified_bots(),
-		];
+		);
 	}
 
 	/**
@@ -169,9 +169,12 @@ class BotStormRadar_Guard {
 		}
 		$is_new       = $last <= $now - self::ADMIN_TTL;
 		$known[ $ip ] = $now;
-		$known        = array_filter( $known, function ( $t ) use ( $now ) {
-			return (int) $t > $now - self::ADMIN_TTL;
-		} );
+		$known        = array_filter(
+			$known,
+			function ( $t ) use ( $now ) {
+				return (int) $t > $now - self::ADMIN_TTL;
+			}
+		);
 		arsort( $known );
 		update_option( self::ADMINS_OPTION, array_slice( $known, 0, self::ADMINS_CAP, true ), false );
 		if ( $is_new ) {
@@ -184,8 +187,8 @@ class BotStormRadar_Guard {
 	 * @return array ip => last seen
 	 */
 	public static function admin_records() {
-		$r = get_option( self::ADMINS_OPTION, [] );
-		return is_array( $r ) ? $r : [];
+		$r = get_option( self::ADMINS_OPTION, array() );
+		return is_array( $r ) ? $r : array();
 	}
 
 	/**
@@ -196,7 +199,7 @@ class BotStormRadar_Guard {
 	 */
 	public static function admin_addresses( $now = null ) {
 		$now = null === $now ? time() : (int) $now;
-		$out = [];
+		$out = array();
 		foreach ( self::admin_records() as $ip => $t ) {
 			if ( (int) $t > $now - self::ADMIN_TTL ) {
 				$out[] = (string) $ip;
@@ -215,7 +218,7 @@ class BotStormRadar_Guard {
 	 */
 	public static function verified_bots( $now = null ) {
 		$now = null === $now ? time() : (int) $now;
-		$out = [];
+		$out = array();
 		foreach ( BotStormRadar_Good_Bots::recent() as $ip => $r ) {
 			if ( 'verified' === ( $r['v'] ?? '' ) && (int) ( $r['t'] ?? 0 ) > $now - BotStormRadar_Good_Bots::VERDICT_TTL ) {
 				$out[] = (string) $ip;

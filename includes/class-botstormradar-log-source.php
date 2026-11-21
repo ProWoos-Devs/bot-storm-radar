@@ -56,7 +56,7 @@ class BotStormRadar_Log_Cursor {
 	/**
 	 * @var array Segments to read in order: [ file, inode, offset ].
 	 */
-	private $segments = [];
+	private $segments = array();
 
 	/**
 	 * @var int
@@ -80,9 +80,12 @@ class BotStormRadar_Log_Cursor {
 	 */
 	public function __construct( $path, array $saved, $from_start = false ) {
 		$this->path   = (string) $path;
-		$this->commit = [ 'ino' => (int) ( $saved['ino'] ?? 0 ), 'pos' => (int) ( $saved['pos'] ?? 0 ) ];
+		$this->commit = array(
+			'ino' => (int) ( $saved['ino'] ?? 0 ),
+			'pos' => (int) ( $saved['pos'] ?? 0 ),
+		);
 		if ( $from_start ) {
-			$this->segments = [ [ $this->path, 0, 0 ] ];
+			$this->segments = array( array( $this->path, 0, 0 ) );
 			return;
 		}
 		clearstatcache();
@@ -96,7 +99,7 @@ class BotStormRadar_Log_Cursor {
 			// yet. Read it from the start; on a source's first run
 			// skip_to_end() moves it to the end instead.
 			$this->event    = 'new';
-			$this->segments = [ [ $this->path, (int) $st['ino'], 0 ] ];
+			$this->segments = array( array( $this->path, (int) $st['ino'], 0 ) );
 			return;
 		}
 		if ( (int) $st['ino'] === $this->commit['ino'] ) {
@@ -105,17 +108,17 @@ class BotStormRadar_Log_Cursor {
 				$pos         = 0;
 				$this->event = 'truncated';
 			}
-			$this->segments = [ [ $this->path, (int) $st['ino'], $pos ] ];
+			$this->segments = array( array( $this->path, (int) $st['ino'], $pos ) );
 			return;
 		}
 		$rotated = @stat( $this->path . '.1' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
 		if ( false !== $rotated && (int) $rotated['ino'] === $this->commit['ino'] ) {
 			$this->event    = 'rotated';
-			$this->segments = [ [ $this->path . '.1', (int) $rotated['ino'], $this->commit['pos'] ], [ $this->path, (int) $st['ino'], 0 ] ];
+			$this->segments = array( array( $this->path . '.1', (int) $rotated['ino'], $this->commit['pos'] ), array( $this->path, (int) $st['ino'], 0 ) );
 			return;
 		}
 		$this->event    = 'gap';
-		$this->segments = [ [ $this->path, (int) $st['ino'], 0 ] ];
+		$this->segments = array( array( $this->path, (int) $st['ino'], 0 ) );
 	}
 
 	/**
@@ -127,9 +130,12 @@ class BotStormRadar_Log_Cursor {
 		clearstatcache();
 		$st = @stat( $this->path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
 		if ( false !== $st ) {
-			$this->commit = [ 'ino' => (int) $st['ino'], 'pos' => (int) $st['size'] ];
+			$this->commit = array(
+				'ino' => (int) $st['ino'],
+				'pos' => (int) $st['size'],
+			);
 		}
-		$this->segments = [];
+		$this->segments = array();
 		$this->head     = null;
 	}
 
@@ -147,7 +153,10 @@ class BotStormRadar_Log_Cursor {
 			if ( false === $line || "\n" !== substr( $line, -1 ) ) {
 				// End of this segment, or a line nginx is still writing: leave
 				// it for the next run.
-				$this->commit = [ 'ino' => $this->segments[ $this->seg ][1], 'pos' => (int) $start ];
+				$this->commit = array(
+					'ino' => $this->segments[ $this->seg ][1],
+					'pos' => (int) $start,
+				);
 				if ( $this->seg < count( $this->segments ) - 1 ) {
 					$this->close();
 					continue;
@@ -155,9 +164,9 @@ class BotStormRadar_Log_Cursor {
 				return;
 			}
 			$this->bytes += strlen( $line );
-			$p = BotStormRadar_Log_Line::parse( $line );
+			$p            = BotStormRadar_Log_Line::parse( $line );
 			if ( null === $p ) {
-				$this->bad++;
+				++$this->bad;
 				continue;
 			}
 			$p['ino']   = $this->segments[ $this->seg ][1];
@@ -174,7 +183,10 @@ class BotStormRadar_Log_Cursor {
 	 */
 	public function commit_point() {
 		if ( null !== $this->head ) {
-			return [ 'ino' => (int) $this->head['ino'], 'pos' => (int) $this->head['pos'] ];
+			return array(
+				'ino' => (int) $this->head['ino'],
+				'pos' => (int) $this->head['pos'],
+			);
 		}
 		return $this->commit;
 	}
@@ -191,10 +203,10 @@ class BotStormRadar_Log_Cursor {
 	 */
 	private function open_next_segment() {
 		while ( $this->seg < count( $this->segments ) - 1 ) {
-			$this->seg++;
+			++$this->seg;
 			list( $file, , $pos ) = $this->segments[ $this->seg ];
-			$open = '.gz' === substr( $file, -3 ) ? 'compress.zlib://' . $file : $file;
-			$fh   = @fopen( $open, 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors, WordPress.WP.AlternativeFunctions
+			$open                 = '.gz' === substr( $file, -3 ) ? 'compress.zlib://' . $file : $file;
+			$fh                   = @fopen( $open, 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors, WordPress.WP.AlternativeFunctions
 			if ( false === $fh ) {
 				continue;
 			}
@@ -210,10 +222,10 @@ class BotStormRadar_Log_Cursor {
 
 class BotStormRadar_Log_Source {
 
-	const OPTION        = BotStormRadar_Sources::LOG_OPTION;
-	const MAX_BYTES     = 67108864;
-	const MAX_CATCHUP   = 60;
-	const LOCK_STALE_S  = 600;
+	const OPTION       = BotStormRadar_Sources::LOG_OPTION;
+	const MAX_BYTES    = 67108864;
+	const MAX_CATCHUP  = 60;
+	const LOCK_STALE_S = 600;
 
 	/**
 	 * Responses the web server gave without doing any work: forbidden by a
@@ -222,8 +234,8 @@ class BotStormRadar_Log_Source {
 	 * toward the minute's `refused` figure. A crawler flood the server refuses
 	 * costs it nothing and must not define what "normal" traffic is.
 	 */
-	const REFUSED_STATUSES = [ 403, 429, 444 ];
-	const GLOBALS_TTL   = 86400;
+	const REFUSED_STATUSES = array( 403, 429, 444 );
+	const GLOBALS_TTL      = 86400;
 
 	/**
 	 * @return array id => label, profile, logs, alert_to, created
@@ -247,13 +259,13 @@ class BotStormRadar_Log_Source {
 	 */
 	public static function save( $id, array $def ) {
 		$all        = self::all();
-		$all[ $id ] = [
+		$all[ $id ] = array(
 			'label'    => (string) ( $def['label'] ?? $id ),
 			'profile'  => (string) $def['profile'],
 			'logs'     => array_values( array_map( 'strval', (array) $def['logs'] ) ),
 			'alert_to' => implode( ', ', BotStormRadar_Helpers::sanitize_email_list( (string) ( $def['alert_to'] ?? '' ) ) ),
 			'created'  => (int) ( $def['created'] ?? time() ),
-		];
+		);
 		update_option( self::OPTION, $all, false );
 	}
 
@@ -275,7 +287,7 @@ class BotStormRadar_Log_Source {
 	 */
 	public static function purge( $id ) {
 		BotStormRadar_Storage::clear( $id );
-		foreach ( [ BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Baseline::OPTION, BotStormRadar_Error_Burst::OPTION, 'botstormradar_log_state', 'botstormradar_log_lock' ] as $name ) {
+		foreach ( array( BotStormRadar_Storm::STATE_OPTION, BotStormRadar_Baseline::OPTION, BotStormRadar_Error_Burst::OPTION, 'botstormradar_log_state', 'botstormradar_log_lock' ) as $name ) {
 			delete_option( BotStormRadar_Sources::option( $name, $id ) );
 		}
 		delete_transient( BotStormRadar_Sources::option( 'botstormradar_log_globals', $id ) );
@@ -300,13 +312,13 @@ class BotStormRadar_Log_Source {
 	public static function run( $id, $now = null ) {
 		$def = self::get( $id );
 		if ( null === $def ) {
-			return [ 'status' => 'unknown' ];
+			return array( 'status' => 'unknown' );
 		}
 		$now  = null === $now ? time() : (int) $now;
 		$lock = BotStormRadar_Sources::option( 'botstormradar_log_lock', $id );
 		if ( ! add_option( $lock, $now, '', false ) ) {
 			if ( $now - (int) get_option( $lock ) < self::LOCK_STALE_S ) {
-				return [ 'status' => 'locked' ];
+				return array( 'status' => 'locked' );
 			}
 			update_option( $lock, $now, false );
 		}
@@ -315,9 +327,9 @@ class BotStormRadar_Log_Source {
 			$state   = self::state( $id );
 			$current = BotStormRadar_Helpers::minute( $now );
 			$target  = $current - 1;
-			$cursors = [];
+			$cursors = array();
 			foreach ( $def['logs'] as $path ) {
-				$cursors[ $path ] = new BotStormRadar_Log_Cursor( $path, (array) ( $state['files'][ $path ] ?? [] ) );
+				$cursors[ $path ] = new BotStormRadar_Log_Cursor( $path, (array) ( $state['files'][ $path ] ?? array() ) );
 			}
 			BotStormRadar_Baseline::ensure_started( $id );
 
@@ -330,7 +342,10 @@ class BotStormRadar_Log_Source {
 				$status               = 0 === $last ? 'started' : 'caught_up';
 				$state['last_minute'] = $target;
 				$state['last_run']    = $now;
-				$state['stats']       = [ 'status' => $status, 'skipped_minutes' => 0 === $last ? 0 : $target - $last ];
+				$state['stats']       = array(
+					'status'          => $status,
+					'skipped_minutes' => 0 === $last ? 0 : $target - $last,
+				);
 				update_option( BotStormRadar_Sources::option( 'botstormradar_log_state', $id ), $state, false );
 				return $state['stats'];
 			}
@@ -341,13 +356,19 @@ class BotStormRadar_Log_Source {
 			BotStormRadar_Good_Bots::verify_pending();
 			self::end_memory( $id );
 
-			$state                = $summary['state'];
-			$state['last_run']    = $now;
-			$state['stats']       = array_diff_key( $summary, [ 'state' => 1, 'transitions' => 1 ] ) + [ 'status' => 'ok' ];
+			$state             = $summary['state'];
+			$state['last_run'] = $now;
+			$state['stats']    = array_diff_key(
+				$summary,
+				array(
+					'state'       => 1,
+					'transitions' => 1,
+				)
+			) + array( 'status' => 'ok' );
 			update_option( BotStormRadar_Sources::option( 'botstormradar_log_state', $id ), $state, false );
-			return $state['stats'] + [ 'transitions' => $summary['transitions'] ];
+			return $state['stats'] + array( 'transitions' => $summary['transitions'] );
 		} finally {
-			foreach ( $cursors ?? [] as $c ) {
+			foreach ( $cursors ?? array() as $c ) {
 				$c->close();
 			}
 			delete_option( $lock );
@@ -370,15 +391,32 @@ class BotStormRadar_Log_Source {
 		if ( is_array( $baseline ) ) {
 			// Stored as the scratch source's learned baseline, so the score and
 			// the explanation in each transition read the same figure.
-			$learned = $baseline + [ 'ips_median' => null, 'ips_p90' => null, 'asset_median' => null, 'days' => 7 ];
-			update_option( BotStormRadar_Sources::option( BotStormRadar_Baseline::OPTION, $id ), [ 'started' => time(), 'days' => [], 'learned' => $learned, 'last_day' => '' ], false );
+			$learned = $baseline + array(
+				'ips_median'   => null,
+				'ips_p90'      => null,
+				'asset_median' => null,
+				'days'         => 7,
+			);
+			update_option(
+				BotStormRadar_Sources::option( BotStormRadar_Baseline::OPTION, $id ),
+				array(
+					'started'  => time(),
+					'days'     => array(),
+					'learned'  => $learned,
+					'last_day' => '',
+				),
+				false
+			);
 		}
-		$cursors = [];
+		$cursors = array();
 		foreach ( $files as $f ) {
-			$cursors[ $f ] = new BotStormRadar_Log_Cursor( $f, [], true );
+			$cursors[ $f ] = new BotStormRadar_Log_Cursor( $f, array(), true );
 		}
 		self::begin_memory( $id, false );
-		$state   = [ 'last_minute' => 0, 'files' => [] ];
+		$state   = array(
+			'last_minute' => 0,
+			'files'       => array(),
+		);
 		$summary = self::process( $id, $profile, $cursors, null, PHP_INT_MAX, $state, false );
 		self::end_memory( $id, false );
 		foreach ( $cursors as $c ) {
@@ -392,19 +430,29 @@ class BotStormRadar_Log_Source {
 	 * to its minute, finish each minute when a later line shows up, commit
 	 * positions at every finished minute.
 	 *
-	 * @param string     $id
-	 * @param string     $profile
-	 * @param array      $cursors  path => BotStormRadar_Log_Cursor
-	 * @param int|null   $bucket   First minute to fill (null: the first line's).
-	 * @param int        $current  Lines at or after this minute are left unread.
-	 * @param array      $state    Source state (files, last_minute), updated.
-	 * @param bool       $live     Commit the state after every minute and stop at the byte budget.
+	 * @param string   $id
+	 * @param string   $profile
+	 * @param array    $cursors  path => BotStormRadar_Log_Cursor
+	 * @param int|null $bucket   First minute to fill (null: the first line's).
+	 * @param int      $current  Lines at or after this minute are left unread.
+	 * @param array    $state    Source state (files, last_minute), updated.
+	 * @param bool     $live     Commit the state after every minute and stop at the byte budget.
 	 * @return array
 	 */
 	private static function process( $id, $profile, array $cursors, $bucket, $current, array $state, $live ) {
 		$opts     = BotStormRadar_Helpers::get_options();
 		$baseline = BotStormRadar_Baseline::effective( $id );
-		$sum      = [ 'lines' => 0, 'late' => 0, 'minutes' => 0, 'bytes' => 0, 'bad' => 0, 'refused' => 0, 'events' => [], 'transitions' => [], 'scores' => [] ];
+		$sum      = array(
+			'lines'       => 0,
+			'late'        => 0,
+			'minutes'     => 0,
+			'bytes'       => 0,
+			'bad'         => 0,
+			'refused'     => 0,
+			'events'      => array(),
+			'transitions' => array(),
+			'scores'      => array(),
+		);
 		$stopped  = false;
 
 		foreach ( $cursors as $c ) {
@@ -415,15 +463,27 @@ class BotStormRadar_Log_Source {
 			$row = BotStormRadar_Metrics::compute_minute( $m, $opts, $baseline );
 			BotStormRadar_Storage::add_minute( $row, $id );
 			foreach ( BotStormRadar_Storm::step( $row, $opts, $id ) as $t ) {
-				$sum['transitions'][] = [ 'minute' => $m, 'from' => $t['from'], 'to' => $t['to'], 'score' => $t['score'], 'explanation' => $t['explanation'] ];
+				$sum['transitions'][] = array(
+					'minute'      => $m,
+					'from'        => $t['from'],
+					'to'          => $t['to'],
+					'score'       => $t['score'],
+					'explanation' => $t['explanation'],
+				);
 			}
 			$burst = BotStormRadar_Error_Burst::observe( $row, $opts, $id );
 			if ( null !== $burst ) {
-				$sum['transitions'][] = [ 'minute' => $m, 'from' => $burst['from'], 'to' => $burst['to'], 'score' => $burst['score'], 'explanation' => $burst['explanation'] ];
+				$sum['transitions'][] = array(
+					'minute'      => $m,
+					'from'        => $burst['from'],
+					'to'          => $burst['to'],
+					'score'       => $burst['score'],
+					'explanation' => $burst['explanation'],
+				);
 			}
 			BotStormRadar_Counters::memory_purge( 'm:' . $m . ':' );
-			$sum['scores'][ $m ] = [ (int) $row['score'], (int) $row['ips'], (int) $row['total'] ];
-			$sum['minutes']++;
+			$sum['scores'][ $m ] = array( (int) $row['score'], (int) $row['ips'], (int) $row['total'] );
+			++$sum['minutes'];
 			$state['last_minute'] = $m;
 			foreach ( $cursors as $path => $c ) {
 				if ( 'missing' !== $c->event ) {
@@ -450,13 +510,13 @@ class BotStormRadar_Log_Source {
 				$bucket = $lm;
 			}
 			if ( $lm < $bucket ) {
-				$sum['late']++;
+				++$sum['late'];
 				$pick->next();
 				continue;
 			}
 			while ( $lm > $bucket ) {
 				$finish( $bucket );
-				$bucket++;
+				++$bucket;
 				if ( $live && self::bytes( $cursors ) > self::MAX_BYTES ) {
 					$stopped = true;
 					break 2;
@@ -464,21 +524,24 @@ class BotStormRadar_Log_Source {
 			}
 			if ( in_array( (int) $pick->head['status'], self::REFUSED_STATUSES, true ) ) {
 				BotStormRadar_Counters::incr( 'm:' . $bucket . ':refused' );
-				$sum['refused']++;
+				++$sum['refused'];
 			} else {
 				$class = BotStormRadar_Log_Line::classify( $pick->head, $profile );
 				if ( 'cron' !== $class ) {
-					BotStormRadar_Recorder::ingest( [
-						'class'   => $class,
-						'ip'      => $pick->head['ip'],
-						'ua'      => $pick->head['ua'],
-						'session' => '',
-						'status'  => $pick->head['status'],
-						'ms'      => 0,
-					], $bucket );
+					BotStormRadar_Recorder::ingest(
+						array(
+							'class'   => $class,
+							'ip'      => $pick->head['ip'],
+							'ua'      => $pick->head['ua'],
+							'session' => '',
+							'status'  => $pick->head['status'],
+							'ms'      => 0,
+						),
+						$bucket
+					);
 				}
 			}
-			$sum['lines']++;
+			++$sum['lines'];
 			$pick->next();
 		}
 
@@ -486,7 +549,7 @@ class BotStormRadar_Log_Source {
 			$last_full = PHP_INT_MAX === $current ? $bucket : $current - 1;
 			while ( $bucket <= $last_full ) {
 				$finish( $bucket );
-				$bucket++;
+				++$bucket;
 			}
 		}
 

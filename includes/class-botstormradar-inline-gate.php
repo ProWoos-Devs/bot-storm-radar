@@ -36,7 +36,7 @@ class BotStormRadar_Inline_Gate {
 	 * The server variables the decision reads besides the address headers
 	 * (BotStormRadar_IP_Resolver::SERVER_KEYS).
 	 */
-	const SERVER_KEYS = [ 'REQUEST_URI', 'SCRIPT_FILENAME' ];
+	const SERVER_KEYS = array( 'REQUEST_URI', 'SCRIPT_FILENAME' );
 
 	/**
 	 * Whether this build refuses inside the plugin: only when it has no early
@@ -52,7 +52,7 @@ class BotStormRadar_Inline_Gate {
 		if ( ! self::active() ) {
 			return;
 		}
-		BotStormRadar_Projection::on_change( [ __CLASS__, 'store' ] );
+		BotStormRadar_Projection::on_change( array( __CLASS__, 'store' ) );
 		self::run();
 	}
 
@@ -108,7 +108,12 @@ class BotStormRadar_Inline_Gate {
 		$now   = null === $now ? time() : (int) $now;
 		$rules = self::rules();
 		if ( null === $rules ) {
-			return [ 'action' => 'pass', 'why' => 'no-rules', 'ip' => false, 'trip' => '' ]; // Fail open.
+			return array(
+				'action' => 'pass',
+				'why'    => 'no-rules',
+				'ip'     => false,
+				'trip'   => '',
+			); // Fail open.
 		}
 		$d         = BotStormRadar_Decision::decide( $server, $rules, $now );
 		$d['trip'] = '';
@@ -162,14 +167,14 @@ class BotStormRadar_Inline_Gate {
 			return '';
 		}
 		$ua = BotStormRadar_Helpers::user_agent();
-		$ev = [
+		$ev = array(
 			'by'            => 'plugin',
 			'window_probes' => $n,
 			'last_probe'    => $class,
 			'last_path'     => substr( BotStormRadar_Helpers::request_path(), 0, 200 ),
 			'user_agent'    => $ua,
 			'minute'        => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',
-		];
+		);
 		return BotStormRadar_Trips::trip( $ip, 'probe', $ev, 'gate', BotStormRadar_Good_Bots::claimed( $ua ), $now );
 	}
 

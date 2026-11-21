@@ -56,7 +56,7 @@ class BotStormRadar_Probe {
 	 * secrets. Not .js or .json in general: PWA and service-worker plugins
 	 * serve manifest.json or sw.js through PHP.
 	 */
-	const CONFIG_NAMES = [ 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'composer.json', 'yarn.lock', 'ecosystem.config.js', 'ecosystem.config.json', 'deploy.json', 'credentials', 'credentials.json', 'secrets.json', 'appsettings.json', 'dockerfile', 'web.config', 'id_rsa', 'id_ed25519' ];
+	const CONFIG_NAMES = array( 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'composer.json', 'yarn.lock', 'ecosystem.config.js', 'ecosystem.config.json', 'deploy.json', 'credentials', 'credentials.json', 'secrets.json', 'appsettings.json', 'dockerfile', 'web.config', 'id_rsa', 'id_ed25519' );
 
 	/**
 	 * The probe class of a request path, or '' when it is not a probe.
@@ -82,7 +82,7 @@ class BotStormRadar_Probe {
 		$home = rtrim( strtolower( (string) ( $cfg['home'] ?? '' ) ), '/' );
 		$rel  = ( '' !== $home && 0 === strpos( $path, $home . '/' ) ) ? substr( $path, strlen( $home ) ) : $path;
 
-		foreach ( (array) ( $cfg['allow'] ?? [] ) as $re ) {
+		foreach ( (array) ( $cfg['allow'] ?? array() ) as $re ) {
 			if ( self::pattern_matches( $re, $rel ) ) {
 				return '';
 			}
@@ -109,13 +109,13 @@ class BotStormRadar_Probe {
 				return 'archive';
 			}
 		}
-		foreach ( (array) ( $cfg['scanner'] ?? [] ) as $prefix ) {
+		foreach ( (array) ( $cfg['scanner'] ?? array() ) as $prefix ) {
 			$prefix = strtolower( (string) $prefix );
 			if ( '' !== $prefix && 0 === strpos( $rel, $prefix ) ) {
 				return 'scanner';
 			}
 		}
-		foreach ( (array) ( $cfg['extra'] ?? [] ) as $re ) {
+		foreach ( (array) ( $cfg['extra'] ?? array() ) as $re ) {
 			if ( self::pattern_matches( $re, $rel ) ) {
 				return 'custom';
 			}
@@ -140,7 +140,7 @@ class BotStormRadar_Probe {
 	 * @return string[]
 	 */
 	public static function compile( $lines ) {
-		$out = [];
+		$out = array();
 		foreach ( is_array( $lines ) ? $lines : preg_split( '/\r\n|\r|\n/', (string) $lines ) as $line ) {
 			$line = strtolower( trim( (string) $line ) );
 			if ( '' === $line || '#' === $line[0] ) {

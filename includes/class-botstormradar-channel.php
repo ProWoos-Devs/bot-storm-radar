@@ -179,8 +179,8 @@ class BotStormRadar_Channel {
 			$key = self::PREFIX . self::site_id( $dir ) . ':pev:' . $ip;
 			$ok  = false;
 			$v   = apcu_fetch( $key, $ok );
-			$v   = $ok && is_array( $v ) ? $v : [];
-			return apcu_store( $key, self::evidence_merge( $v, [ $path ], '' === $ua ? [] : [ $ua ], 1, $now ), self::EVIDENCE_TTL );
+			$v   = $ok && is_array( $v ) ? $v : array();
+			return apcu_store( $key, self::evidence_merge( $v, array( $path ), '' === $ua ? array() : array( $ua ), 1, $now ), self::EVIDENCE_TTL );
 		}
 		// Both values are printable ASCII (evidence_clean), so no tab or newline can break the line.
 		$line = 'pev' . "\t" . $path . "\t" . $ip . "\t" . $ua . "\n";
@@ -200,16 +200,19 @@ class BotStormRadar_Channel {
 	 */
 	public static function evidence_merge( array $v, array $paths, array $uas, $n, $now ) {
 		if ( (int) ( $v['last'] ?? 0 ) < (int) $now - self::EVIDENCE_TTL ) {
-			$v = []; // Expired: nothing old is carried into the new record.
+			$v = array(); // Expired: nothing old is carried into the new record.
 		}
-		foreach ( [ 'paths' => [ $paths, self::EVIDENCE_PATHS ], 'user_agents' => [ $uas, self::EVIDENCE_UAS ] ] as $k => $add ) {
-			$list = isset( $v[ $k ] ) && is_array( $v[ $k ] ) ? $v[ $k ] : [];
+		foreach ( array(
+			'paths'       => array( $paths, self::EVIDENCE_PATHS ),
+			'user_agents' => array( $uas, self::EVIDENCE_UAS ),
+		) as $k => $add ) {
+			$list = isset( $v[ $k ] ) && is_array( $v[ $k ] ) ? $v[ $k ] : array();
 			foreach ( $add[0] as $item ) {
 				$item = (string) $item;
 				if ( '' === $item ) {
 					continue;
 				}
-				$list   = array_values( array_diff( $list, [ $item ] ) );
+				$list   = array_values( array_diff( $list, array( $item ) ) );
 				$list[] = $item;
 			}
 			$v[ $k ] = array_slice( $list, -$add[1] );
@@ -247,11 +250,11 @@ class BotStormRadar_Channel {
 		if ( 4 !== count( $f ) || 'pev' !== $f[0] || '' === $f[1] || false === @inet_pton( $f[2] ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
 			return null;
 		}
-		return [
+		return array(
 			'ip' => $f[2],
 			'p'  => self::evidence_clean( $f[1] ),
 			'u'  => self::evidence_clean( $f[3] ),
-		];
+		);
 	}
 
 	// ── Gate-side trips and provisional bans (APCu only) ─────────────
@@ -293,7 +296,16 @@ class BotStormRadar_Channel {
 		if ( ! self::apcu() || '' === (string) $ip || $expires <= $now ) {
 			return false;
 		}
-		return apcu_store( self::PREFIX . self::site_id( $dir ) . ':pban:' . $ip, [ 'exp' => (int) $expires, 'gen' => (int) $generation, 'reason' => (string) $reason, 't' => (int) $now ], (int) $expires - (int) $now );
+		return apcu_store(
+			self::PREFIX . self::site_id( $dir ) . ':pban:' . $ip,
+			array(
+				'exp'    => (int) $expires,
+				'gen'    => (int) $generation,
+				'reason' => (string) $reason,
+				't'      => (int) $now,
+			),
+			(int) $expires - (int) $now
+		);
 	}
 
 	/**
@@ -324,7 +336,7 @@ class BotStormRadar_Channel {
 	public static function closed_minutes( $dir, $now = null ) {
 		$now     = null === $now ? time() : (int) $now;
 		$limit   = intdiv( $now - self::GRACE, 60 ) - 1; // The newest minute that ended at least GRACE seconds ago.
-		$minutes = [];
+		$minutes = array();
 		if ( self::apcu() && class_exists( 'APCUIterator' ) ) {
 			$re = '/^' . preg_quote( self::PREFIX . self::site_id( $dir ) . ':', '/' ) . '(\d+):/';
 			foreach ( new APCUIterator( $re, APC_ITER_KEY ) as $item ) {
@@ -356,7 +368,7 @@ class BotStormRadar_Channel {
 	 */
 	public static function take( $dir, $minute, &$full = false ) {
 		$full   = false;
-		$events = [];
+		$events = array();
 		if ( self::apcu() && class_exists( 'APCUIterator' ) ) {
 			// Each key is its own claim: only the drainer whose apcu_delete()
 			// succeeds counts it. No minute-wide marker, so events that arrive
@@ -417,7 +429,7 @@ class BotStormRadar_Channel {
 	 */
 	public static function sweep_interrupted( $dir, $age = 600, $now = null ) {
 		$now  = null === $now ? time() : (int) $now;
-		$lost = [];
+		$lost = array();
 		foreach ( (array) @scandir( $dir ) as $f ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
 			if ( is_string( $f ) && preg_match( '/^spool-(\d+)\.draining-[0-9a-f]+\.php$/', $f, $m ) && (int) @filemtime( $dir . $f ) < $now - $age ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
 				@unlink( $dir . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions

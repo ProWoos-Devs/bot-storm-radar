@@ -58,21 +58,21 @@ class BotStormRadar_Gate_Install {
 	/**
 	 * The source files bundled into a gate copy, in order.
 	 */
-	const SOURCES = [ 'class-botstormradar-ip-resolver.php', 'class-botstormradar-state-reader.php', 'class-botstormradar-probe.php', 'class-botstormradar-decision.php', 'class-botstormradar-channel.php', 'class-botstormradar-gate.php' ];
+	const SOURCES = array( 'class-botstormradar-ip-resolver.php', 'class-botstormradar-state-reader.php', 'class-botstormradar-probe.php', 'class-botstormradar-decision.php', 'class-botstormradar-channel.php', 'class-botstormradar-gate.php' );
 
 	/**
 	 * Source class => class name inside the bundle. BotStormRadar_Gate first: the
 	 * pattern is anchored on word boundaries, so it never touches the
 	 * BOTSTORMRADAR_GATE constants or the already-renamed names.
 	 */
-	const RENAMES = [
+	const RENAMES = array(
 		'BotStormRadar_Gate'         => 'BotStormRadar_Gate_Runner',
 		'BotStormRadar_IP_Resolver'  => 'BotStormRadar_Gate_IP_Resolver',
 		'BotStormRadar_State_Reader' => 'BotStormRadar_Gate_State_Reader',
 		'BotStormRadar_Probe'        => 'BotStormRadar_Gate_Probe',
 		'BotStormRadar_Decision'     => 'BotStormRadar_Gate_Decision',
 		'BotStormRadar_Channel'      => 'BotStormRadar_Gate_Channel',
-	];
+	);
 
 	/**
 	 * @var string
@@ -89,8 +89,8 @@ class BotStormRadar_Gate_Install {
 
 	public static function init() {
 		// Daily, on the shared list-refresh hook.
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'finish_move' ], 45, 0 );
-		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'retire' ], 50, 0 );
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, array( __CLASS__, 'finish_move' ), 45, 0 );
+		add_action( BotStormRadar_Client_IP::CRON_HOOK, array( __CLASS__, 'retire' ), 50, 0 );
 		self::maybe_retry();
 	}
 
@@ -125,13 +125,13 @@ class BotStormRadar_Gate_Install {
 		$attempts = '' === $error ? 0 : ( BOTSTORMRADAR_VERSION === $last['version'] && ! $last['ok'] ? $last['attempts'] + 1 : 1 );
 		update_option(
 			self::STATUS_OPTION,
-			[
+			array(
 				'version'  => BOTSTORMRADAR_VERSION,
 				'ok'       => '' === $error,
 				'error'    => $error,
 				'at'       => $now,
 				'attempts' => $attempts,
-			],
+			),
 			true
 		);
 		return '' === $error;
@@ -143,15 +143,15 @@ class BotStormRadar_Gate_Install {
 	 * @return array {version: string, ok: bool, error: string, at: int, attempts: int}
 	 */
 	public static function install_status() {
-		$s = get_option( self::STATUS_OPTION, [] );
-		$s = is_array( $s ) ? $s : [];
-		return [
+		$s = get_option( self::STATUS_OPTION, array() );
+		$s = is_array( $s ) ? $s : array();
+		return array(
 			'version'  => (string) ( $s['version'] ?? '' ),
 			'ok'       => ! empty( $s['ok'] ),
 			'error'    => (string) ( $s['error'] ?? '' ),
 			'at'       => (int) ( $s['at'] ?? 0 ),
 			'attempts' => (int) ( $s['attempts'] ?? 0 ),
-		];
+		);
 	}
 
 	/**
@@ -220,17 +220,23 @@ class BotStormRadar_Gate_Install {
 		}
 		$manifest = self::manifest();
 		if ( ( $manifest['gate'] ?? '' ) !== $name ) {
-			$previous = $manifest['previous'] ?? [];
+			$previous = $manifest['previous'] ?? array();
 			if ( ! empty( $manifest['gate'] ) ) {
-				array_unshift( $previous, [ 'file' => $manifest['gate'], 'left' => $now ] );
+				array_unshift(
+					$previous,
+					array(
+						'file' => $manifest['gate'],
+						'left' => $now,
+					)
+				);
 			}
-			$new = [
+			$new = array(
 				'format'   => 1,
 				'gate'     => $name,
 				'version'  => $version,
 				'written'  => $now,
 				'previous' => array_slice( $previous, 0, self::HISTORY_CAP ),
-			];
+			);
 			if ( ! self::write_atomic( $dir . self::MANIFEST_FILE, BotStormRadar_State_Reader::encode( $new ) ) ) {
 				return false;
 			}
@@ -263,10 +269,10 @@ class BotStormRadar_Gate_Install {
 	public static function manifest() {
 		$dir = BotStormRadar_State::dir();
 		if ( '' === $dir ) {
-			return [];
+			return array();
 		}
 		$m = BotStormRadar_State_Reader::read( $dir . self::MANIFEST_FILE );
-		return is_array( $m ) ? $m : [];
+		return is_array( $m ) ? $m : array();
 	}
 
 	/**
@@ -283,16 +289,16 @@ class BotStormRadar_Gate_Install {
 		$now = null === $now ? time() : (int) $now;
 		$dir = BotStormRadar_State::dir();
 		if ( '' === $dir ) {
-			return [];
+			return array();
 		}
 		$manifest = self::manifest();
 		$current  = (string) ( $manifest['gate'] ?? '' );
 		if ( '' === $current ) {
-			return []; // Without a manifest nothing is known to be unused.
+			return array(); // Without a manifest nothing is known to be unused.
 		}
-		$keep = [ $current => true ];
-		$left = [];
-		foreach ( array_values( (array) ( $manifest['previous'] ?? [] ) ) as $i => $p ) {
+		$keep = array( $current => true );
+		$left = array();
+		foreach ( array_values( (array) ( $manifest['previous'] ?? array() ) ) as $i => $p ) {
 			$file = (string) ( $p['file'] ?? '' );
 			if ( $i < self::KEEP_PREVIOUS ) {
 				$keep[ $file ] = true;
@@ -301,7 +307,7 @@ class BotStormRadar_Gate_Install {
 				$left[ $file ] = (int) ( $p['left'] ?? $now );
 			}
 		}
-		$deleted = [];
+		$deleted = array();
 		foreach ( (array) scandir( $dir ) as $f ) {
 			if ( ! is_string( $f ) || isset( $keep[ $f ] ) ) {
 				continue;
@@ -360,14 +366,14 @@ class BotStormRadar_Gate_Install {
 		$dir      = BotStormRadar_State::dir();
 		$manifest = self::manifest();
 		$gate     = (string) ( $manifest['gate'] ?? '' );
-		return [
+		return array(
 			'loader'       => '' !== $dir && is_file( $dir . self::LOADER_FILE ),
 			'mu_plugin'    => is_file( trailingslashit( WPMU_PLUGIN_DIR ) . self::MU_FILE ),
 			'disabled'     => '' !== $dir && is_file( $dir . self::DISABLED_FILE ),
 			'gate'         => $gate,
 			'gate_present' => '' !== $gate && is_file( $dir . $gate ),
 			'version'      => (string) ( $manifest['version'] ?? '' ),
-		];
+		);
 	}
 
 	/**
@@ -423,7 +429,7 @@ LOADER;
 	 * @return string
 	 */
 	public static function bundle( $includes, $version ) {
-		$parts = [];
+		$parts = array();
 		foreach ( self::SOURCES as $f ) {
 			$src = @file_get_contents( $includes . $f ); // phpcs:ignore WordPress.PHP.NoSilencedErrors,WordPress.WP.AlternativeFunctions
 			if ( ! is_string( $src ) || 0 !== strpos( $src, '<?php' ) ) {

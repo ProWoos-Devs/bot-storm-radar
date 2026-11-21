@@ -86,8 +86,8 @@ class BotStormRadar_AbuseIPDB {
 	const MAX_CAP      = 1000;
 
 	public static function init() {
-		add_action( 'botstormradar_bans_changed', [ __CLASS__, 'schedule' ], 10, 0 );
-		add_action( self::HOOK, [ __CLASS__, 'run' ], 10, 0 );
+		add_action( 'botstormradar_bans_changed', array( __CLASS__, 'schedule' ), 10, 0 );
+		add_action( self::HOOK, array( __CLASS__, 'run' ), 10, 0 );
 	}
 
 	// ── Settings ──────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ class BotStormRadar_AbuseIPDB {
 			return 'off';
 		}
 		$m = (string) BotStormRadar_Helpers::opt( 'abuseipdb_mode', 'manual' );
-		return in_array( $m, [ 'off', 'manual', 'automatic' ], true ) ? $m : 'manual';
+		return in_array( $m, array( 'off', 'manual', 'automatic' ), true ) ? $m : 'manual';
 	}
 
 	/**
@@ -143,11 +143,11 @@ class BotStormRadar_AbuseIPDB {
 		}, $page, 'botstormradar_abuseipdb' );
 		add_settings_field( 'abuseipdb_mode', __( 'Reporting', 'bot-storm-radar' ), function () use ( $name ) {
 			$v = (string) BotStormRadar_Helpers::opt( 'abuseipdb_mode', 'manual' );
-			$labels = [
+			$labels = array(
 				'off'       => __( 'Off', 'bot-storm-radar' ),
 				'manual'    => __( 'By hand: a Report button on the Bans tab, with a preview of the report', 'bot-storm-radar' ),
 				'automatic' => __( 'Automatic: also report every new probe ban (enforce mode only)', 'bot-storm-radar' ),
-			];
+			);
 			foreach ( $labels as $k => $label ) {
 				printf( '<label><input type="radio" name="%1$s[abuseipdb_mode]" value="%2$s" %3$s /> %4$s</label><br />', esc_attr( $name ), esc_attr( $k ), checked( $k, $v, false ), esc_html( $label ) );
 			}
@@ -169,7 +169,7 @@ class BotStormRadar_AbuseIPDB {
 	public static function sanitize( array $input, array $out ) {
 		if ( isset( $input['abuseipdb_mode'] ) ) {
 			$m                     = sanitize_key( (string) $input['abuseipdb_mode'] );
-			$out['abuseipdb_mode'] = in_array( $m, [ 'off', 'manual', 'automatic' ], true ) ? $m : 'manual';
+			$out['abuseipdb_mode'] = in_array( $m, array( 'off', 'manual', 'automatic' ), true ) ? $m : 'manual';
 		}
 		if ( isset( $input['abuseipdb_daily_cap'] ) ) {
 			$out['abuseipdb_daily_cap'] = (int) BotStormRadar_Helpers::clamp( (int) $input['abuseipdb_daily_cap'], 1, self::MAX_CAP );
@@ -195,15 +195,15 @@ class BotStormRadar_AbuseIPDB {
 	 * @return array ip, reason, evidence, first, last, ban_id
 	 */
 	public static function from_ban( array $row ) {
-		return [
+		return array(
 			'ip'       => (string) $row['ip_text'],
 			'single'   => (int) $row['prefix_len'] === ( false !== strpos( (string) $row['ip_text'], ':' ) ? 128 : 32 ),
 			'reason'   => (string) $row['reason'],
-			'evidence' => is_array( $row['evidence'] ) ? $row['evidence'] : [],
+			'evidence' => is_array( $row['evidence'] ) ? $row['evidence'] : array(),
 			'first'    => (int) $row['created_at'],
 			'last'     => max( (int) $row['created_at'], (int) $row['updated_at'] ),
 			'ban_id'   => (int) $row['id'],
-		];
+		);
 	}
 
 	/**
@@ -214,15 +214,15 @@ class BotStormRadar_AbuseIPDB {
 	 * @return array
 	 */
 	public static function from_would( $ip, array $w ) {
-		return [
+		return array(
 			'ip'       => (string) $ip,
 			'single'   => true,
 			'reason'   => (string) ( $w['reason'] ?? '' ),
-			'evidence' => is_array( $w['evidence'] ?? null ) ? $w['evidence'] : [],
+			'evidence' => is_array( $w['evidence'] ?? null ) ? $w['evidence'] : array(),
 			'first'    => (int) ( $w['first'] ?? 0 ),
 			'last'     => (int) ( $w['last'] ?? 0 ),
 			'ban_id'   => 0,
-		];
+		);
 	}
 
 	/**
@@ -289,7 +289,7 @@ class BotStormRadar_AbuseIPDB {
 	 */
 	public static function comment( array $c ) {
 		$ev    = $c['evidence'];
-		$parts = [ 'Requested paths that vulnerability scanners look for (exposed configuration, version control, backups, other applications\' admin pages, PHP files that do not exist): ' . implode( ', ', self::paths( $ev ) ) . '.' ];
+		$parts = array( 'Requested paths that vulnerability scanners look for (exposed configuration, version control, backups, other applications\' admin pages, PHP files that do not exist): ' . implode( ', ', self::paths( $ev ) ) . '.' );
 		$count = self::probe_count( $ev );
 		$first = (int) $c['first'];
 		$last  = max( $first, (int) $c['last'] );
@@ -317,8 +317,8 @@ class BotStormRadar_AbuseIPDB {
 	 * @return string[]
 	 */
 	public static function paths( array $ev ) {
-		$out = [];
-		foreach ( (array) ( $ev['paths'] ?? [] ) as $p ) {
+		$out = array();
+		foreach ( (array) ( $ev['paths'] ?? array() ) as $p ) {
 			$p = self::clean( preg_split( '/[?#]/', (string) $p, 2 )[0] );
 			if ( '' !== $p && ! in_array( $p, $out, true ) ) {
 				$out[] = $p;
@@ -334,7 +334,7 @@ class BotStormRadar_AbuseIPDB {
 	 * @return string[]
 	 */
 	public static function user_agents( array $ev ) {
-		return array_slice( array_values( array_filter( array_map( [ __CLASS__, 'clean' ], (array) ( $ev['user_agents'] ?? [] ) ) ) ), -2 );
+		return array_slice( array_values( array_filter( array_map( array( __CLASS__, 'clean' ), (array) ( $ev['user_agents'] ?? array() ) ) ) ), -2 );
 	}
 
 	/**
@@ -397,42 +397,42 @@ class BotStormRadar_AbuseIPDB {
 	public static function report( array $c, $by = 'manual', $now = null ) {
 		$now = null === $now ? time() : (int) $now;
 		if ( 'off' === self::mode() ) {
-			return [ 'ok' => false, 'error' => 'off' ];
+			return array( 'ok' => false, 'error' => 'off' );
 		}
 		$why = self::refusal( $c, $now );
 		if ( '' !== $why ) {
-			return [ 'ok' => false, 'error' => $why ];
+			return array( 'ok' => false, 'error' => $why );
 		}
 		if ( self::sent_today( $now ) >= self::daily_cap() ) {
-			return [ 'ok' => false, 'error' => 'cap' ];
+			return array( 'ok' => false, 'error' => 'cap' );
 		}
 		$response = wp_remote_post(
 			self::API_URL,
-			[
+			array(
 				'timeout' => 10,
-				'headers' => [
+				'headers' => array(
 					'Key'        => self::key(),
 					'Accept'     => 'application/json',
 					'User-Agent' => 'BotStormRadar/' . BOTSTORMRADAR_VERSION,
-				],
-				'body'    => [
+				),
+				'body'    => array(
 					'ip'         => $c['ip'],
 					'categories' => self::categories( $c ),
 					'comment'    => self::comment( $c ),
 					'timestamp'  => gmdate( 'c', max( 1, (int) $c['first'] ) ),
-				],
-			]
+				),
+			)
 		);
 		if ( is_wp_error( $response ) ) {
-			$res = [ 'ok' => false, 'error' => $response->get_error_message() ];
+			$res = array( 'ok' => false, 'error' => $response->get_error_message() );
 		} else {
 			$code = (int) wp_remote_retrieve_response_code( $response );
 			$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 			if ( 200 === $code ) {
-				$res = [ 'ok' => true, 'score' => isset( $body['data']['abuseConfidenceScore'] ) ? (int) $body['data']['abuseConfidenceScore'] : null ];
+				$res = array( 'ok' => true, 'score' => isset( $body['data']['abuseConfidenceScore'] ) ? (int) $body['data']['abuseConfidenceScore'] : null );
 			} else {
 				$detail = isset( $body['errors'][0]['detail'] ) ? (string) $body['errors'][0]['detail'] : 'HTTP ' . $code;
-				$res    = [ 'ok' => false, 'error' => 'HTTP ' . $code . ': ' . $detail ];
+				$res    = array( 'ok' => false, 'error' => 'HTTP ' . $code . ': ' . $detail );
 			}
 		}
 		$res['error'] = isset( $res['error'] ) ? substr( sanitize_text_field( $res['error'] ), 0, 200 ) : '';
@@ -451,7 +451,7 @@ class BotStormRadar_AbuseIPDB {
 	private static function record( array $c, array $res, $by, $now ) {
 		$log = self::log();
 		unset( $log[ $c['ip'] ] );
-		$log = [ $c['ip'] => [ 't' => (int) $now, 'ok' => ! empty( $res['ok'] ), 'score' => $res['score'] ?? null, 'error' => (string) $res['error'], 'by' => 'auto' === $by ? 'auto' : 'manual' ] ] + $log;
+		$log = array( $c['ip'] => array( 't' => (int) $now, 'ok' => ! empty( $res['ok'] ), 'score' => $res['score'] ?? null, 'error' => (string) $res['error'], 'by' => 'auto' === $by ? 'auto' : 'manual' ) ) + $log;
 		$log = array_filter( $log, function ( $e ) use ( $now ) {
 			return (int) $e['t'] > $now - self::LOG_KEEP;
 		} );
@@ -482,8 +482,8 @@ class BotStormRadar_AbuseIPDB {
 	 * @return array ip => t, ok, score, error, by (newest first)
 	 */
 	public static function log() {
-		$l = get_option( self::LOG_OPTION, [] );
-		return is_array( $l ) ? $l : [];
+		$l = get_option( self::LOG_OPTION, array() );
+		return is_array( $l ) ? $l : array();
 	}
 
 	/**
@@ -635,7 +635,7 @@ class BotStormRadar_AbuseIPDB {
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = is_array( $rows ) ? $rows : [];
+		$rows = is_array( $rows ) ? $rows : array();
 		$done  = 0;
 		$retry = false;
 		$more  = count( $rows ) > self::AUTO_BATCH;
@@ -704,7 +704,7 @@ class BotStormRadar_AbuseIPDB {
 				?>
 			</small></p>
 			<pre class="bsr-report-text"><?php echo esc_html( self::comment( $c ) ); ?></pre>
-			<a class="button button-small" data-botstormradar-confirm="<?php esc_attr_e( 'Send this report to AbuseIPDB? Reports are public and cannot be taken back from here.', 'bot-storm-radar' ); ?>" href="<?php echo esc_url( BotStormRadar_Admin::action_url( 'abuseipdb_report', [ 'ip' => $c['ip'], 'kind' => $kind ] ) ); ?>"><?php esc_html_e( 'Send this report', 'bot-storm-radar' ); ?></a>
+			<a class="button button-small" data-botstormradar-confirm="<?php esc_attr_e( 'Send this report to AbuseIPDB? Reports are public and cannot be taken back from here.', 'bot-storm-radar' ); ?>" href="<?php echo esc_url( BotStormRadar_Admin::action_url( 'abuseipdb_report', array( 'ip' => $c['ip'], 'kind' => $kind ) ) ); ?>"><?php esc_html_e( 'Send this report', 'bot-storm-radar' ); ?></a>
 		</details>
 		<?php
 	}
@@ -733,7 +733,7 @@ class BotStormRadar_AbuseIPDB {
 		if ( ! empty( $res['ok'] ) ) {
 			return 'abuseipdb_sent';
 		}
-		$why = [
+		$why = array(
 			'off'       => __( 'reporting is off or no API key is saved', 'bot-storm-radar' ),
 			'not-probe' => __( 'only probe trips are reported', 'bot-storm-radar' ),
 			'protected' => __( 'the address is protected from bans or not public', 'bot-storm-radar' ),
@@ -741,7 +741,7 @@ class BotStormRadar_AbuseIPDB {
 			'sent'      => __( 'this ban was already reported', 'bot-storm-radar' ),
 			'reported'  => __( 'the address was reported in the last 24 hours', 'bot-storm-radar' ),
 			'cap'       => __( 'today\'s report limit is reached', 'bot-storm-radar' ),
-		];
+		);
 		set_transient( 'botstormradar_abuseipdb_error', $why[ $res['error'] ] ?? (string) $res['error'], 300 );
 		return 'abuseipdb_failed';
 	}
