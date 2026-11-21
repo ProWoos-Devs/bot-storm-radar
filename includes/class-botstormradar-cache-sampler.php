@@ -10,15 +10,10 @@
  * an administrator asks, never during a visitor's request, and the daily run
  * waits while the radar reports anything but calm.
  *
- * Many servers map their own domain to themselves in /etc/hosts, so a request
- * from the server never meets the CDN in front of it. When the system's answer
- * for the host is not among its DNS records, the request connects to the public
- * address instead (cURL only). Where DNS itself answers differently inside the
- * network, the check still cannot see the CDN and reports "could not tell".
- *
- * On that route the certificate is always checked, whatever core's loopback
- * filter says, so the answer cannot come from a server that only claims to be
- * the site.
+ * Requests take the system's normal route to the site, as core's loopback
+ * does. Where that route skips the CDN in front of the site (a hosts-file
+ * entry, a DNS view inside the network), the check cannot see the CDN and
+ * reports "could not tell".
  *
  * Whatever goes wrong (a timeout, a firewall refusal, a certificate that does
  * not verify, a redirect off the site) becomes "no answer" for that page,
@@ -88,7 +83,7 @@ class BotStormRadar_Cache_Sampler {
 	 * answers would say more about the storm than about the cache.
 	 */
 	public static function daily() {
-		if ( self::is_dismissed() ) {
+		if ( ! self::daily_enabled() || self::is_dismissed() ) {
 			return;
 		}
 		$last = self::last();
@@ -100,6 +95,17 @@ class BotStormRadar_Cache_Sampler {
 			return;
 		}
 		self::run( 'daily' );
+	}
+
+	/**
+	 * Whether the daily run is switched on (`cache_check_daily`). Off by
+	 * default in the wordpress.org build, where Check now is the owner's
+	 * explicit request; on by default in the GitHub build.
+	 *
+	 * @return bool
+	 */
+	public static function daily_enabled() {
+		return ! empty( BotStormRadar_Helpers::opt( 'cache_check_daily', 0 ) );
 	}
 
 	/**
@@ -427,11 +433,13 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	private static function get( $url, array $cookies, $deadline ) {
 		if ( $deadline - microtime( true ) < self::MIN_LEFT ) {
-			return new WP_Error( self::OUT_OF_TIME, 'No time left for this request.' );
+			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );
 		}
+		$address = '';
+		$connect = null;
+		// github-build-only:start
 		$host    = (string) wp_parse_url( $url, PHP_URL_HOST );
 		$address = self::public_address( $host );
-		$connect = null;
 		if ( '' !== $address && defined( 'CURLOPT_RESOLVE' ) ) {
 			$port    = wp_parse_url( $url, PHP_URL_PORT );
 			$port    = $port ? (int) $port : ( 'http' === wp_parse_url( $url, PHP_URL_SCHEME ) ? 80 : 443 );
@@ -440,6 +448,7 @@ class BotStormRadar_Cache_Sampler {
 			};
 			add_action( 'http_api_curl', $connect );
 		}
+		// github-build-only:end
 		try {
 			return self::request( $url, $cookies, '' !== $address, $deadline );
 		} finally {
@@ -449,9 +458,17 @@ class BotStormRadar_Cache_Sampler {
 		}
 	}
 
+	// github-build-only:start
 	/**
 	 * The address to connect to when the system's answer for a host is not
 	 * among its public DNS records, as with a hosts-file entry.
+	 *
+	 * Many servers map their own domain to themselves in /etc/hosts, so a
+	 * request from the server never meets the CDN in front of it. When the
+	 * system's answer for the host is not among its DNS records, the request
+	 * connects to the public address instead (cURL only). On that route the
+	 * certificate is always checked, whatever core's loopback filter says, so
+	 * the answer cannot come from a server that only claims to be the site.
 	 *
 	 * @param string $host
 	 * @return string '' for the normal route.
@@ -476,6 +493,7 @@ class BotStormRadar_Cache_Sampler {
 		self::$routes[ $host ] = $address;
 		return $address;
 	}
+	// github-build-only:end
 
 	/**
 	 * The certificate is always checked on the route to the public address:
@@ -494,7 +512,7 @@ class BotStormRadar_Cache_Sampler {
 		$verify = $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
 		$left   = $deadline - microtime( true );
 		if ( $left < self::MIN_LEFT ) {
-			return new WP_Error( self::OUT_OF_TIME, 'No time left for this request.' );
+			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );
 		}
 		return wp_safe_remote_get(
 			$url,

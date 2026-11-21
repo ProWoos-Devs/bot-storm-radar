@@ -162,6 +162,15 @@ class BotStormRadar_Admin {
 				esc_html__( 'Off by default. On, the plugin asks your server\'s DNS resolver for the host name of such an address and confirms that the name points back to it; depending on your server, the resolver may ask other DNS servers, which then see the address. Off, no lookup is made: these visitors are counted as unchecked and are never banned, so a scanner that pretends to be a search engine is not banned either. DuckDuckBot is checked against its address list either way.', 'bot-storm-radar' )
 			);
 		}, self::PAGE, 'botstormradar_proxies' );
+		add_settings_field( 'cache_check_daily', __( 'Page cache check', 'bot-storm-radar' ), function () {
+			printf(
+				'<label><input type="checkbox" name="%1$s[cache_check_daily]" value="1" %2$s /> %3$s</label><p class="description">%4$s</p>',
+				esc_attr( Bot_Storm_Radar::OPTION_KEY ),
+				checked( 1, (int) BotStormRadar_Helpers::opt( 'cache_check_daily', 0 ), false ),
+				esc_html__( 'Check once a day whether a cache answers this site\'s pages', 'bot-storm-radar' ),
+				esc_html__( 'The check requests a few public pages of this site, and only of this site, and keeps the result with cookie names only. Check now on the Radar tab runs it whenever you click it, with this switch on or off. The daily run waits while the radar reports anything but calm.', 'bot-storm-radar' )
+			);
+		}, self::PAGE, 'botstormradar_proxies' );
 		add_settings_section( 'botstormradar_bans', __( 'Address bans', 'bot-storm-radar' ), function () {
 			echo '<p>' . esc_html__( 'One address that keeps asking for scanner files, or for many pages that do not exist, trips and is banned for a while: it is answered 403 before a page is built. Swarms of many addresses are a different thing and are only reported (Radar tab). Administrators, verified search bots, the never-ban list and the proxies are never banned. An address that claims to be a search bot is verified first.', 'bot-storm-radar' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Start with "observe only": trips are listed on the Bans tab as bans that would have happened, and nobody is refused. Switch to "enforce" once the list looks right for this site. Probe refusal works in both modes.', 'bot-storm-radar' ) . '</p>';
@@ -256,7 +265,7 @@ class BotStormRadar_Admin {
 			}
 			$out['email_recipients'] = implode( ', ', $valid );
 		}
-		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates', 'bot_dns' ] as $k ) {
+		foreach ( [ 'alert_on_warning', 'alert_on_storm', 'alert_on_calm', 'trust_all_forwarding', 'probe_refusal', 'list_updates', 'bot_dns', 'cache_check_daily' ] as $k ) {
 			$out[ $k ] = empty( $input[ $k ] ) ? 0 : 1;
 		}
 		if ( array_key_exists( 'trusted_proxies', $input ) ) {
@@ -773,11 +782,15 @@ class BotStormRadar_Admin {
 					<?php endforeach; ?>
 					<div class="bsr-card-sub"><?php /* translators: %s: relative time, such as "5 mins ago" */ printf( esc_html__( 'Checked %s.', 'bot-storm-radar' ), esc_html( self::ago( (int) $last['time'] ) ) ); ?></div>
 				<?php else : ?>
-					<div class="bsr-card-sub"><?php esc_html_e( 'Not checked yet. Once a day, a few public pages of this site are requested to see whether a cache answers them.', 'bot-storm-radar' ); ?></div>
+					<?php if ( BotStormRadar_Cache_Sampler::daily_enabled() ) : ?>
+						<div class="bsr-card-sub"><?php esc_html_e( 'Not checked yet. Once a day, a few public pages of this site are requested to see whether a cache answers them.', 'bot-storm-radar' ); ?></div>
+					<?php else : ?>
+						<div class="bsr-card-sub"><?php esc_html_e( 'Not checked yet. Check now requests a few public pages of this site to see whether a cache answers them. A daily check can be switched on under Settings.', 'bot-storm-radar' ); ?></div>
+					<?php endif; ?>
 				<?php endif; ?>
 				<p class="bsr-cache-actions">
 					<a class="button button-small" href="<?php echo esc_url( self::action_url( 'cache_check' ) ); ?>"><?php esc_html_e( 'Check now', 'bot-storm-radar' ); ?></a>
-					<?php if ( $last && BotStormRadar_Cache_Check::SITE_CACHED !== $last['verdict'] ) : ?>
+					<?php if ( $last && BotStormRadar_Cache_Sampler::daily_enabled() && BotStormRadar_Cache_Check::SITE_CACHED !== $last['verdict'] ) : ?>
 						<a class="button button-small" href="<?php echo esc_url( self::action_url( 'cache_dismiss' ) ); ?>"><?php esc_html_e( 'Uncached on purpose, stop checking', 'bot-storm-radar' ); ?></a>
 					<?php endif; ?>
 				</p>
