@@ -36,8 +36,7 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Seconds for one request, and for the whole run. Every request, redirects
 	 * and replays included, gets at most the time left before the deadline,
-	 * and none starts with less than MIN_LEFT left. The system DNS resolver
-	 * controls how long its synchronous lookup can take.
+	 * and none starts with less than MIN_LEFT left.
 	 */
 	const TIMEOUT  = 8;
 	const BUDGET   = 30;
@@ -64,6 +63,7 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	const MIN_AGE = 72000;
 
+	// github-build-only:start
 	/**
 	 * @var callable|null Tests: callable( string $host ): array system (string), dns (string[]).
 	 */
@@ -73,6 +73,7 @@ class BotStormRadar_Cache_Sampler {
 	 * @var array host => public address to connect to, '' for the normal route.
 	 */
 	private static $routes = [];
+	// github-build-only:end
 
 	public static function init() {
 		add_action( BotStormRadar_Client_IP::CRON_HOOK, [ __CLASS__, 'daily' ], 60, 0 );
@@ -98,9 +99,8 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * Whether the daily run is switched on (`cache_check_daily`). Off by
-	 * default in the wordpress.org build, where Check now is the owner's
-	 * explicit request; on by default in the GitHub build.
+	 * Whether the daily run is switched on (`cache_check_daily`, default in
+	 * Bot_Storm_Radar::get_default_options()). Check now runs either way.
 	 *
 	 * @return bool
 	 */
@@ -163,7 +163,9 @@ class BotStormRadar_Cache_Sampler {
 	 */
 	public static function sample( $budget = self::BUDGET ) {
 		$deadline     = microtime( true ) + $budget;
+		// github-build-only:start
 		self::$routes = [];
+		// github-build-only:end
 		/**
 		 * Readers for cache headers the plugin does not know.
 		 *
@@ -422,7 +424,8 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * One request, the way core's Site Health loopback makes it.
+	 * One request, the way core's Site Health loopback makes it: the normal
+	 * route, with core's loopback filter deciding the certificate check.
 	 *
 	 * @param string $url
 	 * @param array  $cookies  name => value.
@@ -435,30 +438,45 @@ class BotStormRadar_Cache_Sampler {
 		if ( $deadline - microtime( true ) < self::MIN_LEFT ) {
 			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );
 		}
-		$address = '';
-		$connect = null;
 		// github-build-only:start
-		$host    = (string) wp_parse_url( $url, PHP_URL_HOST );
-		$address = self::public_address( $host );
-		if ( '' !== $address && defined( 'CURLOPT_RESOLVE' ) ) {
-			$port    = wp_parse_url( $url, PHP_URL_PORT );
-			$port    = $port ? (int) $port : ( 'http' === wp_parse_url( $url, PHP_URL_SCHEME ) ? 80 : 443 );
-			$connect = static function ( $handle ) use ( $host, $port, $address ) {
-				curl_setopt( $handle, CURLOPT_RESOLVE, [ $host . ':' . $port . ':' . $address ] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- http_api_curl hands over the handle, and the HTTP API has no way to choose the address.
-			};
-			add_action( 'http_api_curl', $connect );
-		}
-		// github-build-only:end
-		try {
-			return self::request( $url, $cookies, '' !== $address, $deadline );
-		} finally {
-			if ( $connect ) {
-				remove_action( 'http_api_curl', $connect );
+		if ( defined( 'CURLOPT_RESOLVE' ) ) {
+			$address = self::public_address( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+			if ( '' !== $address ) {
+				return self::request_via( $url, $cookies, $deadline, $address );
 			}
 		}
+		// github-build-only:end
+		/** This filter is documented in wp-includes/class-wp-http-streams.php */
+		return self::request( $url, $cookies, $deadline, apply_filters( 'https_local_ssl_verify', false, $url ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
 	}
 
 	// github-build-only:start
+	/**
+	 * A request connected to the public address (see public_address()), with
+	 * the certificate always checked: that answer counts as what visitors
+	 * get, so it must come from a server holding the site's certificate.
+	 *
+	 * @param string $url
+	 * @param array  $cookies
+	 * @param float  $deadline
+	 * @param string $address
+	 * @return array|WP_Error
+	 */
+	private static function request_via( $url, array $cookies, $deadline, $address ) {
+		$host    = (string) wp_parse_url( $url, PHP_URL_HOST );
+		$port    = wp_parse_url( $url, PHP_URL_PORT );
+		$port    = $port ? (int) $port : ( 'http' === wp_parse_url( $url, PHP_URL_SCHEME ) ? 80 : 443 );
+		$connect = static function ( $handle ) use ( $host, $port, $address ) {
+			curl_setopt( $handle, CURLOPT_RESOLVE, [ $host . ':' . $port . ':' . $address ] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.curl_curl_setopt -- http_api_curl hands over the handle, and the HTTP API has no way to choose the address.
+		};
+		add_action( 'http_api_curl', $connect );
+		try {
+			return self::request( $url, $cookies, $deadline, true );
+		} finally {
+			remove_action( 'http_api_curl', $connect );
+		}
+	}
+
 	/**
 	 * The address to connect to when the system's answer for a host is not
 	 * among its public DNS records, as with a hosts-file entry.
@@ -496,21 +514,14 @@ class BotStormRadar_Cache_Sampler {
 	// github-build-only:end
 
 	/**
-	 * The certificate is always checked on the route to the public address:
-	 * that answer counts as what visitors get, so it must come from a server
-	 * holding the site's certificate. The normal route is the site asking
-	 * itself, as core's loopback does, and follows core's filter for that.
-	 *
 	 * @param string $url
 	 * @param array  $cookies
-	 * @param bool   $public  Connecting to the public address.
 	 * @param float  $deadline The sampling deadline.
+	 * @param bool   $verify   Check the certificate.
 	 * @return array|WP_Error
 	 */
-	private static function request( $url, array $cookies, $public, $deadline ) {
-		/** This filter is documented in wp-includes/class-wp-http-streams.php */
-		$verify = $public ? true : apply_filters( 'https_local_ssl_verify', false, $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
-		$left   = $deadline - microtime( true );
+	private static function request( $url, array $cookies, $deadline, $verify ) {
+		$left = $deadline - microtime( true );
 		if ( $left < self::MIN_LEFT ) {
 			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );
 		}
@@ -519,7 +530,7 @@ class BotStormRadar_Cache_Sampler {
 			[
 				'timeout'             => min( self::TIMEOUT, $left ),
 				'redirection'         => 0,
-				'sslverify'           => $verify,
+				'sslverify'           => (bool) $verify,
 				'limit_response_size' => self::MAX_BODY,
 				'headers'             => [ 'Accept' => 'text/html' ],
 				'cookies'             => $cookies,

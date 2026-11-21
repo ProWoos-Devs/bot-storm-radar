@@ -352,15 +352,14 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_claim( $key, $ttl ) {
 		global $wpdb;
-		$table = BotStormRadar_Bans::locks_table();
 		$name  = self::lock_name( $key );
 		$now   = time();
 		$token = bin2hex( random_bytes( 8 ) );
 		$until = $now + max( 1, (int) $ttl );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix; values prepared.
-		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$table} (name, expires_at, owner) VALUES (%s, %d, %s)", $name, $until, $token ) );
+		$got = (bool) $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->prefix}botstormradar_locks (name, expires_at, owner) VALUES (%s, %d, %s)", $name, $until, $token ) );
 		if ( ! $got ) {
-			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) );
+			$got = (bool) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}botstormradar_locks SET expires_at = %d, owner = %s WHERE name = %s AND expires_at <= %d", $until, $token, $name, $now ) );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $got ) {
@@ -377,8 +376,7 @@ class BotStormRadar_Counters {
 	 */
 	private static function db_release( $key ) {
 		global $wpdb;
-		$table = BotStormRadar_Bans::locks_table();
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE name = %s AND owner = %s", self::lock_name( $key ), self::$claims[ $key ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix.
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}botstormradar_locks WHERE name = %s AND owner = %s", self::lock_name( $key ), self::$claims[ $key ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the plugin's own table, name from $wpdb->prefix.
 		unset( self::$claims[ $key ] );
 	}
 
