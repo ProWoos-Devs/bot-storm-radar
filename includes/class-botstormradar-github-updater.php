@@ -34,8 +34,25 @@ class BotStormRadar_GitHub_Updater {
 		add_filter( 'plugins_api', [ $this, 'plugin_info' ], 10, 3 );
 		add_action( 'upgrader_process_complete', [ $this, 'clear_cache' ], 10, 2 );
 
-		// Clear cache on force-check.
-		if ( is_admin() && isset( $_GET['force-check'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		add_action( 'admin_init', array( $this, 'maybe_force_check' ) );
+	}
+
+	/**
+	 * Clear the cached release data when an administrator asks WordPress to
+	 * check for updates again (Dashboard > Updates > Check again).
+	 *
+	 * Note that is_admin() is also true for admin-ajax.php and admin-post.php,
+	 * which answer logged-out visitors. Without the capability check any
+	 * visitor could empty the cache on every request and so send a request to
+	 * the GitHub API each time. Core's own "Check again" link
+	 * (update-core.php?force-check=1) is only open to users who can update
+	 * and carries no nonce, so none is added here either.
+	 *
+	 * @return void
+	 */
+	public function maybe_force_check() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only clears a cache, as core's update-core.php does.
+		if ( isset( $_GET['force-check'] ) && current_user_can( 'update_plugins' ) ) {
 			delete_transient( self::CACHE_KEY );
 		}
 	}
