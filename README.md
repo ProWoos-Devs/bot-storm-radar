@@ -1,5 +1,7 @@
 # Bot Storm Radar
 
+![Bot Storm Radar](assets/banner-1544x500.png)
+
 [![Version](https://img.shields.io/badge/Version-0.7.5-red.svg)](https://github.com/ProWoos-Devs/bot-storm-radar/releases)
 [![WordPress](https://img.shields.io/badge/WordPress-6.0+-blue.svg)](https://wordpress.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4+-purple.svg)](https://php.net/)
