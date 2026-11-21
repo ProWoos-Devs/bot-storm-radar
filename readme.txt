@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.7.1
+Stable tag: 0.7.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,9 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 6. The dashboard widget.
 
 == Changelog ==
+
+= 0.7.2 =
+* The minute tick's scheduled event comes back on the next admin, cron or WP-CLI request if it ever goes missing. Before, page loads kept the radar running but nothing scheduled the event again until the next update.
 
 = 0.7.1 =
 * Sites without an object cache or APCu: the minute tick can no longer run twice at once, which could repeat a state change and its alert.
