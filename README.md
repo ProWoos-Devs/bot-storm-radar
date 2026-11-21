@@ -45,6 +45,16 @@ The radar observes and reports; swarms are never blocked by it. On a quiet site 
 - **AbuseIPDB reports** (this GitHub build only): with an API key saved under Settings, AbuseIPDB reports, a probe ban or would-be ban gets a Report button with a preview of the exact comment, or, in automatic mode, every new probe ban in enforce mode is reported. Only probe trips with recorded paths, never missing-page trips, swarm members or protected addresses; one report per address a day and a daily cap you set. The report goes to `https://api.abuseipdb.com/api/v2/report` with the address, category 21 (19 as well for a fake search-bot claim), the first trip's time and a comment made of the probed paths without query strings, the probe count, the UTC window and the user agent. AbuseIPDB reports are public. Nothing is sent while reporting is off or no key is saved. A free AbuseIPDB account, with its API key saved under Settings, is recommended. Every scanner reported from your site is one more that other sites can refuse, which makes the web a little safer for everyone.
 - **Provider reports** (this GitHub build only): a probe ban or would-be ban gets a Provider report button. It looks up the abuse contact of the address's network with RIPEstat's abuse-contact-finder (`https://stat.ripe.net/data/abuse-contact-finder/data.json`, sending only the address) and shows a plain-text report with a subject, ready to copy or open in your own mail app. The report names the site's domain, the probed paths without query strings, the probe count, the UTC window and the user agent. The plugin never mails the provider. The lookup runs only when you press the button; its answer is kept a week.
 
+## Blocking a swarm the radar detects
+
+The radar detects the swarm and tells you which kinds of request it makes. Blocking it happens in front of WordPress, and the right place depends on what the swarm asks for.
+
+- **Pages a cache can store** (home page, posts, products, categories). Make sure a page cache or CDN really answers them, so a swarm never reaches WordPress. Run **Check now** on the Radar tab. It says which pages are not stored and which cookies take a visitor out of the cache.
+- **Pages a cache cannot store** (search, add to cart, filtered listings, the login page). Limit the request rate for those paths at your CDN or web server, or let your CDN challenge visitors there while the storm lasts.
+- **The WooCommerce checkout.** A swarm that tries stolen cards with a new address for every attempt is refused by [WC Antifraud](https://github.com/ProWoos-Devs/wc-antifraud), a free plugin by the same author.
+
+Banning addresses does not help against a swarm, because each address makes only one or two requests. That is why the plugin's own bans are aimed at single addresses that keep probing.
+
 ## What it does not do yet
 
 Storm mode with the Cloudflare exporter and the challenge, the other exporters (CrowdSec, fail2ban, web-server include), health signals for a database that is down, a capacity estimate, telemetry, multisite. See the roadmap in the design document.
