@@ -461,7 +461,7 @@ class BotStormRadar_AbuseIPDB {
 		}
 		if ( $c['ban_id'] > 0 ) {
 			global $wpdb;
-			$table = BotStormRadar_Bans::exports_table();
+			$table = esc_sql( BotStormRadar_Bans::exports_table() );
 			$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
@@ -555,7 +555,7 @@ class BotStormRadar_AbuseIPDB {
 	 */
 	public static function export_status( $ban_id ) {
 		global $wpdb;
-		$table = BotStormRadar_Bans::exports_table();
+		$table = esc_sql( BotStormRadar_Bans::exports_table() );
 		return (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare( "SELECT status FROM {$table} WHERE ban_id = %d AND layer = %s", (int) $ban_id, self::LAYER ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
 		);
@@ -575,7 +575,7 @@ class BotStormRadar_AbuseIPDB {
 			return;
 		}
 		global $wpdb;
-		$table = BotStormRadar_Bans::exports_table();
+		$table = esc_sql( BotStormRadar_Bans::exports_table() );
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
@@ -617,8 +617,8 @@ class BotStormRadar_AbuseIPDB {
 			return 0;
 		}
 		global $wpdb;
-		$bans    = BotStormRadar_Bans::table();
-		$exports = BotStormRadar_Bans::exports_table();
+		$bans    = esc_sql( BotStormRadar_Bans::table() );
+		$exports = esc_sql( BotStormRadar_Bans::exports_table() );
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from $wpdb->prefix.
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
