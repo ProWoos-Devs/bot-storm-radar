@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-21
+
 ### Fixed
 - Follow-up to #115 from a second strict review of the wordpress.org build: `readme.txt` no longer says the page cache check runs daily by default, and its 0.7.1 entry no longer mentions the public-address route; the sampler's wordpress.org code has no leftover route code (`get()` calls `request()` with core's loopback filter, the route lives in a GitHub-only `request_via()`); the lock queries name `{$wpdb->prefix}botstormradar_locks` directly, so Plugin Check no longer warns about the table variable.
 
