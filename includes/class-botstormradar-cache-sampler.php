@@ -424,8 +424,9 @@ class BotStormRadar_Cache_Sampler {
 	}
 
 	/**
-	 * One request, the way core's Site Health loopback makes it: the normal
-	 * route, with core's loopback filter deciding the certificate check.
+	 * One request to the site's own page. The certificate is checked: the
+	 * answer counts as what visitors get, and the request can go through a
+	 * public CDN. Core's `https_ssl_verify` filter still applies (#120).
 	 *
 	 * @param string $url
 	 * @param array  $cookies  name => value.
@@ -446,8 +447,7 @@ class BotStormRadar_Cache_Sampler {
 			}
 		}
 		// github-build-only:end
-		/** This filter is documented in wp-includes/class-wp-http-streams.php */
-		return self::request( $url, $cookies, $deadline, apply_filters( 'https_local_ssl_verify', false, $url ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's filter.
+		return self::request( $url, $cookies, $deadline );
 	}
 
 	// github-build-only:start
@@ -471,7 +471,7 @@ class BotStormRadar_Cache_Sampler {
 		};
 		add_action( 'http_api_curl', $connect );
 		try {
-			return self::request( $url, $cookies, $deadline, true );
+			return self::request( $url, $cookies, $deadline );
 		} finally {
 			remove_action( 'http_api_curl', $connect );
 		}
@@ -517,10 +517,9 @@ class BotStormRadar_Cache_Sampler {
 	 * @param string $url
 	 * @param array  $cookies
 	 * @param float  $deadline The sampling deadline.
-	 * @param bool   $verify   Check the certificate.
 	 * @return array|WP_Error
 	 */
-	private static function request( $url, array $cookies, $deadline, $verify ) {
+	private static function request( $url, array $cookies, $deadline ) {
 		$left = $deadline - microtime( true );
 		if ( $left < self::MIN_LEFT ) {
 			return new WP_Error( self::OUT_OF_TIME, __( 'No time left for this request.', 'bot-storm-radar' ) );
@@ -530,7 +529,7 @@ class BotStormRadar_Cache_Sampler {
 			[
 				'timeout'             => min( self::TIMEOUT, $left ),
 				'redirection'         => 0,
-				'sslverify'           => (bool) $verify,
+				'sslverify'           => true,
 				'limit_response_size' => self::MAX_BODY,
 				'headers'             => [ 'Accept' => 'text/html' ],
 				'cookies'             => $cookies,
@@ -556,16 +555,24 @@ class BotStormRadar_Cache_Sampler {
 	/**
 	 * Keep what a browser would keep: a cookie being deleted is not sent back,
 	 * and each cookie keeps its scope. A browser keys a cookie by name, domain
-	 * and path, so the same name under two paths is two cookies.
+	 * and path, so the same name under two paths is two cookies. A Secure
+	 * cookie is sent over HTTPS only, and one an HTTP answer sets is dropped
+	 * (#120); core's WP_Http_Cookie carries no Secure flag, so it comes from
+	 * the Set-Cookie headers.
 	 *
 	 * @param array  $response
 	 * @param string $url     The URL that answered.
-	 * @param array  $cookies "name|domain|path" => name, value, domain, host_only, path.
+	 * @param array  $cookies "name|domain|path" => name, value, domain, host_only, path, secure.
 	 */
 	private static function collect_cookies( $response, $url, array &$cookies ) {
-		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$host   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$https  = 'https' === strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$secure = self::secure_names( $response );
 		foreach ( wp_remote_retrieve_cookies( $response ) as $cookie ) {
 			if ( ! $cookie instanceof WP_Http_Cookie || '' === (string) $cookie->name ) {
+				continue;
+			}
+			if ( isset( $secure[ (string) $cookie->name ] ) && ! $https ) {
 				continue;
 			}
 			$domain = isset( $cookie->domain ) && '' !== (string) $cookie->domain ? ltrim( strtolower( (string) $cookie->domain ), '.' ) : '';
@@ -576,6 +583,7 @@ class BotStormRadar_Cache_Sampler {
 				'domain'    => '' === $domain ? $host : $domain,
 				'host_only' => '' === $domain || ! empty( $cookie->host_only ),
 				'path'      => $path,
+				'secure'    => isset( $secure[ (string) $cookie->name ] ),
 			];
 			$key    = $entry['name'] . '|' . $entry['domain'] . '|' . $entry['path'];
 			$gone   = '' === $entry['value'] || 'deleted' === $entry['value'] || ( ! empty( $cookie->expires ) && (int) $cookie->expires <= time() );
@@ -597,7 +605,8 @@ class BotStormRadar_Cache_Sampler {
 	 * @return array
 	 */
 	private static function cookies_for( array $cookies, $url ) {
-		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$https = 'https' === strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$host  = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
 		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
 		$path = '' === $path ? '/' : $path;
 		$send = [];
@@ -605,7 +614,7 @@ class BotStormRadar_Cache_Sampler {
 		foreach ( $cookies as $c ) {
 			$domain_ok = $c['host_only'] ? $host === $c['domain'] : ( $host === $c['domain'] || substr( $host, -strlen( '.' . $c['domain'] ) ) === '.' . $c['domain'] );
 			$path_ok   = $path === $c['path'] || ( 0 === strpos( $path, $c['path'] ) && ( '/' === substr( $c['path'], -1 ) || '/' === substr( $path, strlen( $c['path'] ), 1 ) ) );
-			if ( ! $domain_ok || ! $path_ok ) {
+			if ( ! $domain_ok || ! $path_ok || ( ! empty( $c['secure'] ) && ! $https ) ) {
 				continue;
 			}
 			if ( ! isset( $best[ $c['name'] ] ) || strlen( $c['path'] ) > $best[ $c['name'] ] ) {
@@ -614,6 +623,26 @@ class BotStormRadar_Cache_Sampler {
 			}
 		}
 		return $send;
+	}
+
+	/**
+	 * Names of the cookies a response sets with the Secure attribute.
+	 *
+	 * @param array $response
+	 * @return array name => true
+	 */
+	private static function secure_names( $response ) {
+		$names = [];
+		foreach ( (array) wp_remote_retrieve_header( $response, 'set-cookie' ) as $line ) {
+			$parts = explode( ';', (string) $line );
+			$name  = trim( (string) strtok( (string) array_shift( $parts ), '=' ) );
+			foreach ( $parts as $attr ) {
+				if ( '' !== $name && 'secure' === strtolower( trim( $attr ) ) ) {
+					$names[ $name ] = true;
+				}
+			}
+		}
+		return $names;
 	}
 
 	/**
