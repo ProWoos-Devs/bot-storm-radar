@@ -66,11 +66,11 @@ class BotStormRadar_Gate_Replay {
 			'first'          => 0,
 			'last'           => 0,
 		];
-		$bans      = [];   // ip => expires
-		$last_ban  = [];   // ip => time of the last simulated ban
-		$probe_ts  = [];   // ip => [timestamps]
-		$p404      = [];   // ip => [minute, count]
-		$evidence  = [];   // ip => [paths]
+		$bans      = [];   // ip => expiry time.
+		$last_ban  = [];   // ip => time of the last simulated ban.
+		$probe_ts  = [];   // ip => list of timestamps.
+		$p404      = [];   // ip => minute and count.
+		$evidence  = [];   // ip => list of paths.
 		$bot_cache = [];
 
 		foreach ( self::lines( $files ) as $p ) {
@@ -79,7 +79,7 @@ class BotStormRadar_Gate_Replay {
 				continue;
 			}
 			$sum['lines']++;
-			$sum['first'] = $sum['first'] ?: $p['ts'];
+			$sum['first'] = empty( $sum['first'] ) ? $p['ts'] : $sum['first'];
 			$sum['last']  = $p['ts'];
 			$ip           = $p['ip'];
 			$probe        = BotStormRadar_Probe::classify( $p['target'], $cfg );

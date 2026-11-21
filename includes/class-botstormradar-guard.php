@@ -86,7 +86,7 @@ class BotStormRadar_Guard {
 		}
 		$net    = $key['ip_text'];
 		$v6     = false !== strpos( $net, ':' );
-		$single = $key['prefix_len'] === ( $v6 ? 128 : 32 );
+		$single = ( $v6 ? 128 : 32 ) === $key['prefix_len'];
 		if ( ! $single && $key['prefix_len'] < ( $v6 ? self::MIN_PREFIX_V6 : self::MIN_PREFIX_V4 ) ) {
 			return 'too-wide';
 		}

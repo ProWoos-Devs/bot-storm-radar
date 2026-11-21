@@ -153,7 +153,7 @@ class BotStormRadar_Gate_Early {
 			return true;
 		}
 		$loader = self::loader_path();
-		if ( '' === $loader || ! is_file( $loader ) || $loader === ( $state['loader'] ?? '' ) ) {
+		if ( '' === $loader || ! is_file( $loader ) || ( $state['loader'] ?? '' ) === $loader ) {
 			return true;
 		}
 		$method = (string) $state['method'];
@@ -178,7 +178,7 @@ class BotStormRadar_Gate_Early {
 		$stored      = get_option( self::OPTION, [] );
 		foreach ( [ 'user_ini' => '.user.ini', 'htaccess' => '.htaccess' ] as $method => $default ) {
 			$targets = [ ABSPATH . $default, self::target( $method ) ];
-			if ( is_array( $stored ) && $method === ( $stored['method'] ?? '' ) && ! empty( $stored['target'] ) ) {
+			if ( is_array( $stored ) && ( $stored['method'] ?? '' ) === $method && ! empty( $stored['target'] ) ) {
 				$targets[] = (string) $stored['target'];
 			}
 			foreach ( array_unique( array_filter( $targets ) ) as $t ) {

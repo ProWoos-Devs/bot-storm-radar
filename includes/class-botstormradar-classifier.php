@@ -90,11 +90,12 @@ class BotStormRadar_Classifier {
 	/**
 	 * Override the resolved class (beacon, late 404 detection).
 	 *
-	 * @param string $class
-	 * @param string $detail
+	 * @param string $request_class Class to record for this request, such as "beacon" or "404".
+	 * @param string $detail        Optional detail for the class, such as "feed".
+	 * @return void
 	 */
-	public static function set( $class, $detail = '' ) {
-		self::$result = [ 'class' => (string) $class, 'detail' => (string) $detail ];
+	public static function set( $request_class, $detail = '' ) {
+		self::$result = [ 'class' => (string) $request_class, 'detail' => (string) $detail ];
 	}
 
 	/**

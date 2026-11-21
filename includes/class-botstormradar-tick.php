@@ -169,7 +169,7 @@ class BotStormRadar_Tick {
 		}
 		$site = (string) get_option( 'WPLANG', '' );
 		$site = '' === $site ? 'en_US' : $site;
-		if ( $site === determine_locale() ) {
+		if ( determine_locale() === $site ) {
 			return false;
 		}
 		return (bool) switch_to_locale( $site );

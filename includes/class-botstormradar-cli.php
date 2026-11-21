@@ -176,7 +176,8 @@ class BotStormRadar_CLI {
 
 		$scores = $sum['scores'];
 		uasort( $scores, function ( $a, $b ) {
-			return $b[0] <=> $a[0] ?: $b[1] <=> $a[1];
+			$by_score = $b[0] <=> $a[0];
+			return 0 !== $by_score ? $by_score : $b[1] <=> $a[1];
 		} );
 		WP_CLI::log( '' );
 		WP_CLI::log( 'Highest-scoring minutes (UTC, score, addresses, requests):' );
@@ -250,7 +251,7 @@ class BotStormRadar_CLI {
 /**
  * Define the log sources Bot Storm Radar reads.
  */
-class BotStormRadar_CLI_Source {
+class BotStormRadar_CLI_Source { // phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound -- the two WP-CLI command classes are registered together.
 
 	/**
 	 * Add or update a log source.
@@ -375,10 +376,9 @@ class BotStormRadar_CLI_Source {
 	 *
 	 * @subcommand reset-baseline
 	 *
-	 * @param array $args
-	 * @param array $assoc
+	 * @param array $args Positional arguments: the source id.
 	 */
-	public function reset_baseline( $args, $assoc ) {
+	public function reset_baseline( $args ) {
 		$id = (string) $args[0];
 		if ( null === BotStormRadar_Log_Source::get( $id ) ) {
 			WP_CLI::error( sprintf( 'No source "%s".', $id ) );

@@ -141,7 +141,7 @@ class BotStormRadar_Decision {
 				continue;
 			}
 			$len = (int) $b[1];
-			if ( $len === strlen( $bin ) * 8 ) {
+			if ( strlen( $bin ) * 8 === $len ) {
 				$hex            = bin2hex( $bin );
 				$single[ $hex ] = max( (int) $b[2], $single[ $hex ] ?? 0 );
 			} else {

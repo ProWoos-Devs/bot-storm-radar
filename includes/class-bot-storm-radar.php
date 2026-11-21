@@ -88,6 +88,7 @@ class Bot_Storm_Radar {
 		// Log-fed sources are read from the command line only.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			require_once $dir . 'class-botstormradar-log-line.php';
+			require_once $dir . 'class-botstormradar-log-cursor.php';
 			require_once $dir . 'class-botstormradar-log-source.php';
 			require_once $dir . 'class-botstormradar-gate-replay.php';
 			require_once $dir . 'class-botstormradar-cli.php';
@@ -99,7 +100,7 @@ class Bot_Storm_Radar {
 	private function init_hooks() {
 		add_action( 'plugins_loaded', [ $this, 'on_plugins_loaded' ] );
 		add_action( 'init', [ $this, 'init' ] );
-		add_filter( 'cron_schedules', [ $this, 'cron_schedules' ] );
+		add_filter( 'cron_schedules', [ $this, 'cron_schedules' ] ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval -- the radar measures one minute at a time, so the tick must run every minute.
 		register_activation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'activate' ] );
 		register_deactivation_hook( BOTSTORMRADAR_PLUGIN_FILE, [ $this, 'deactivate' ] );
 	}
@@ -299,11 +300,4 @@ class Bot_Storm_Radar {
 		// github-build-only:end
 		return $defaults;
 	}
-}
-
-/**
- * @return Bot_Storm_Radar
- */
-function bot_storm_radar() {
-	return Bot_Storm_Radar::get_instance();
 }

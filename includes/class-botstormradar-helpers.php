@@ -39,13 +39,15 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * @param string $name
-	 * @param mixed  $default
-	 * @return mixed
+	 * Read one of the plugin's settings.
+	 *
+	 * @param string $name     Setting key.
+	 * @param mixed  $fallback Value to return when the setting is not stored.
+	 * @return mixed The stored value, or the fallback.
 	 */
-	public static function opt( $name, $default = null ) {
+	public static function opt( $name, $fallback = null ) {
 		$o = self::get_options();
-		return array_key_exists( $name, $o ) ? $o[ $name ] : $default;
+		return array_key_exists( $name, $o ) ? $o[ $name ] : $fallback;
 	}
 
 	// ── IP arithmetic ───────────────────────────────────────────────
@@ -92,22 +94,24 @@ class BotStormRadar_Helpers {
 	}
 
 	/**
-	 * @param string       $ip
-	 * @param string|array $list Newline-separated text or an array of entries.
-	 * @return bool
+	 * Tell whether an address falls inside any entry of a list.
+	 *
+	 * @param string       $ip      IP address to test.
+	 * @param string|array $entries Newline-separated text or an array of entries (single addresses or CIDR ranges).
+	 * @return bool True when the address matches an entry.
 	 */
-	public static function ip_in_list( $ip, $list ) {
-		return BotStormRadar_IP_Resolver::ip_in_list( $ip, $list );
+	public static function ip_in_list( $ip, $entries ) {
+		return BotStormRadar_IP_Resolver::ip_in_list( $ip, $entries );
 	}
 
 	/**
 	 * Split a textarea or file into trimmed, non-empty, non-comment entries.
 	 *
-	 * @param string|array $list
-	 * @return array
+	 * @param string|array $input Newline- or comma-separated text, or an array of entries.
+	 * @return array The entries, trimmed, without blank lines and comments.
 	 */
-	public static function parse_list( $list ) {
-		return BotStormRadar_IP_Resolver::parse_list( $list );
+	public static function parse_list( $input ) {
+		return BotStormRadar_IP_Resolver::parse_list( $input );
 	}
 
 	/**

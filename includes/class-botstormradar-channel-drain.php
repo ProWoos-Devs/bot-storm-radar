@@ -173,7 +173,7 @@ class BotStormRadar_Channel_Drain {
 			}
 			return;
 		}
-		$overridden = (int) $gen !== BotStormRadar_Bans::generation();
+		$overridden = BotStormRadar_Bans::generation() !== (int) $gen;
 		foreach ( BotStormRadar_Bans::recent_unbans( $minute * 60 ) as $u ) {
 			if ( BotStormRadar_IP_Resolver::ip_in_cidr( $ip, $u['ip_text'] . '/' . (int) $u['prefix_len'] ) ) {
 				$overridden = true;

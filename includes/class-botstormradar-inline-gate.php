@@ -141,14 +141,14 @@ class BotStormRadar_Inline_Gate {
 	 * Trip the address on the probe that brings its count within the window
 	 * to the threshold, once per crossing.
 	 *
-	 * @param string $ip
-	 * @param int    $minute
-	 * @param int    $here  The address's probes in this minute, this one included.
-	 * @param string $class Probe class of this request.
-	 * @param int    $now
+	 * @param string $ip          Address that sent the probe.
+	 * @param int    $minute      Current minute number.
+	 * @param int    $here        The address's probes in this minute, this one included.
+	 * @param string $probe_class Probe class of this request.
+	 * @param int    $now         Current Unix timestamp.
 	 * @return string BotStormRadar_Trips::trip() result, or ''.
 	 */
-	private static function probe_trip( $ip, $minute, $here, $class, $now ) {
+	private static function probe_trip( $ip, $minute, $here, $probe_class, $now ) {
 		$s = BotStormRadar_Trips::settings()['probe'];
 		if ( $s['count'] <= 0 ) {
 			return '';
@@ -165,7 +165,7 @@ class BotStormRadar_Inline_Gate {
 		$ev = [
 			'by'            => 'plugin',
 			'window_probes' => $n,
-			'last_probe'    => $class,
+			'last_probe'    => $probe_class,
 			'last_path'     => substr( BotStormRadar_Helpers::request_path(), 0, 200 ),
 			'user_agent'    => $ua,
 			'minute'        => gmdate( 'Y-m-d H:i', $minute * 60 ) . ' UTC',

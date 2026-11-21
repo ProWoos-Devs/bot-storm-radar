@@ -197,7 +197,7 @@ class BotStormRadar_AbuseIPDB {
 	public static function from_ban( array $row ) {
 		return [
 			'ip'       => (string) $row['ip_text'],
-			'single'   => (int) $row['prefix_len'] === ( false !== strpos( (string) $row['ip_text'], ':' ) ? 128 : 32 ),
+			'single'   => ( false !== strpos( (string) $row['ip_text'], ':' ) ? 128 : 32 ) === (int) $row['prefix_len'],
 			'reason'   => (string) $row['reason'],
 			'evidence' => is_array( $row['evidence'] ) ? $row['evidence'] : [],
 			'first'    => (int) $row['created_at'],
@@ -469,7 +469,7 @@ class BotStormRadar_AbuseIPDB {
 					ON DUPLICATE KEY UPDATE remote_id = VALUES(remote_id), status = VALUES(status), attempts = attempts + 1, last_error = VALUES(last_error), updated_at = VALUES(updated_at)",
 					$c['ban_id'],
 					self::LAYER,
-					null === ( $res['score'] ?? null ) ? '' : 'score ' . (int) $res['score'],
+					isset( $res['score'] ) ? 'score ' . (int) $res['score'] : '',
 					empty( $res['ok'] ) ? 'error' : 'sent',
 					(string) $res['error'],
 					(int) $now
