@@ -172,8 +172,10 @@ class BotStormRadar_Email_Alerts {
 		foreach ( $by as $reason => $n ) {
 			$parts[] = $reason . ' ' . (int) $n;
 		}
-		$body[] = __( 'By reason: ', 'bot-storm-radar' ) . implode( ', ', $parts );
-		$body[] = __( 'Latest: ', 'bot-storm-radar' ) . implode( ', ', array_slice( array_keys( $recent ), -10 ) );
+		/* translators: %s: comma-separated list of reasons with their counts, such as "probe 3, 404 2" */
+		$body[] = sprintf( __( 'By reason: %s', 'bot-storm-radar' ), implode( ', ', $parts ) );
+		/* translators: %s: comma-separated list of the most recently banned IP addresses */
+		$body[] = sprintf( __( 'Latest: %s', 'bot-storm-radar' ), implode( ', ', array_slice( array_keys( $recent ), -10 ) ) );
 		$body[] = '';
 		/* translators: %s: URL of the Bans tab */
 		$body[] = sprintf( __( 'Bans and Unban: %s', 'bot-storm-radar' ), admin_url( 'admin.php?page=bot-storm-radar&tab=bans' ) );
