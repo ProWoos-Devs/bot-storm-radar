@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<ruleset name="Bot Storm Radar" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+	<description>Coding standards for Bot Storm Radar: WordPress, with the WordPress documentation rules, checked against the PHP and WordPress versions the plugin supports.</description>
+
+	<!-- What to check. -->
+	<file>.</file>
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="./"/>
+	<arg name="parallel" value="8"/>
+	<arg value="ps"/>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/.git/*</exclude-pattern>
+
+	<!--
+	Shared code. These two files are a copy of the sibling plugin's classes and are kept in step with
+	it by diff (see their file headers), so a change of layout here would only show up as drift there.
+	They are linted in that plugin.
+	-->
+	<exclude-pattern>includes/class-botstormradar-client-ip.php</exclude-pattern>
+	<exclude-pattern>includes/class-botstormradar-ip-resolver.php</exclude-pattern>
+
+	<!-- The standard: WordPress-Core, WordPress-Docs and WordPress-Extra. -->
+	<rule ref="WordPress"/>
+
+	<!--
+	The log profile is named "wordpress", in lower case: it is the value of the profile option, in the list that
+	WP-CLI reads from the command's docblock, and the key the log classifier compares with. The spelling
+	sniff would rewrite it, and a fixer run would then break the command.
+	-->
+	<rule ref="WordPress.WP.CapitalPDangit">
+		<exclude-pattern>includes/class-botstormradar-cli.php</exclude-pattern>
+		<exclude-pattern>includes/class-botstormradar-cli-source.php</exclude-pattern>
+		<exclude-pattern>includes/class-botstormradar-log-line.php</exclude-pattern>
+		<exclude-pattern>includes/class-botstormradar-log-source.php</exclude-pattern>
+	</rule>
+
+	<!--
+	Templates. These two files print HTML from inside PHP, and the fixer for embedded PHP moves
+	whitespace into that HTML, including inside attribute values such as href. Format them by hand.
+	-->
+	<rule ref="Squiz.PHP.EmbeddedPhp">
+		<exclude-pattern>includes/class-botstormradar-admin.php</exclude-pattern>
+		<exclude-pattern>includes/class-botstormradar-abuseipdb.php</exclude-pattern>
+	</rule>
+
+	<!-- Versions: "Requires PHP" and "Requires at least" in readme.txt. -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Internationalization: the text domain is the plugin slug. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="bot-storm-radar"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Everything global starts with one of these prefixes. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="botstormradar"/>
+				<element value="BotStormRadar"/>
+				<element value="BOTSTORMRADAR"/>
+				<element value="bot_storm_radar"/>
+				<element value="Bot_Storm_Radar"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>
