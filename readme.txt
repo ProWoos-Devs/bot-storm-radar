@@ -3,7 +3,7 @@ Contributors: rafaelminuesa
 Tags: security, bots, firewall, monitoring, bot protection
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 0.7.2
+Stable tag: 0.7.3
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -113,6 +113,11 @@ Visitor addresses are kept only as long as the detection needs them: per-minute 
 6. The dashboard widget.
 
 == Changelog ==
+
+= 0.7.3 =
+* The daily page cache check is a setting, Page cache check on the Settings tab, off by default. Check now on the Radar tab works either way.
+* The page cache check requests your pages the way WordPress's own loopback requests do, and makes no DNS lookup.
+* The lock that keeps two minute ticks from running at once, on sites without an object cache, is kept in a table of the plugin's own instead of the options table.
 
 = 0.7.2 =
 * The minute tick's scheduled event comes back on the next admin, cron or WP-CLI request if it ever goes missing. Before, page loads kept the radar running but nothing scheduled the event again until the next update.

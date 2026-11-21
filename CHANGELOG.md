@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-21
+
 ### Changed
 - Tick restore (#115): uses `wp_next_scheduled()` only, no longer core's private `_get_cron_array()`, so it no longer drops a second event two racing requests might add. Such a duplicate only wakes the tick twice; the lock and the last processed minute keep it from stepping a minute twice.
 - Lock table (#115). The transient-backend lock (#98) moves from rows in the options table to a table of the plugin's own, `{prefix}botstormradar_locks` (schema version 2), created with the ban tables and dropped on uninstall. The upgrade removes the two lock rows 0.7.1 and 0.7.2 left in the options table.
